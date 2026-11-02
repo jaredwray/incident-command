@@ -25,7 +25,7 @@ Profile: website/app · public
 - [x] Lifecycle scripts blocked: `strictDepBuilds: true`, `dangerouslyAllowAllBuilds: false`, `allowBuilds: {}` baseline — PR #10
 - [x] `blockExoticSubdeps: true` — PR #11
 - [x] Lockfile committed; CI installs with `pnpm install --frozen-lockfile` — verified 2026-11-02
-- [ ] No `.github/dependabot.yml`; other dependency-update tools (if any) open PRs only — never auto-merge (PR pending)
+- [ ] No `.github/dependabot.yml`; other dependency-update tools (if any) open PRs only — never auto-merge (PR #12 pending)
 
 ## 4. GitHub Actions
 
