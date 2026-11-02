@@ -1,0 +1,89 @@
+# DigitalOcean App Platform spec for Incident Command.
+#
+#   doctl apps create --spec deploy/digitalocean/app.yaml
+#   doctl apps update <APP_ID> --spec deploy/digitalocean/app.yaml
+#
+# Builds the repo's Dockerfile and attaches a managed Postgres database.
+# Change ADMIN_EMAIL / ADMIN_PASSWORD (or use SETUP_TOKEN) before creating the
+# app. Guide: deploy/digitalocean/README.md
+name: incident-command
+region: nyc
+
+services:
+  - name: web
+    github:
+      repo: jaredwray/incident-command
+      branch: main
+      deploy_on_push: true
+    source_dir: /
+    dockerfile_path: Dockerfile
+    http_port: 3000
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-1gb
+    health_check:
+      http_path: /api/health
+      initial_delay_seconds: 20
+      period_seconds: 15
+      timeout_seconds: 5
+      failure_threshold: 6
+    envs:
+      # DigitalOcean's DATABASE_URL ends in ?sslmode=require. node-postgres
+      # treats that as full certificate verification, which fails against
+      # DigitalOcean's own CA; uselibpqcompat=true keeps TLS without verifying
+      # the certificate chain.
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        value: "${db.DATABASE_URL}&uselibpqcompat=true"
+      - key: SITE_URL
+        scope: RUN_TIME
+        value: ${APP_URL}
+      - key: HOSTNAME
+        scope: RUN_TIME
+        value: 0.0.0.0
+      - key: ADMIN_EMAIL
+        scope: RUN_TIME
+        value: admin@example.com
+      - key: ADMIN_PASSWORD
+        scope: RUN_TIME
+        type: SECRET
+        value: change-me-now
+      # Optional: signs webhook payloads (x-incident-command-signature).
+      # - key: WEBHOOK_SECRET
+      #   scope: RUN_TIME
+      #   type: SECRET
+      #   value: replace-with-a-long-random-string
+      # Optional email via SendGrid (see docs/deployment.md for SES):
+      # - key: EMAIL_FROM
+      #   scope: RUN_TIME
+      #   value: status@example.com
+      # - key: SENDGRID_API_KEY
+      #   scope: RUN_TIME
+      #   type: SECRET
+      #   value: SG.xxxxxxxx
+      # - key: TWILIO_ACCOUNT_SID
+      #   scope: RUN_TIME
+      #   type: SECRET
+      #   value: ACxxxxxxxx
+      # - key: TWILIO_AUTH_TOKEN
+      #   scope: RUN_TIME
+      #   type: SECRET
+      #   value: xxxxxxxx
+
+ingress:
+  rules:
+    - component:
+        name: web
+      match:
+        path:
+          prefix: /
+
+databases:
+  # Dev database: a small managed Postgres instance for getting started.
+  # For production, create a managed Postgres cluster and reference it with
+  #   production: true
+  #   cluster_name: <your-cluster>
+  #   db_name: incident_command
+  #   db_user: incident
+  - name: db
+    engine: PG
+    production: false

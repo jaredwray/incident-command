@@ -1,0 +1,458 @@
+import { render, screen, within } from "@testing-library/react";
+import AccountPage from "@/app/manage/account/page";
+import AgentsPage from "@/app/manage/agents/page";
+import ComponentsPage from "@/app/manage/components/page";
+import IncidentPage from "@/app/manage/incidents/[id]/page";
+import NewIncidentPage from "@/app/manage/incidents/new/page";
+import IncidentsPage from "@/app/manage/incidents/page";
+import LoginPage from "@/app/manage/login/page";
+import MembersPage from "@/app/manage/members/page";
+import DashboardPage from "@/app/manage/page";
+import SettingsPage from "@/app/manage/settings/page";
+import SetupPage from "@/app/manage/setup/page";
+import SubscribersPage from "@/app/manage/subscribers/page";
+import { SYSTEM_ACTOR } from "@/lib/services/context";
+import { expectNotFound, params, redirectOf, setupApp, signIn } from "./app";
+import { setRequestHeaders } from "./next-state";
+
+const flash = (value: Record<string, string> = {}) => ({
+	searchParams: params(value),
+});
+
+describe("login and setup", () => {
+	it("sends visitors to setup until an admin exists", async () => {
+		await setupApp();
+		expect(await redirectOf(LoginPage(flash()))).toBe("/manage/setup");
+		render(await SetupPage(flash({ error: "Bad input" })));
+		expect(
+			screen.getByRole("heading", { name: "Create the first admin" }),
+		).toBeInTheDocument();
+		expect(screen.getByRole("alert")).toHaveTextContent("Bad input");
+		expect(screen.queryByLabelText("Setup token")).not.toBeInTheDocument();
+	});
+
+	it("asks for the setup token when configured", async () => {
+		await setupApp({ SETUP_TOKEN: "s3t" });
+		render(await SetupPage(flash()));
+		expect(screen.getByLabelText("Setup token")).toBeInTheDocument();
+	});
+
+	it("shows the login form and redirects signed-in members", async () => {
+		const { app } = await setupApp();
+		await app.services.members.setup({
+			name: "Ada",
+			email: "ada@acme.dev",
+			password: "password123",
+		});
+		expect(await redirectOf(SetupPage(flash()))).toBe("/manage/login");
+		const page = render(
+			await LoginPage(flash({ error: "Invalid email or password" })),
+		);
+		expect(
+			screen.getByRole("heading", { name: "Sign in" }),
+		).toBeInTheDocument();
+		expect(screen.getByRole("alert")).toHaveTextContent(
+			"Invalid email or password",
+		);
+		page.unmount();
+		await signIn(app, "viewer");
+		expect(await redirectOf(LoginPage(flash()))).toBe("/manage");
+	});
+
+	it("redirects anonymous visitors to login", async () => {
+		await setupApp();
+		expect(await redirectOf(DashboardPage(flash()))).toBe("/manage/login");
+	});
+});
+
+describe("dashboard", () => {
+	it("summarizes open incidents for editors", async () => {
+		const { app, services } = await setupApp();
+		await signIn(app, "editor");
+		const api = await services.components.create(SYSTEM_ACTOR, { name: "API" });
+		await services.incidents.create(SYSTEM_ACTOR, {
+			title: "API errors",
+			message: "x",
+			impact: "critical",
+			componentIds: [api.id],
+		});
+		render(await DashboardPage(flash({ notice: "Welcome" })));
+		expect(screen.getByRole("status")).toHaveTextContent("Welcome");
+		expect(
+			screen.getByRole("link", { name: "Declare incident" }),
+		).toHaveAttribute("href", "/manage/incidents/new");
+		expect(
+			screen.getByRole("link", { name: "API errors" }),
+		).toBeInTheDocument();
+		expect(screen.getByText("Major outage")).toBeInTheDocument();
+		expect(screen.getByRole("link", { name: "Overview" })).toHaveAttribute(
+			"aria-current",
+			"page",
+		);
+		expect(
+			screen.queryByRole("link", { name: "Members" }),
+		).not.toBeInTheDocument();
+	});
+
+	it("shows an empty state, admin navigation and store outages", async () => {
+		const { app } = await setupApp();
+		await signIn(app, "admin");
+		vi.spyOn(app.store, "health", "get").mockReturnValue({
+			online: false,
+			kind: "memory",
+			lastError: "connection refused",
+		});
+		render(await DashboardPage(flash()));
+		expect(screen.getByText("Nothing open. All quiet.")).toBeInTheDocument();
+		expect(screen.getByRole("link", { name: "Members" })).toBeInTheDocument();
+		expect(screen.getByRole("alert")).toHaveTextContent(
+			"The database is unreachable (connection refused)",
+		);
+	});
+
+	it("hides edit actions from viewers", async () => {
+		const { app } = await setupApp();
+		await signIn(app, "viewer");
+		render(await DashboardPage(flash()));
+		expect(
+			screen.queryByRole("link", { name: "Declare incident" }),
+		).not.toBeInTheDocument();
+	});
+
+	it("rejects members without the required role", async () => {
+		const { app } = await setupApp();
+		await signIn(app, "editor");
+		expect(await redirectOf(MembersPage(flash()))).toBe(
+			"/manage?error=That page requires the admin role",
+		);
+	});
+});
+
+describe("incident pages", () => {
+	it("lists open and resolved incidents", async () => {
+		const { app, services } = await setupApp();
+		await signIn(app, "editor");
+		const open = await services.incidents.create(SYSTEM_ACTOR, {
+			title: "Open one",
+			message: "x",
+		});
+		await services.incidents.postUpdate(SYSTEM_ACTOR, open.id, {
+			message: "More",
+		});
+		await services.incidents.create(SYSTEM_ACTOR, {
+			title: "Closed one",
+			message: "x",
+			status: "resolved",
+		});
+		await services.incidents.create(SYSTEM_ACTOR, {
+			kind: "maintenance",
+			title: "Planned",
+			message: "x",
+			scheduledStart: "2026-11-05T00:00:00.000Z",
+			scheduledEnd: "2026-11-05T01:00:00.000Z",
+		});
+		render(await IncidentsPage(flash()));
+		expect(screen.getByRole("link", { name: "Open one" })).toBeInTheDocument();
+		expect(screen.getByText(/2 updates/)).toBeInTheDocument();
+		expect(
+			screen.getByRole("link", { name: "Closed one" }),
+		).toBeInTheDocument();
+		expect(screen.getAllByText(/Maintenance ·/)).toHaveLength(1);
+		expect(
+			screen.getByRole("link", { name: "Schedule maintenance" }),
+		).toBeInTheDocument();
+	});
+
+	it("shows empty states for viewers", async () => {
+		const { app } = await setupApp();
+		await signIn(app, "viewer");
+		render(await IncidentsPage(flash()));
+		expect(
+			screen.getByText("No open incidents or maintenance."),
+		).toBeInTheDocument();
+		expect(screen.getByText("Nothing resolved yet.")).toBeInTheDocument();
+		expect(
+			screen.queryByRole("link", { name: "Declare incident" }),
+		).not.toBeInTheDocument();
+	});
+
+	it("renders the new incident and maintenance forms", async () => {
+		const { app, services } = await setupApp();
+		await signIn(app, "editor");
+		const page = render(
+			await NewIncidentPage(flash({ error: "title: Too small" })),
+		);
+		expect(
+			screen.getByRole("heading", { name: "Declare an incident" }),
+		).toBeInTheDocument();
+		expect(screen.getByLabelText("Impact")).toBeInTheDocument();
+		expect(screen.getByText("No components yet.")).toBeInTheDocument();
+		expect(screen.getByRole("alert")).toHaveTextContent("title: Too small");
+		page.unmount();
+
+		await services.components.create(SYSTEM_ACTOR, {
+			name: "API",
+			group: "Core",
+		});
+		render(await NewIncidentPage(flash({ kind: "maintenance" })));
+		expect(
+			screen.getByRole("heading", { name: "Schedule maintenance" }),
+		).toBeInTheDocument();
+		expect(screen.getByLabelText("Starts (UTC)")).toBeInTheDocument();
+		expect(screen.queryByLabelText("Impact")).not.toBeInTheDocument();
+		expect(screen.getByRole("checkbox", { name: /API/ })).toBeInTheDocument();
+		expect(
+			within(screen.getByLabelText("Status"))
+				.getAllByRole("option")
+				.map((o) => o.textContent),
+		).toEqual(["Scheduled", "In progress", "Verifying", "Completed"]);
+	});
+
+	it("renders incident management for editors", async () => {
+		const { app, services } = await setupApp();
+		await signIn(app, "editor");
+		const api = await services.components.create(SYSTEM_ACTOR, { name: "API" });
+		const incident = await services.incidents.create(SYSTEM_ACTOR, {
+			title: "API errors",
+			message: "Looking",
+			componentIds: [api.id],
+		});
+		render(
+			await IncidentPage({
+				params: params({ id: incident.id }),
+				searchParams: params({}),
+			}),
+		);
+		expect(
+			screen.getByRole("heading", { level: 1, name: "API errors" }),
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole("link", { name: "View public page" }),
+		).toHaveAttribute("href", `/incidents/${incident.id}`);
+		expect(
+			screen.getByRole("button", { name: "Post update" }),
+		).toBeInTheDocument();
+		expect(screen.getByDisplayValue("API errors")).toBeInTheDocument();
+		expect(screen.getByRole("checkbox", { name: /API/ })).toBeChecked();
+		expect(screen.getByText(/System \(system\)/)).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: "Delete incident" }),
+		).toBeInTheDocument();
+	});
+
+	it("renders maintenance details and read-only views", async () => {
+		const { app, services } = await setupApp();
+		await signIn(app, "editor");
+		const maintenance = await services.incidents.create(SYSTEM_ACTOR, {
+			kind: "maintenance",
+			title: "Upgrade",
+			message: "x",
+			scheduledStart: "2026-11-05T00:00:00.000Z",
+			scheduledEnd: "2026-11-05T01:00:00.000Z",
+		});
+		const editor = render(
+			await IncidentPage({
+				params: params({ id: maintenance.id }),
+				searchParams: params({}),
+			}),
+		);
+		expect(screen.getByLabelText("Starts (UTC)")).toHaveValue(
+			"2026-11-05T00:00",
+		);
+		editor.unmount();
+
+		const { app: viewerApp, services: viewerServices } = await setupApp();
+		await signIn(viewerApp, "viewer");
+		const incident = await viewerServices.incidents.create(SYSTEM_ACTOR, {
+			title: "Read only",
+			message: "x",
+		});
+		render(
+			await IncidentPage({
+				params: params({ id: incident.id }),
+				searchParams: params({}),
+			}),
+		);
+		expect(
+			screen.queryByRole("button", { name: "Post update" }),
+		).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: "Delete incident" }),
+		).not.toBeInTheDocument();
+	});
+
+	it("404s for unknown incidents", async () => {
+		const { app } = await setupApp();
+		await signIn(app, "viewer");
+		await expectNotFound(
+			IncidentPage({
+				params: params({ id: "nope" }),
+				searchParams: params({}),
+			}),
+		);
+	});
+});
+
+describe("components page", () => {
+	it("lets editors manage components", async () => {
+		const { app, services } = await setupApp();
+		await signIn(app, "editor");
+		await services.components.create(SYSTEM_ACTOR, {
+			name: "API",
+			group: "Core",
+			description: "Public API",
+			hidden: true,
+		});
+		await services.components.create(SYSTEM_ACTOR, { name: "Web" });
+		render(await ComponentsPage(flash()));
+		expect(screen.getByText("(hidden)")).toBeInTheDocument();
+		expect(screen.getByText("Core · order 0")).toBeInTheDocument();
+		expect(screen.getByText("order 1")).toBeInTheDocument();
+		expect(screen.getByLabelText("Status of API")).toHaveValue("operational");
+		expect(
+			screen.getByRole("button", { name: "Add component" }),
+		).toBeInTheDocument();
+		expect(
+			screen.getAllByRole("button", { name: "Delete component" }),
+		).toHaveLength(2);
+	});
+
+	it("is read-only for viewers", async () => {
+		const { app, services } = await setupApp();
+		await signIn(app, "viewer");
+		const page = render(await ComponentsPage(flash()));
+		expect(screen.getByText(/No components yet/)).toBeInTheDocument();
+		page.unmount();
+		await services.components.create(SYSTEM_ACTOR, {
+			name: "API",
+			status: "partial_outage",
+		});
+		render(await ComponentsPage(flash()));
+		expect(screen.getByText("Partial outage")).toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: "Add component" }),
+		).not.toBeInTheDocument();
+	});
+});
+
+describe("admin pages", () => {
+	it("lists members", async () => {
+		const { app } = await setupApp();
+		const { member } = await signIn(app, "admin");
+		await app.services.members.authenticate({
+			email: member.email,
+			password: "password123",
+		});
+		await app.services.members.create(SYSTEM_ACTOR, {
+			name: "Ed",
+			email: "ed@acme.dev",
+			password: "password123",
+		});
+		render(await MembersPage(flash()));
+		expect(screen.getByText("(you)")).toBeInTheDocument();
+		expect(screen.getByText(/Last sign-in/)).toBeInTheDocument();
+		expect(screen.getByText(/Never signed in/)).toBeInTheDocument();
+		expect(screen.getByLabelText("Role for Ed")).toHaveValue("editor");
+	});
+
+	it("shows agent tokens and MCP instructions", async () => {
+		const { app, services, clock } = await setupApp();
+		const { actor } = await signIn(app, "admin");
+		setRequestHeaders({
+			host: "status.acme.dev",
+			"x-forwarded-proto": "https",
+		});
+		const empty = render(await AgentsPage(flash()));
+		expect(screen.getByText("No agent tokens yet.")).toBeInTheDocument();
+		expect(
+			screen.getAllByText(/https:\/\/status\.acme\.dev\/api\/mcp/).length,
+		).toBeGreaterThan(0);
+		empty.unmount();
+
+		const used = await services.agents.create(actor, {
+			name: "Used bot",
+			description: "Pager bridge",
+			expiresInDays: 30,
+		});
+		await services.agents.authenticate(used.token);
+		const revoked = await services.agents.create(actor, {
+			name: "Revoked bot",
+		});
+		await services.agents.revoke(actor, revoked.agent.id);
+		await services.agents.create(actor, {
+			name: "Expired bot",
+			expiresInDays: 1,
+		});
+		clock.advance(2 * 86_400_000);
+		vi.useFakeTimers({ now: clock.current, toFake: ["Date"] });
+		render(await AgentsPage(flash()));
+		vi.useRealTimers();
+		expect(screen.getByText("Pager bridge")).toBeInTheDocument();
+		expect(screen.getByText("active")).toBeInTheDocument();
+		expect(screen.getByText("revoked")).toBeInTheDocument();
+		expect(screen.getByText("expired")).toBeInTheDocument();
+		expect(screen.getAllByText(/Never used/)).toHaveLength(2);
+		expect(screen.getAllByRole("button", { name: "Revoke" })).toHaveLength(1);
+	});
+
+	it("uses the configured site url for the MCP endpoint", async () => {
+		const { app } = await setupApp({ SITE_URL: "https://status.example.com" });
+		await signIn(app, "admin");
+		render(await AgentsPage(flash()));
+		expect(
+			screen.getAllByText(/https:\/\/status\.example\.com\/api\/mcp/).length,
+		).toBeGreaterThan(0);
+	});
+
+	it("lists subscribers and warns when email is off", async () => {
+		const { app, services, notifier } = await setupApp();
+		const { actor } = await signIn(app, "admin");
+		notifier.emailEnabled = false;
+		const empty = render(await SubscribersPage(flash()));
+		expect(screen.getByText(/Email is not configured/)).toBeInTheDocument();
+		expect(screen.getByText("No subscribers yet.")).toBeInTheDocument();
+		empty.unmount();
+		notifier.emailEnabled = true;
+		await services.subscribers.addWebhook(actor, {
+			url: "https://hooks.example.com/a",
+		});
+		await services.subscribers.subscribe({ email: "pending@example.com" });
+		render(await SubscribersPage(flash()));
+		expect(
+			screen.queryByText(/Email is not configured/),
+		).not.toBeInTheDocument();
+		expect(screen.getByText("Subscribers (2)")).toBeInTheDocument();
+		expect(screen.getByText(/Webhook · Confirmed/)).toBeInTheDocument();
+		expect(
+			screen.getByText(/Email · Pending confirmation/),
+		).toBeInTheDocument();
+	});
+
+	it("renders settings with the current theme selected", async () => {
+		const { app, services } = await setupApp();
+		await signIn(app, "admin");
+		await services.settings.update(SYSTEM_ACTOR, {
+			theme: "sunset",
+			brandColor: "#123456",
+		});
+		render(await SettingsPage(flash()));
+		expect(screen.getByDisplayValue("sunset")).toBeChecked();
+		expect(screen.getByLabelText("Brand color")).toHaveValue("#123456");
+		expect(
+			screen.getByLabelText("Allow visitors to subscribe by email"),
+		).toBeChecked();
+	});
+
+	it("renders the account page", async () => {
+		const { app } = await setupApp();
+		const { member } = await signIn(app, "viewer");
+		render(await AccountPage(flash()));
+		expect(
+			screen.getByText(member.email, { selector: "dd" }),
+		).toBeInTheDocument();
+		expect(screen.getByText("Viewer", { selector: "dd" })).toBeInTheDocument();
+		expect(
+			screen.getAllByRole("button", { name: "Sign out" }).length,
+		).toBeGreaterThan(0);
+	});
+});

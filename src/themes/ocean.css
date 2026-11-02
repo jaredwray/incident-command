@@ -1,0 +1,19 @@
+/* Ocean: cool blues with soft surfaces. */
+[data-theme="ocean"] {
+	--ic-bg: #eef6fb;
+	--ic-surface: #ffffff;
+	--ic-surface-muted: #e3f0f8;
+	--ic-fg: #0b2537;
+	--ic-muted: #4b6577;
+	--ic-border: #cfe2ee;
+	--ic-brand: #0e7490;
+	--ic-brand-fg: #ffffff;
+	--ic-operational: #0f9f6e;
+	--ic-degraded: #c58b00;
+	--ic-partial: #e2620f;
+	--ic-major: #d92d3a;
+	--ic-maintenance: #2b6fd6;
+	--ic-nodata: #cfdde6;
+	--ic-radius: 1.25rem;
+	color-scheme: light;
+}

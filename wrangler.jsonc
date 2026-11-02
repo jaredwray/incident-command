@@ -1,0 +1,39 @@
+// Cloudflare Workers config for Incident Command (built with OpenNext).
+//   pnpm cf:preview   build and run locally in workerd
+//   pnpm cf:deploy    build and deploy
+// Guide: deploy/cloudflare/README.md
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "incident-command",
+	"main": ".open-next/worker.js",
+	"compatibility_date": "2026-11-01",
+	"compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+	"assets": {
+		"directory": ".open-next/assets",
+		"binding": "ASSETS"
+	},
+	"observability": {
+		"enabled": true
+	},
+	// Postgres through Hyperdrive (recommended). Create the config with
+	//   npx wrangler hyperdrive create incident-command --connection-string="postgres://USER:PASSWORD@HOST:5432/DB"
+	// then uncomment and paste the returned id. `localConnectionString` is used
+	// by `pnpm cf:preview`. See deploy/cloudflare/README.md for wiring it to
+	// DATABASE_URL.
+	// "hyperdrive": [
+	// 	{
+	// 		"binding": "HYPERDRIVE",
+	// 		"id": "<HYPERDRIVE_ID>",
+	// 		"localConnectionString": "postgres://incident:incident@localhost:5432/incident_command"
+	// 	}
+	// ],
+	// Non-secret configuration. Set secrets with `npx wrangler secret put NAME`
+	// (DATABASE_URL, ADMIN_EMAIL, ADMIN_PASSWORD, SETUP_TOKEN, WEBHOOK_SECRET,
+	// email provider keys).
+	"vars": {
+		"SITE_URL": "https://status.example.com",
+		"SITE_NAME": "Status",
+		"CACHE_TTL": "30s",
+		"SESSION_TTL": "7d"
+	}
+}

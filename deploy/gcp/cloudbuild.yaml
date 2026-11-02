@@ -1,0 +1,44 @@
+# Build the image, push it to Artifact Registry and roll it out to an existing
+# Cloud Run service (create the service first; see deploy/gcp/README.md).
+#
+#   gcloud builds submit --config deploy/gcp/cloudbuild.yaml \
+#     --substitutions=_REGION=us-central1,_REPOSITORY=incident-command,_SERVICE=incident-command .
+#
+# Environment variables, secrets and Cloud SQL settings stay as configured on
+# the service; this only swaps the image.
+substitutions:
+  _REGION: us-central1
+  _REPOSITORY: incident-command
+  _SERVICE: incident-command
+
+steps:
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$BUILD_ID
+      - .
+
+  - id: push
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$BUILD_ID
+
+  - id: deploy
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$BUILD_ID
+      - --region=${_REGION}
+      - --quiet
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$BUILD_ID
+
+options:
+  logging: CLOUD_LOGGING_ONLY
