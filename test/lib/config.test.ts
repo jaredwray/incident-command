@@ -9,6 +9,7 @@ describe("loadConfig", () => {
 				url: undefined,
 				databaseName: undefined,
 				tablePrefix: "ic_",
+				pool: true,
 			},
 			cache: { ttl: 30_000, maxEntries: 5000 },
 			siteUrl: undefined,
@@ -20,6 +21,7 @@ describe("loadConfig", () => {
 			twilio: undefined,
 			aws: undefined,
 			webhookSecret: undefined,
+			seedDemo: false,
 		});
 	});
 
@@ -55,6 +57,7 @@ describe("loadConfig", () => {
 			url: "postgres://u:p@db:5432/status",
 			databaseName: undefined,
 			tablePrefix: "sp_",
+			pool: true,
 		});
 		expect(config.cache).toEqual({ ttl: 60_000, maxEntries: 100 });
 		expect(config.siteUrl).toBe("https://status.example.com");
@@ -119,7 +122,13 @@ describe("loadConfig", () => {
 			ADMIN_EMAIL: "",
 			SITE_NAME: "  ",
 			CACHE_TTL: "",
+			STORE: "",
+			EMAIL_PROVIDER: " ",
+			CACHE_MAX_ENTRIES: "",
+			DATABASE_POOL: "",
+			UNSET: undefined,
 		});
+		expect(config.store.kind).toBe("memory");
 		expect(config.siteUrl).toBeUndefined();
 		expect(config.siteName).toBe("Status");
 		expect(config.cache.ttl).toBe(30_000);
@@ -158,5 +167,18 @@ describe("parseDuration", () => {
 		expect(parseDuration("250")).toBe(250);
 		expect(parseDuration("-1")).toBeUndefined();
 		expect(parseDuration("abc")).toBeUndefined();
+	});
+});
+
+describe("connection pooling", () => {
+	it("pools by default, honors DATABASE_POOL and disables pooling on Workers", async () => {
+		const { isCloudflareWorkers } = await import("@/lib/config");
+		expect(isCloudflareWorkers()).toBe(false);
+		expect(loadConfig({ DATABASE_POOL: "false" }).store.pool).toBe(false);
+		vi.stubGlobal("navigator", { userAgent: "Cloudflare-Workers" });
+		expect(isCloudflareWorkers()).toBe(true);
+		expect(loadConfig({}).store.pool).toBe(false);
+		expect(loadConfig({ DATABASE_POOL: "true" }).store.pool).toBe(true);
+		vi.unstubAllGlobals();
 	});
 });

@@ -4,25 +4,25 @@ allowBuilds:
   sharp: true
   workerd: true
 minimumReleaseAgeExclude:
-  - '@next/env@16.4.4'
-  - '@next/swc-darwin-arm64@16.4.4'
-  - '@next/swc-darwin-x64@16.4.4'
-  - '@next/swc-linux-arm64-gnu@16.4.4'
-  - '@next/swc-linux-arm64-musl@16.4.4'
-  - '@next/swc-linux-x64-gnu@16.4.4'
-  - '@next/swc-linux-x64-musl@16.4.4'
-  - '@next/swc-win32-arm64-msvc@16.4.4'
-  - '@next/swc-win32-x64-msvc@16.4.4'
+  - "@next/env@16.4.4"
+  - "@next/swc-darwin-arm64@16.4.4"
+  - "@next/swc-darwin-x64@16.4.4"
+  - "@next/swc-linux-arm64-gnu@16.4.4"
+  - "@next/swc-linux-arm64-musl@16.4.4"
+  - "@next/swc-linux-x64-gnu@16.4.4"
+  - "@next/swc-linux-x64-musl@16.4.4"
+  - "@next/swc-win32-arm64-msvc@16.4.4"
+  - "@next/swc-win32-x64-msvc@16.4.4"
   - next@16.4.4
-  - '@cloudflare/workerd-darwin-64@1.20261102.1'
-  - '@cloudflare/workerd-darwin-arm64@1.20261102.1'
-  - '@cloudflare/workerd-linux-64@1.20261102.1'
-  - '@cloudflare/workerd-linux-arm64@1.20261102.1'
-  - '@cloudflare/workerd-windows-64@1.20261102.1'
-  - '@vitejs/plugin-react@6.2.1'
-  - '@vitest/coverage-v8@5.1.0'
-  - '@vitest/mocker@5.1.0'
-  - '@vitest/spy@5.1.0'
+  - "@cloudflare/workerd-darwin-64@1.20261102.1"
+  - "@cloudflare/workerd-darwin-arm64@1.20261102.1"
+  - "@cloudflare/workerd-linux-64@1.20261102.1"
+  - "@cloudflare/workerd-linux-arm64@1.20261102.1"
+  - "@cloudflare/workerd-windows-64@1.20261102.1"
+  - "@vitejs/plugin-react@6.2.1"
+  - "@vitest/coverage-v8@5.1.0"
+  - "@vitest/mocker@5.1.0"
+  - "@vitest/spy@5.1.0"
   - miniflare@5.20261102.0-beta
   - vitest@5.1.0
   - workerd@1.20261102.1

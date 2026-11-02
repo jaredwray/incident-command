@@ -1,0 +1,20 @@
+/* Mono: minimal black and white with sharp corners. */
+[data-theme="mono"] {
+	--ic-bg: #ffffff;
+	--ic-surface: #ffffff;
+	--ic-surface-muted: #f4f4f4;
+	--ic-fg: #000000;
+	--ic-muted: #555555;
+	--ic-border: #000000;
+	--ic-brand: #000000;
+	--ic-brand-fg: #ffffff;
+	--ic-operational: #1f8f3a;
+	--ic-degraded: #b38600;
+	--ic-partial: #d35400;
+	--ic-major: #c0001a;
+	--ic-maintenance: #1d4ed8;
+	--ic-nodata: #dddddd;
+	--ic-radius: 0;
+	--ic-font: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+	color-scheme: light;
+}

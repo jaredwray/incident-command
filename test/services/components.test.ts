@@ -164,5 +164,9 @@ describe("ComponentService", () => {
 				status: "broken" as never,
 			}),
 		).rejects.toThrow(/status/);
+		const api = await t.services.components.create(EDITOR, { name: "API" });
+		await expect(
+			t.services.components.setStatus(EDITOR, api.id, "broken" as never),
+		).rejects.toBeInstanceOf(ValidationError);
 	});
 });

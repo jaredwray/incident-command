@@ -421,3 +421,75 @@ describe("createProviders / createNotifier", () => {
 		]);
 	});
 });
+
+describe("lazy airhorn", () => {
+	it("creates airhorn on first send and reuses it", async () => {
+		const send = vi.fn(async () => ({ success: true, errors: [] }));
+		const factory = vi.fn(async () => ({ send }) as unknown as Airhorn);
+		const notifier = new AirhornNotifier({
+			airhorn: factory,
+			email: { provider: "ses", from: "a@b.co" },
+		});
+		expect(factory).not.toHaveBeenCalled();
+		await notifier.notifyIncident(notification, [
+			subscriber(),
+			subscriber({ id: "2", target: "b@c.co" }),
+		]);
+		await notifier.sendConfirmation(subscriber({ confirmed: false }), settings);
+		expect(factory).toHaveBeenCalledTimes(1);
+		expect(send).toHaveBeenCalledTimes(3);
+	});
+
+	it("reports when airhorn cannot be loaded (e.g. on Cloudflare Workers)", async () => {
+		const errors: Error[] = [];
+		const notifier = new AirhornNotifier({
+			airhorn: () =>
+				Promise.reject(new Error("Code generation from strings disallowed")),
+			email: { provider: "ses", from: "a@b.co" },
+			onError: (error) => errors.push(error),
+		});
+		await expect(
+			notifier.notifyIncident(notification, [subscriber()]),
+		).resolves.toEqual({ sent: 0, failed: 1 });
+		expect(errors[0]?.message).toContain("Code generation");
+	});
+
+	it("loads real providers through createNotifier", async () => {
+		const notifier = createNotifier(loadConfig({ WEBHOOK_SECRET: "s" }));
+		const instance = await notifier.airhorn();
+		expect(instance.providers.map((provider) => provider.name)).toEqual([
+			"incident-command-webhook",
+		]);
+		expect(await notifier.airhorn()).toBe(instance);
+	});
+
+	it("knows when email is available", async () => {
+		const { emailAvailable } = await import("@/lib/notifications/notifier");
+		expect(emailAvailable(loadConfig({}))).toBe(false);
+		expect(
+			emailAvailable(
+				loadConfig({ EMAIL_FROM: "a@b.co", SENDGRID_API_KEY: "SG" }),
+			),
+		).toBe(false);
+		expect(
+			emailAvailable(
+				loadConfig({
+					EMAIL_FROM: "a@b.co",
+					SENDGRID_API_KEY: "SG",
+					TWILIO_ACCOUNT_SID: "AC",
+					TWILIO_AUTH_TOKEN: "t",
+				}),
+			),
+		).toBe(true);
+		expect(
+			emailAvailable(
+				loadConfig({ EMAIL_FROM: "a@b.co", EMAIL_PROVIDER: "ses" }),
+			),
+		).toBe(false);
+		expect(
+			emailAvailable(
+				loadConfig({ EMAIL_FROM: "a@b.co", AWS_SES_REGION: "us-east-1" }),
+			),
+		).toBe(true);
+	});
+});

@@ -1,7 +1,7 @@
-import {
-	type AirhornProvider,
-	type AirhornProviderMessage,
-	type AirhornProviderSendResult,
+import type {
+	AirhornProvider,
+	AirhornProviderMessage,
+	AirhornProviderSendResult,
 	AirhornSendType,
 } from "airhorn";
 import { hmacSha256 } from "../crypto";
@@ -22,7 +22,7 @@ export interface WebhookProviderOptions {
  */
 export class WebhookProvider implements AirhornProvider {
 	readonly name = "incident-command-webhook";
-	readonly capabilities = [AirhornSendType.Webhook];
+	readonly capabilities = ["webhook" as AirhornSendType];
 	private readonly options: WebhookProviderOptions;
 
 	constructor(options: WebhookProviderOptions = {}) {

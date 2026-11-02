@@ -1,0 +1,46 @@
+{
+	"family": "incident-command",
+	"networkMode": "awsvpc",
+	"requiresCompatibilities": ["FARGATE"],
+	"cpu": "512",
+	"memory": "1024",
+	"runtimePlatform": {
+		"cpuArchitecture": "X86_64",
+		"operatingSystemFamily": "LINUX"
+	},
+	"executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/incident-command-ecs-execution",
+	"taskRoleArn": "arn:aws:iam::ACCOUNT_ID:role/incident-command-ecs-task",
+	"containerDefinitions": [
+		{
+			"name": "app",
+			"image": "ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/incident-command:latest",
+			"essential": true,
+			"portMappings": [{ "containerPort": 3000, "protocol": "tcp" }],
+			"environment": [
+				{ "name": "HOSTNAME", "value": "0.0.0.0" },
+				{ "name": "SITE_URL", "value": "https://status.example.com" },
+				{ "name": "ADMIN_EMAIL", "value": "admin@example.com" },
+				{ "name": "EMAIL_FROM", "value": "status@example.com" },
+				{ "name": "AWS_SES_REGION", "value": "REGION" }
+			],
+			"secrets": [
+				{
+					"name": "DATABASE_URL",
+					"valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:incident-command/database-url-XXXXXX"
+				},
+				{
+					"name": "ADMIN_PASSWORD",
+					"valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:incident-command/admin-password-XXXXXX"
+				}
+			],
+			"logConfiguration": {
+				"logDriver": "awslogs",
+				"options": {
+					"awslogs-group": "/ecs/incident-command",
+					"awslogs-region": "REGION",
+					"awslogs-stream-prefix": "app"
+				}
+			}
+		}
+	]
+}

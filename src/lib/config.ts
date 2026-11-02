@@ -14,6 +14,11 @@ export interface Config {
 		url?: string;
 		databaseName?: string;
 		tablePrefix: string;
+		/**
+		 * Keep a connection pool (default). Disabled on Cloudflare Workers, where
+		 * connections cannot be shared between requests (use Hyperdrive).
+		 */
+		pool: boolean;
 	};
 	cache: {
 		ttl: number;
@@ -28,13 +33,29 @@ export interface Config {
 	twilio?: { accountSid: string; authToken: string; sendGridApiKey?: string };
 	aws?: { region: string; accessKeyId?: string; secretAccessKey?: string };
 	webhookSecret?: string;
+	/** Seed demo components and incidents into an empty store on boot. */
+	seedDemo: boolean;
 }
 
-const optional = z
-	.string()
-	.trim()
-	.transform((value) => (value === "" ? undefined : value))
-	.optional();
+/** True when running inside Cloudflare Workers (e.g. via OpenNext). */
+export function isCloudflareWorkers(): boolean {
+	return globalThis.navigator?.userAgent === "Cloudflare-Workers";
+}
+
+/** Drops empty and whitespace-only values so `FOO=` behaves like an unset variable. */
+function withoutEmpty(
+	source: Record<string, string | undefined>,
+): Record<string, string> {
+	const result: Record<string, string> = {};
+	for (const [key, value] of Object.entries(source)) {
+		if (value !== undefined && value.trim() !== "") {
+			result[key] = value;
+		}
+	}
+	return result;
+}
+
+const optional = z.string().trim().optional();
 
 /** Parses `30s`, `5m`, `7d` or plain milliseconds. Returns `undefined` when invalid. */
 export function parseDuration(value: string): number | undefined {
@@ -52,7 +73,7 @@ const duration = (fallback: string) =>
 		.trim()
 		.optional()
 		.transform((value, ctx) => {
-			const ms = parseDuration(value || fallback);
+			const ms = parseDuration(value ?? fallback);
 			if (ms === undefined) {
 				ctx.addIssue({
 					code: "custom",
@@ -68,19 +89,14 @@ const envSchema = z.object({
 	STORE: z.enum(["memory", "postgres", "mongo"]).optional(),
 	DATABASE_NAME: optional,
 	DATABASE_TABLE_PREFIX: optional,
+	DATABASE_POOL: z.enum(["true", "false"]).optional(),
 	CACHE_TTL: duration("30s"),
 	CACHE_MAX_ENTRIES: z.coerce.number().int().positive().optional(),
-	SITE_URL: z
-		.url()
-		.optional()
-		.or(z.literal("").transform(() => undefined)),
+	SITE_URL: z.url().optional(),
 	SITE_NAME: optional,
 	SESSION_TTL: duration("7d"),
 	SETUP_TOKEN: optional,
-	ADMIN_EMAIL: z
-		.email()
-		.optional()
-		.or(z.literal("").transform(() => undefined)),
+	ADMIN_EMAIL: z.email().optional(),
 	ADMIN_PASSWORD: optional,
 	ADMIN_NAME: optional,
 	EMAIL_FROM: optional,
@@ -93,6 +109,10 @@ const envSchema = z.object({
 	AWS_ACCESS_KEY_ID: optional,
 	AWS_SECRET_ACCESS_KEY: optional,
 	WEBHOOK_SECRET: optional,
+	SEED_DEMO: z
+		.string()
+		.optional()
+		.transform((value) => value === "true" || value === "1"),
 });
 
 type Env = z.infer<typeof envSchema>;
@@ -130,7 +150,7 @@ function emailConfig(env: Env): EmailConfig | undefined {
 export function loadConfig(
 	source: Record<string, string | undefined> = process.env,
 ): Config {
-	const parsed = envSchema.safeParse(source);
+	const parsed = envSchema.safeParse(withoutEmpty(source));
 	if (!parsed.success) {
 		const details = parsed.error.issues
 			.map((issue) => `${issue.path.join(".")}: ${issue.message}`)
@@ -145,6 +165,9 @@ export function loadConfig(
 			url: env.DATABASE_URL,
 			databaseName: env.DATABASE_NAME,
 			tablePrefix: env.DATABASE_TABLE_PREFIX ?? "ic_",
+			pool: env.DATABASE_POOL
+				? env.DATABASE_POOL === "true"
+				: !isCloudflareWorkers(),
 		},
 		cache: {
 			ttl: env.CACHE_TTL,
@@ -179,5 +202,6 @@ export function loadConfig(
 				}
 			: undefined,
 		webhookSecret: env.WEBHOOK_SECRET,
+		seedDemo: env.SEED_DEMO,
 	};
 }

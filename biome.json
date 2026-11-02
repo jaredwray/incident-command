@@ -6,7 +6,14 @@
 		"useIgnoreFile": true
 	},
 	"files": {
-		"includes": ["**", "!**/.next", "!**/.open-next", "!**/coverage", "!**/next-env.d.ts", "!**/cloudflare-env.d.ts"]
+		"includes": [
+			"**",
+			"!**/.next",
+			"!**/.open-next",
+			"!**/coverage",
+			"!**/next-env.d.ts",
+			"!**/cloudflare-env.d.ts"
+		]
 	},
 	"css": {
 		"parser": {
@@ -23,7 +30,7 @@
 	"linter": {
 		"enabled": true,
 		"rules": {
-			"recommended": true
+			"preset": "recommended"
 		},
 		"domains": {
 			"next": "recommended",

@@ -1,4 +1,9 @@
-import { Airhorn, type AirhornProvider, AirhornSendType } from "airhorn";
+import type {
+	Airhorn,
+	AirhornProvider,
+	AirhornSendType,
+	AirhornTemplate,
+} from "airhorn";
 import type { Config, EmailConfig } from "../config";
 import type { Settings, Subscriber } from "../domain/types";
 import {
@@ -31,8 +36,17 @@ export interface Notifier {
 	): Promise<boolean>;
 }
 
+/** Airhorn send types used here (values of airhorn's `AirhornSendType` enum). */
+const EMAIL = "email" as AirhornSendType;
+const WEBHOOK = "webhook" as AirhornSendType;
+
 export interface AirhornNotifierOptions {
-	airhorn: Airhorn;
+	/**
+	 * An Airhorn instance, or a factory that creates one on first use. The
+	 * factory form keeps airhorn (and its template engines) out of startup,
+	 * which matters on runtimes such as Cloudflare Workers.
+	 */
+	airhorn: Airhorn | (() => Promise<Airhorn>);
 	email?: EmailConfig;
 	siteUrl?: string;
 	concurrency?: number;
@@ -60,14 +74,15 @@ async function mapLimit<T, R>(
 
 /** Notifier backed by Airhorn: email via SendGrid/SES providers, webhooks built in. */
 export class AirhornNotifier implements Notifier {
-	readonly airhorn: Airhorn;
+	private readonly source: Airhorn | (() => Promise<Airhorn>);
+	private instance?: Promise<Airhorn>;
 	private readonly email?: EmailConfig;
 	private readonly siteUrl?: string;
 	private readonly concurrency: number;
 	private readonly onError: (error: Error) => void;
 
 	constructor(options: AirhornNotifierOptions) {
-		this.airhorn = options.airhorn;
+		this.source = options.airhorn;
 		this.email = options.email;
 		this.siteUrl = options.siteUrl;
 		this.concurrency = options.concurrency ?? 10;
@@ -78,6 +93,14 @@ export class AirhornNotifier implements Notifier {
 
 	get emailEnabled(): boolean {
 		return this.email !== undefined;
+	}
+
+	/** The Airhorn instance, created on first use when built from a factory. */
+	airhorn(): Promise<Airhorn> {
+		const source = this.source;
+		this.instance ??=
+			typeof source === "function" ? source() : Promise.resolve(source);
+		return this.instance;
 	}
 
 	async notifyIncident(
@@ -101,13 +124,13 @@ export class AirhornNotifier implements Notifier {
 							subscriber.target,
 							WEBHOOK_TEMPLATE,
 							{ payload },
-							AirhornSendType.Webhook,
+							WEBHOOK,
 						)
 					: this.deliver(
 							subscriber.target,
 							EMAIL_TEMPLATE,
 							emailData(withSiteUrl, subscriber),
-							AirhornSendType.Email,
+							EMAIL,
 							{ from: this.email?.from, text },
 						),
 		);
@@ -129,20 +152,21 @@ export class AirhornNotifier implements Notifier {
 				siteName: settings.siteName,
 				confirmUrl: confirmUrl(subscriber, settings, this.siteUrl),
 			},
-			AirhornSendType.Email,
+			EMAIL,
 			{ from: this.email.from },
 		);
 	}
 
 	private async deliver(
 		to: string,
-		template: typeof EMAIL_TEMPLATE,
+		template: AirhornTemplate,
 		data: Record<string, unknown>,
 		type: AirhornSendType,
 		options?: Record<string, unknown>,
 	): Promise<boolean> {
 		try {
-			const result = await this.airhorn.send(to, template, data, type, options);
+			const airhorn = await this.airhorn();
+			const result = await airhorn.send(to, template, data, type, options);
 			if (!result.success) {
 				const reason = result.errors
 					.map((entry) => entry.error.message)
@@ -154,6 +178,20 @@ export class AirhornNotifier implements Notifier {
 			this.onError(error instanceof Error ? error : new Error(String(error)));
 			return false;
 		}
+	}
+}
+
+/** Whether the configuration has everything needed to send email. */
+export function emailAvailable(
+	config: Pick<Config, "email" | "twilio" | "aws">,
+): boolean {
+	switch (config.email?.provider) {
+		case "sendgrid":
+			return Boolean(config.twilio?.sendGridApiKey);
+		case "ses":
+			return config.aws !== undefined;
+		default:
+			return false;
 	}
 }
 
@@ -170,22 +208,25 @@ export async function createProviders(
 	}
 	if (config.email?.provider === "ses" && config.aws) {
 		const { AirhornAws } = await import("@airhornjs/aws");
-		providers.push(
-			new AirhornAws({ ...config.aws, capabilities: [AirhornSendType.Email] }),
-		);
+		providers.push(new AirhornAws({ ...config.aws, capabilities: [EMAIL] }));
 	}
 	return providers;
 }
 
-export async function createNotifier(config: Config): Promise<AirhornNotifier> {
-	const providers = await createProviders(config);
-	const emailProvider = providers.some((provider) =>
-		provider.capabilities.includes(AirhornSendType.Email),
-	);
-	const airhorn = new Airhorn({ providers, useWebhookProvider: false });
+/** Creates the Airhorn instance with every configured provider. */
+export async function createAirhorn(config: Config): Promise<Airhorn> {
+	const [{ Airhorn }, providers] = await Promise.all([
+		import("airhorn"),
+		createProviders(config),
+	]);
+	return new Airhorn({ providers, useWebhookProvider: false });
+}
+
+/** Creates the notifier. Airhorn itself is only loaded when the first notification is sent. */
+export function createNotifier(config: Config): AirhornNotifier {
 	return new AirhornNotifier({
-		airhorn,
-		email: emailProvider ? config.email : undefined,
+		airhorn: () => createAirhorn(config),
+		email: emailAvailable(config) ? config.email : undefined,
 		siteUrl: config.siteUrl,
 	});
 }

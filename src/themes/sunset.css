@@ -1,0 +1,19 @@
+/* Sunset: warm, friendly tones. */
+[data-theme="sunset"] {
+	--ic-bg: #fdf6ef;
+	--ic-surface: #fffdfa;
+	--ic-surface-muted: #f9ece0;
+	--ic-fg: #2b1a12;
+	--ic-muted: #7a5b4b;
+	--ic-border: #f0dccb;
+	--ic-brand: #e0531f;
+	--ic-brand-fg: #ffffff;
+	--ic-operational: #2f9e44;
+	--ic-degraded: #d9a400;
+	--ic-partial: #f0700f;
+	--ic-major: #c92a2a;
+	--ic-maintenance: #3b6fd8;
+	--ic-nodata: #ecdccd;
+	--ic-radius: 1.5rem;
+	color-scheme: light;
+}

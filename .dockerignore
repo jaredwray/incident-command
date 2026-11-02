@@ -1,0 +1,32 @@
+# Keep the build context small and free of secrets.
+
+# VCS / CI
+.git
+.github
+
+# Dependencies and build output (rebuilt inside the image)
+node_modules
+.next
+.open-next
+.wrangler
+.pnpm-store
+coverage
+*.tsbuildinfo
+
+# Local environment files and secrets
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+
+# Not needed to build the server
+test
+docs
+deploy
+Dockerfile
+.dockerignore
+docker-compose.yml
+npm-debug.log*
+*.log
+.DS_Store

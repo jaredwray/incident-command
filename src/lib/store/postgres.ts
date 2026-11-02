@@ -29,6 +29,35 @@ export interface PostgresStoreOptions {
 	client?: SqlClient;
 	/** Prefix for every table name. Defaults to `ic_`. */
 	tablePrefix?: string;
+	/**
+	 * Keep a connection pool (default `true`). Set to `false` to open a fresh
+	 * connection per query, which Cloudflare Workers (with Hyperdrive) require
+	 * because connections cannot be shared between requests.
+	 */
+	pool?: boolean;
+}
+
+/**
+ * A client that opens a new connection for every query and closes it after.
+ * Meant for runtimes such as Cloudflare Workers, where a pooling proxy like
+ * Hyperdrive makes connecting cheap and sockets cannot outlive a request.
+ */
+export class PerQueryClient implements SqlClient {
+	private readonly connectionString?: string;
+
+	constructor(connectionString?: string) {
+		this.connectionString = connectionString;
+	}
+
+	async query(text: string, params?: unknown[]): Promise<{ rows: Row[] }> {
+		const client = new pg.Client({ connectionString: this.connectionString });
+		await client.connect();
+		try {
+			return await client.query(text, params);
+		} finally {
+			await client.end();
+		}
+	}
 }
 
 const IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -127,6 +156,8 @@ export class PostgresStore implements DocumentStore {
 		}
 		if (options.client) {
 			this.client = options.client;
+		} else if (options.pool === false) {
+			this.client = new PerQueryClient(options.connectionString);
 		} else {
 			this.pool = new pg.Pool({ connectionString: options.connectionString });
 			this.client = this.pool;

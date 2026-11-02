@@ -1,6 +1,7 @@
 import { createId } from "../crypto";
 import {
 	type CreateComponentInput,
+	componentStatusSchema,
 	createComponentSchema,
 	type UpdateComponentInput,
 	updateComponentSchema,
@@ -88,7 +89,8 @@ export class ComponentService {
 		status: ComponentStatus,
 	): Promise<Component> {
 		requireRole(actor, "editor");
-		return this.applyStatus(await this.load(id), status);
+		const next = parse(componentStatusSchema, status);
+		return this.applyStatus(await this.load(id), next);
 	}
 
 	/**

@@ -1,0 +1,85 @@
+# Incident Command: app + Postgres on one host.
+#
+#   docker compose up -d --build      # build and start app + Postgres
+#   open http://localhost:3000        # status page (portal at /manage)
+#   docker compose logs -f app
+#   docker compose down               # stop (add -v to delete the data volumes)
+#
+# Configuration: values below can be overridden from a `.env` file next to this
+# file (`cp .env.example .env`). Every variable in `.env` is also passed to the
+# app container, so email/webhook settings only need to go there. Inside
+# Compose, databases are reached by service name (`postgres`, `mongo`), not
+# `localhost`.
+#
+# Using MongoDB instead of Postgres:
+#   1. In .env set:  DATABASE_URL=mongodb://mongo:27017/incident_command
+#   2. docker compose --profile mongo up -d --build
+#   (Postgres still starts but is unused; data does not move between databases.)
+
+name: incident-command
+
+services:
+  app:
+    build: .
+    image: incident-command:local
+    restart: unless-stopped
+    init: true
+    ports:
+      - "3000:3000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+      DATABASE_URL: ${DATABASE_URL:-postgres://incident:incident@postgres:5432/incident_command}
+      SITE_URL: ${SITE_URL:-http://localhost:3000}
+      # Bootstraps the first admin on first boot (only while no members exist).
+      # Change these before exposing the stack; later changes have no effect,
+      # so change the password in the portal instead.
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me-now}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+        required: false
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: incident
+      POSTGRES_PASSWORD: incident
+      POSTGRES_DB: incident_command
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    # Uncomment to reach the database from the host (psql, GUI tools).
+    # ports:
+    #   - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U incident -d incident_command"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mongo:
+    image: mongo:8
+    profiles: [mongo]
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    # ports:
+    #   - "127.0.0.1:27017:27017"
+    healthcheck:
+      test:
+        ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+volumes:
+  postgres-data:
+  mongo-data:

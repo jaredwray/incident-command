@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+/* Theme presets. Each file defines the --ic-* design tokens for one theme. */
+@import "../themes/default.css";
+@import "../themes/midnight.css";
+@import "../themes/ocean.css";
+@import "../themes/sunset.css";
+@import "../themes/mono.css";
+
+/*
+ * Design tokens exposed to Tailwind. Components only use these utilities
+ * (bg-surface, text-muted, border-border, bg-operational, rounded-card, ...),
+ * so a theme is nothing more than a set of --ic-* variables.
+ */
+@theme inline {
+	--color-bg: var(--ic-bg);
+	--color-surface: var(--ic-surface);
+	--color-surface-muted: var(--ic-surface-muted);
+	--color-fg: var(--ic-fg);
+	--color-muted: var(--ic-muted);
+	--color-border: var(--ic-border);
+	--color-brand: var(--ic-brand);
+	--color-brand-fg: var(--ic-brand-fg);
+	--color-operational: var(--ic-operational);
+	--color-degraded: var(--ic-degraded);
+	--color-partial: var(--ic-partial);
+	--color-major: var(--ic-major);
+	--color-maintenance: var(--ic-maintenance);
+	--color-nodata: var(--ic-nodata);
+	--radius-card: var(--ic-radius);
+	--font-sans: var(--ic-font);
+}
+
+@layer base {
+	html {
+		background: var(--ic-bg);
+		color: var(--ic-fg);
+		font-family: var(--ic-font);
+		-webkit-font-smoothing: antialiased;
+	}
+
+	body {
+		background: var(--ic-bg);
+		min-height: 100dvh;
+	}
+
+	::selection {
+		background: color-mix(in oklab, var(--ic-brand) 25%, transparent);
+	}
+
+	:focus-visible {
+		outline: 2px solid var(--ic-brand);
+		outline-offset: 2px;
+	}
+}

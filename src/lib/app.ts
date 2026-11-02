@@ -22,7 +22,7 @@ export interface CreateAppOptions {
 export async function createApp(options: CreateAppOptions = {}): Promise<App> {
 	const config = options.config ?? loadConfig();
 	const store = options.store ?? (await createStore(config));
-	const notifier = options.notifier ?? (await createNotifier(config));
+	const notifier = options.notifier ?? createNotifier(config);
 	await store.connect();
 	const services = createServices({
 		store,

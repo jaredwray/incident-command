@@ -1,3 +1,4 @@
+import { seedDemo } from "../demo";
 import { AgentService } from "./agents";
 import { ComponentService } from "./components";
 import type { ServiceContext } from "./context";
@@ -44,6 +45,9 @@ export function createServices(ctx: ServiceContext): Services {
 			const admin = ctx.config.admin;
 			if (admin && (await members.count()) === 0) {
 				await members.setup(admin, ctx.config.setupToken);
+			}
+			if (ctx.config.seedDemo && (await ctx.store.count("components")) === 0) {
+				await seedDemo(ctx);
 			}
 		},
 	};

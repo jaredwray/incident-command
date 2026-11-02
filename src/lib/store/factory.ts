@@ -13,6 +13,7 @@ export async function createBaseStore(
 			return new PostgresStore({
 				connectionString: config.url,
 				tablePrefix: config.tablePrefix,
+				pool: config.pool,
 			});
 		}
 		case "mongo": {

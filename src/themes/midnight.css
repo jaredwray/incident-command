@@ -1,0 +1,19 @@
+/* Midnight: deep navy dark theme. */
+[data-theme="midnight"] {
+	--ic-bg: #070b1a;
+	--ic-surface: #0e1530;
+	--ic-surface-muted: #141d3d;
+	--ic-fg: #e8ecff;
+	--ic-muted: #9aa5d1;
+	--ic-border: #1f2a52;
+	--ic-brand: #7c9cff;
+	--ic-brand-fg: #070b1a;
+	--ic-operational: #34d399;
+	--ic-degraded: #fbbf24;
+	--ic-partial: #fb923c;
+	--ic-major: #f87171;
+	--ic-maintenance: #60a5fa;
+	--ic-nodata: #1f2a52;
+	--ic-radius: 1rem;
+	color-scheme: dark;
+}

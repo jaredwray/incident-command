@@ -35,6 +35,7 @@ describe("store factory", () => {
 		expect(postgres.options).toEqual({
 			connectionString: "postgres://db/x",
 			tablePrefix: "t_",
+			pool: true,
 		});
 		const mongo = (await createBaseStore(
 			loadConfig({ DATABASE_URL: "mongodb://db", DATABASE_NAME: "status" })
