@@ -108,6 +108,8 @@ export interface Incident {
 	scheduledEnd?: string;
 	startedAt: string;
 	resolvedAt?: string;
+	/** Incremented on every write; used for optimistic concurrency. */
+	revision?: number;
 	createdBy: AuthorRef;
 	createdAt: string;
 	updatedAt: string;

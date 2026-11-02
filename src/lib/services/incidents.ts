@@ -23,7 +23,7 @@ import {
 	type IncidentUpdate,
 	MAINTENANCE_STATUSES,
 } from "../domain/types";
-import { NotFoundError, ValidationError } from "../errors";
+import { ConflictError, NotFoundError, ValidationError } from "../errors";
 import type { NotificationEvent } from "../notifications/templates";
 import type { Condition } from "../store/types";
 import type { ComponentService } from "./components";
@@ -49,6 +49,8 @@ export const CLOSED_STATUSES: readonly EventStatus[] = [
 	"resolved",
 	"completed",
 ];
+
+const MAX_WRITE_ATTEMPTS = 5;
 
 export interface IncidentListOptions {
 	kind?: IncidentKind;
@@ -179,6 +181,7 @@ export class IncidentService {
 			componentIds,
 			updates: [update],
 			startedAt: data.scheduledStart ?? now,
+			revision: 1,
 			createdBy: author,
 			createdAt: now,
 			updatedAt: now,
@@ -212,30 +215,35 @@ export class IncidentService {
 	): Promise<Incident> {
 		requireRole(actor, "editor");
 		const data = parse(incidentUpdateSchema, input);
-		const current = await this.load(id);
-		const status = data.status ?? current.status;
-		assertStatusForKind(current.kind, status);
-		const now = iso(this.ctx.now());
-		const update: IncidentUpdate = {
-			id: createId("upd"),
-			status,
-			message: data.message,
-			author: authorRef(actor),
-			createdAt: now,
-		};
-		const next: Incident = {
-			...current,
-			status,
-			updates: [...current.updates, update],
-			updatedAt: now,
-		};
-		const closing = isClosedStatus(status);
-		if (closing) {
-			next.resolvedAt = current.resolvedAt ?? now;
-		} else {
-			delete next.resolvedAt;
-		}
-		await this.ctx.store.update("incidents", next);
+		const author = authorRef(actor);
+		const { current, next } = await this.mutate(id, (current) => {
+			const status = data.status ?? current.status;
+			assertStatusForKind(current.kind, status);
+			const now = iso(this.ctx.now());
+			const next: Incident = {
+				...current,
+				status,
+				updates: [
+					...current.updates,
+					{
+						id: createId("upd"),
+						status,
+						message: data.message,
+						author,
+						createdAt: now,
+					},
+				],
+				updatedAt: now,
+			};
+			if (isClosedStatus(status)) {
+				next.resolvedAt = current.resolvedAt ?? now;
+			} else {
+				delete next.resolvedAt;
+			}
+			return next;
+		});
+		const update = next.updates.at(-1) as IncidentUpdate;
+		const closing = isClosedStatus(next.status);
 		const wasClosed = isClosedStatus(current.status);
 		const plan =
 			closing && wasClosed && !data.componentStatus
@@ -275,25 +283,27 @@ export class IncidentService {
 	): Promise<Incident> {
 		requireRole(actor, "editor");
 		const patch = parse(editIncidentSchema, input);
-		const current = await this.load(id);
-		const next: Incident = {
-			...current,
-			title: patch.title ?? current.title,
-			impact: patch.impact ?? current.impact,
-			componentIds: patch.componentIds
-				? await this.validateComponents(patch.componentIds)
-				: current.componentIds,
-			updatedAt: iso(this.ctx.now()),
-		};
-		if (current.kind === "maintenance") {
-			const scheduledStart =
-				patch.scheduledStart ?? (current.scheduledStart as string);
-			next.scheduledStart = scheduledStart;
-			next.scheduledEnd = patch.scheduledEnd ?? current.scheduledEnd;
-			next.startedAt = scheduledStart;
-			assertWindow(next.scheduledStart, next.scheduledEnd);
-		}
-		await this.ctx.store.update("incidents", next);
+		const componentIds = patch.componentIds
+			? await this.validateComponents(patch.componentIds)
+			: undefined;
+		const { next } = await this.mutate(id, (current) => {
+			const next: Incident = {
+				...current,
+				title: patch.title ?? current.title,
+				impact: patch.impact ?? current.impact,
+				componentIds: componentIds ?? current.componentIds,
+				updatedAt: iso(this.ctx.now()),
+			};
+			if (current.kind === "maintenance") {
+				const scheduledStart =
+					patch.scheduledStart ?? (current.scheduledStart as string);
+				next.scheduledStart = scheduledStart;
+				next.scheduledEnd = patch.scheduledEnd ?? current.scheduledEnd;
+				next.startedAt = scheduledStart;
+				assertWindow(next.scheduledStart, next.scheduledEnd);
+			}
+			return next;
+		});
 		return next;
 	}
 
@@ -312,6 +322,33 @@ export class IncidentService {
 			throw new NotFoundError("Incident", id);
 		}
 		return incident;
+	}
+
+	/**
+	 * Applies a change with optimistic concurrency: the write only succeeds if
+	 * nobody saved the incident since it was read, otherwise it is retried on
+	 * the latest version so concurrent updates never overwrite each other.
+	 */
+	private async mutate(
+		id: string,
+		change: (current: Incident) => Incident,
+	): Promise<{ current: Incident; next: Incident }> {
+		for (let attempt = 0; attempt < MAX_WRITE_ATTEMPTS; attempt++) {
+			const current = await this.load(id);
+			const revision = current.revision ?? 0;
+			const next: Incident = { ...change(current), revision: revision + 1 };
+			const saved = await this.ctx.store.update("incidents", next, {
+				where: [
+					{ field: "revision", op: "eq", value: current.revision ?? null },
+				],
+			});
+			if (saved) {
+				return { current, next };
+			}
+		}
+		throw new ConflictError(
+			"The incident is being changed by someone else. Please try again.",
+		);
 	}
 
 	private async validateComponents(ids: readonly string[]): Promise<string[]> {
@@ -353,7 +390,8 @@ export class IncidentService {
 		}
 		const others = plan.restore
 			? (await this.list({ open: true })).filter(
-					(other) => other.id !== incident.id,
+					// scheduled maintenance has not touched any component yet
+					(other) => other.id !== incident.id && other.status !== "scheduled",
 				)
 			: [];
 		for (const componentId of incident.componentIds) {

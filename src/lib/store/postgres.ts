@@ -9,6 +9,7 @@ import {
 	INDEXES,
 	type Query,
 	type Scalar,
+	type UpdateOptions,
 } from "./types";
 
 type Row = Record<string, unknown>;
@@ -260,12 +261,20 @@ export class PostgresStore implements DocumentStore {
 	async update<C extends CollectionName>(
 		collection: C,
 		doc: Doc<C>,
+		options?: UpdateOptions,
 	): Promise<Doc<C> | undefined> {
 		const table = this.table(collection);
+		const params: unknown[] = [doc.id, JSON.stringify(doc)];
+		const where = [
+			"id = $1",
+			...(options?.where ?? []).map((condition) =>
+				compileCondition(condition, params),
+			),
+		].join(" AND ");
 		try {
 			const rows = await this.run(
-				`UPDATE ${table} SET data = $2::jsonb WHERE id = $1 RETURNING data`,
-				[doc.id, JSON.stringify(doc)],
+				`UPDATE ${table} SET data = $2::jsonb WHERE ${where} RETURNING data`,
+				params,
 			);
 			return rows[0]?.data as Doc<C> | undefined;
 		} catch (error) {

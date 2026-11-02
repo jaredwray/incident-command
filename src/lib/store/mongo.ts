@@ -15,6 +15,7 @@ import {
 	INDEXES,
 	type Query,
 	type SortSpec,
+	type UpdateOptions,
 } from "./types";
 
 export interface MongoStoreOptions {
@@ -209,10 +210,11 @@ export class MongoStore implements DocumentStore {
 	async update<C extends CollectionName>(
 		collection: C,
 		doc: Doc<C>,
+		options?: UpdateOptions,
 	): Promise<Doc<C> | undefined> {
 		try {
 			const result = await this.collection(collection).replaceOne(
-				{ _id: doc.id },
+				{ $and: [{ _id: doc.id }, compileFilter(options)] },
 				toStored(doc),
 				WRITE_OPTIONS,
 			);

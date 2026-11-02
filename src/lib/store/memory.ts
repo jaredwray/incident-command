@@ -1,11 +1,12 @@
 import { ConflictError } from "../errors";
-import { applyQuery } from "./query";
+import { applyQuery, matchesQuery } from "./query";
 import {
 	type CollectionName,
 	type Doc,
 	type DocumentStore,
 	INDEXES,
 	type Query,
+	type UpdateOptions,
 } from "./types";
 
 /**
@@ -95,9 +96,11 @@ export class MemoryStore implements DocumentStore {
 	async update<C extends CollectionName>(
 		collection: C,
 		doc: Doc<C>,
+		options?: UpdateOptions,
 	): Promise<Doc<C> | undefined> {
 		const table = this.table(collection);
-		if (!table.has(doc.id)) {
+		const existing = table.get(doc.id) as Record<string, unknown> | undefined;
+		if (!existing || !matchesQuery(existing, options)) {
 			return undefined;
 		}
 		this.assertUnique(collection, doc);

@@ -5,7 +5,7 @@ import {
 	webhookSubscriberSchema,
 } from "../domain/schemas";
 import type { Actor, Subscriber, SubscriberType } from "../domain/types";
-import { ForbiddenError, NotFoundError } from "../errors";
+import { AppError, ForbiddenError, NotFoundError } from "../errors";
 import { iso, parse, requireRole, type ServiceContext } from "./context";
 import type { SettingsService } from "./settings";
 
@@ -37,10 +37,16 @@ export class SubscriberService {
 			return "already_subscribed";
 		}
 		const subscriber = existing ?? (await this.insert("email", email, false));
-		await this.ctx.notifier.sendConfirmation(
+		const sent = await this.ctx.notifier.sendConfirmation(
 			subscriber,
 			await this.settings.get(),
 		);
+		if (!sent) {
+			throw new AppError(
+				"unavailable",
+				"We couldn't send the confirmation email. Please try again later.",
+			);
+		}
 		return "confirmation_sent";
 	}
 

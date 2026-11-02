@@ -14,6 +14,7 @@ export class FakeNotifier implements Notifier {
 		subscribers: Subscriber[];
 	}[] = [];
 	confirmations: Subscriber[] = [];
+	confirmationResult = true;
 	fail = false;
 
 	async notifyIncident(
@@ -29,7 +30,7 @@ export class FakeNotifier implements Notifier {
 
 	async sendConfirmation(subscriber: Subscriber, _settings: Settings) {
 		this.confirmations.push(subscriber);
-		return true;
+		return this.confirmationResult;
 	}
 }
 

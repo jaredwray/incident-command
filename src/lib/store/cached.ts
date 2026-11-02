@@ -6,6 +6,7 @@ import type {
 	DocumentStore,
 	Query,
 	ReadOptions,
+	UpdateOptions,
 } from "./types";
 
 /** Collections served from cache by default: everything the public status page reads. */
@@ -135,8 +136,14 @@ export class CachedStore implements DocumentStore {
 		return this.write(collection, () => this.inner.insert(collection, doc));
 	}
 
-	update<C extends CollectionName>(collection: C, doc: Doc<C>) {
-		return this.write(collection, () => this.inner.update(collection, doc));
+	update<C extends CollectionName>(
+		collection: C,
+		doc: Doc<C>,
+		options?: UpdateOptions,
+	) {
+		return this.write(collection, () =>
+			this.inner.update(collection, doc, options),
+		);
 	}
 
 	delete<C extends CollectionName>(collection: C, id: string) {

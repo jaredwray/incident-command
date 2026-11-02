@@ -33,7 +33,10 @@ const patchUrl = z
 	.optional()
 	.transform((value) => (value === "" ? null : value));
 
-const isoDate = z.iso.datetime({ offset: true });
+/** ISO 8601 timestamp (any offset), normalized to UTC so stored values sort and display consistently. */
+const isoDate = z.iso
+	.datetime({ offset: true })
+	.transform((value) => new Date(value).toISOString());
 
 export const componentStatusSchema = z.enum(COMPONENT_STATUSES);
 export const eventStatusSchema = z.enum([

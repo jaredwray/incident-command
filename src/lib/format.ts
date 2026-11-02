@@ -66,7 +66,7 @@ export function formatDuration(ms: number): string {
 
 /** Converts an ISO timestamp to a `datetime-local` input value in UTC. */
 export function toDateTimeInput(iso: string | undefined): string {
-	return iso ? iso.slice(0, 16) : "";
+	return iso ? new Date(iso).toISOString().slice(0, 16) : "";
 }
 
 /** Converts a `datetime-local` value (interpreted as UTC) to ISO, or `undefined` when empty. */

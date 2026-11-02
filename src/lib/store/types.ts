@@ -88,6 +88,14 @@ export interface Query {
 	offset?: number;
 }
 
+export interface UpdateOptions {
+	/**
+	 * Only replace the document when the stored version matches every
+	 * condition (optimistic concurrency). Resolves `undefined` otherwise.
+	 */
+	where?: readonly Condition[];
+}
+
 export interface ReadOptions {
 	/** Bypass any caching layer and read directly from the source of truth. */
 	consistent?: boolean;
@@ -120,10 +128,14 @@ export interface DocumentStore {
 	): Promise<number>;
 	/** Inserts a new document. Throws `ConflictError` on duplicate id or unique field. */
 	insert<C extends CollectionName>(collection: C, doc: Doc<C>): Promise<Doc<C>>;
-	/** Replaces an existing document by id. Resolves `undefined` when it does not exist. */
+	/**
+	 * Replaces an existing document by id. Resolves `undefined` when it does
+	 * not exist or does not match `options.where`.
+	 */
 	update<C extends CollectionName>(
 		collection: C,
 		doc: Doc<C>,
+		options?: UpdateOptions,
 	): Promise<Doc<C> | undefined>;
 	delete<C extends CollectionName>(collection: C, id: string): Promise<boolean>;
 	deleteMany<C extends CollectionName>(

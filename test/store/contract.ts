@@ -112,6 +112,39 @@ export function runStoreContract(getStore: () => DocumentStore) {
 		).resolves.toBeUndefined();
 	});
 
+	it("supports conditional (optimistic) updates", async () => {
+		const store = getStore();
+		await store.insert("components", component("cas", { order: 1 }));
+		const stale = await store.update(
+			"components",
+			component("cas", { name: "Stale", order: 2 }),
+			{ where: [{ field: "order", op: "eq", value: 5 }] },
+		);
+		expect(stale).toBeUndefined();
+		expect((await store.get("components", "cas"))?.name).toBe("Component cas");
+		const fresh = await store.update(
+			"components",
+			component("cas", { name: "Fresh", order: 2 }),
+			{ where: [{ field: "order", op: "eq", value: 1 }] },
+		);
+		expect(fresh?.name).toBe("Fresh");
+		// a condition on a missing field matches with eq null
+		await expect(
+			store.update(
+				"components",
+				component("cas", { name: "Again", order: 3 }),
+				{
+					where: [{ field: "group", op: "eq", value: null }],
+				},
+			),
+		).resolves.toMatchObject({ name: "Again" });
+		await expect(
+			store.update("components", component("missing"), {
+				where: [{ field: "order", op: "eq", value: 0 }],
+			}),
+		).resolves.toBeUndefined();
+	});
+
 	it("removes optional fields when a document is replaced", async () => {
 		const store = getStore();
 		await store.insert("components", component("opt", { description: "x" }));
