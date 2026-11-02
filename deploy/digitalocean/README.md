@@ -2,16 +2,6 @@
 
 Builds the repo's `Dockerfile` on App Platform and attaches a managed Postgres database. Spec: [`app.yaml`](app.yaml).
 
-## One-click
-
-[![Deploy to DigitalOcean](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/jaredwray/incident-command/tree/main)
-
-```markdown
-[![Deploy to DigitalOcean](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/jaredwray/incident-command/tree/main)
-```
-
-The button uses [`.do/deploy.template.yaml`](../../.do/deploy.template.yaml). Fill in `ADMIN_EMAIL` and `ADMIN_PASSWORD` (or `SETUP_TOKEN`) in the environment variables step.
-
 ## Prerequisites
 
 - A DigitalOcean account and [`doctl`](https://docs.digitalocean.com/reference/doctl/how-to/install/), authenticated: `doctl auth init`.
