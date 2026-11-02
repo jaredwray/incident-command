@@ -66,12 +66,23 @@ const PREFIX = /^([A-Za-z_][A-Za-z0-9_]*)?$/;
 const RANGE_OPERATORS = { gt: ">", gte: ">=", lt: "<", lte: "<=" } as const;
 const UNIQUE_VIOLATION = "23505";
 
-/** Field names are interpolated into SQL (so expression indexes apply), so they must be plain identifiers. */
+/**
+ * Quotes a SQL identifier. Names are lowercased first so quoting yields exactly
+ * the tables and indexes Postgres creates for the same unquoted names.
+ */
+function identifier(name: string): string {
+	return pg.escapeIdentifier(name.toLowerCase());
+}
+
+/**
+ * Field names are interpolated into SQL (so expression indexes apply). They
+ * must be plain identifiers and are also escaped as a string literal.
+ */
 function column(field: string): string {
 	if (!IDENTIFIER.test(field)) {
 		throw new Error(`Invalid field name "${field}"`);
 	}
-	return `data->'${field}'`;
+	return `data->${pg.escapeLiteral(field)}`;
 }
 
 function compileCondition(condition: Condition, params: unknown[]): string {
@@ -169,7 +180,7 @@ export class PostgresStore implements DocumentStore {
 		if (!COLLECTIONS.includes(collection)) {
 			throw new Error(`Unknown collection "${collection}"`);
 		}
-		return `${this.prefix}${collection}`;
+		return identifier(`${this.prefix}${collection}`);
 	}
 
 	private async run(text: string, params: unknown[] = []): Promise<Row[]> {
@@ -193,8 +204,11 @@ export class PostgresStore implements DocumentStore {
 			);
 			for (const index of INDEXES[collection]) {
 				const unique = index.unique ? "UNIQUE " : "";
+				const name = identifier(
+					`${this.prefix}${collection}_${index.field}_idx`,
+				);
 				await this.run(
-					`CREATE ${unique}INDEX IF NOT EXISTS ${table}_${index.field}_idx ON ${table} ((${column(index.field)}))`,
+					`CREATE ${unique}INDEX IF NOT EXISTS ${name} ON ${table} ((${column(index.field)}))`,
 				);
 			}
 		}
