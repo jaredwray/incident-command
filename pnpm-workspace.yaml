@@ -4,6 +4,7 @@ minimumReleaseAgeIgnoreMissingTime: false # missing publish-time metadata fails 
 trustPolicy: no-downgrade # fail if a later version has weaker trust evidence
 strictDepBuilds: true
 dangerouslyAllowAllBuilds: false
+blockExoticSubdeps: true
 overrides:
   # semver@6.3.1 was published after signed 7.x releases and has no trust evidence.
   # 6.3.0 is in make-dir's ^6.0.0 range and predates that downgrade.

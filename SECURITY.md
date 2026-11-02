@@ -24,3 +24,4 @@ This repository follows the [defense-in-depth](https://github.com/jaredwray/agen
 
 - Codespaces, Cursor Cloud Agents, and Claude Code on the web install through Aikido Safe Chain; package-manager shims must not be bypassed.
 - The Codespaces Dev Container image is pinned by digest (`name:<tag>@sha256:<digest>`), not a floating tag.
+- Dependencies install through pnpm with a 7-day cooldown on new versions, lifecycle scripts blocked by default, and `trustPolicy: no-downgrade`. Socket reviews every dependency change; Aikido scans every build.
