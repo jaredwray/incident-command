@@ -156,3 +156,8 @@ vite.config.ts.timestamp-*
 
 # Next.js generated types
 next-env.d.ts
+
+# AI (keep the shared Claude Code settings and hooks; ignore local state)
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
