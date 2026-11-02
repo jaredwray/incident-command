@@ -1,6 +1,11 @@
 minimumReleaseAge: 10080 # 7 days, in minutes
 minimumReleaseAgeStrict: true # fail instead of falling back to a too-new version
 minimumReleaseAgeIgnoreMissingTime: false # missing publish-time metadata fails closed
+trustPolicy: no-downgrade # fail if a later version has weaker trust evidence
+overrides:
+  # semver@6.3.1 was published after signed 7.x releases and has no trust evidence.
+  # 6.3.0 is in make-dir's ^6.0.0 range and predates that downgrade.
+  semver@6.3.1: 6.3.0
 allowBuilds:
   esbuild: true
   mongodb-memory-server: true
