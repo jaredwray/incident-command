@@ -25,13 +25,13 @@ Profile: website/app · public
 - [x] Lifecycle scripts blocked: `strictDepBuilds: true`, `dangerouslyAllowAllBuilds: false`, `allowBuilds: {}` baseline — PR #10
 - [x] `blockExoticSubdeps: true` — PR #11
 - [x] Lockfile committed; CI installs with `pnpm install --frozen-lockfile` — verified 2026-11-02
-- [ ] No `.github/dependabot.yml`; other dependency-update tools (if any) open PRs only — never auto-merge (PR #12 pending)
+- [x] No `.github/dependabot.yml`; other dependency-update tools (if any) open PRs only — never auto-merge — PR #12
 
 ## 4. GitHub Actions
 
 - [x] `permissions: contents: read` (or `{}` + per-job grants) on every workflow — verified 2026-11-02
 - [x] No `contents: write` except jobs whose purpose is mutating the repo (GitHub Release, Changesets version PR); generated output is a workflow artifact, never committed back from CI — verified 2026-11-02
-- [ ] Every action pinned to a full commit SHA (`npx actions-up`)
+- [ ] Every action pinned to a full commit SHA (`npx actions-up`) (PR #13 pending)
 - [ ] Every job installs Socket Firewall (`SocketDev/action` SHA-pinned, `firewall-version` pinned); `pnpm install` / `npm install` run as `sfw pnpm install` / `sfw npm install`
 - [ ] `.github/workflows/check-workflows.yaml` lints workflows with zizmor on every PR
 - [x] Workflow `name:` and job `name:` contain no spaces (kebab-case) so they can be set as required status checks — verified 2026-11-02
