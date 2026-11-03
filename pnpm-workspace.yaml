@@ -9,6 +9,9 @@ overrides:
   # semver@6.3.1 was published after signed 7.x releases and has no trust evidence.
   # 6.3.0 is in make-dir's ^6.0.0 range and predates that downgrade.
   semver@6.3.1: 6.3.0
+  # @node-minify/core 9.0.2 pins glob 10.3.3. The 9.x line ends at that release.
+  # This override selects glob 10.5.0 for that parent and fixes CVE-2025-64756.
+  "@node-minify/core>glob": 10.5.0
 allowBuilds:
   esbuild: true # Vite and Wrangler native binary
   mongodb-memory-server: true # MongoDB binary for tests
