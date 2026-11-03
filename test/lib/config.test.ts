@@ -16,7 +16,6 @@ describe("loadConfig", () => {
 			siteName: "Status",
 			sessionTtl: 7 * 86_400_000,
 			setupToken: undefined,
-			admin: undefined,
 			email: undefined,
 			twilio: undefined,
 			aws: undefined,
@@ -41,8 +40,6 @@ describe("loadConfig", () => {
 			SITE_NAME: "Example",
 			SESSION_TTL: "12h",
 			SETUP_TOKEN: "setup",
-			ADMIN_EMAIL: "admin@example.com",
-			ADMIN_PASSWORD: "supersecret",
 			EMAIL_FROM: "status@example.com",
 			TWILIO_ACCOUNT_SID: "AC1",
 			TWILIO_AUTH_TOKEN: "tok",
@@ -62,11 +59,7 @@ describe("loadConfig", () => {
 		expect(config.cache).toEqual({ ttl: 60_000, maxEntries: 100 });
 		expect(config.siteUrl).toBe("https://status.example.com");
 		expect(config.sessionTtl).toBe(12 * 3_600_000);
-		expect(config.admin).toEqual({
-			email: "admin@example.com",
-			password: "supersecret",
-			name: "Admin",
-		});
+		expect(config.setupToken).toBe("setup");
 		expect(config.email).toEqual({
 			provider: "sendgrid",
 			from: "status@example.com",
@@ -84,21 +77,17 @@ describe("loadConfig", () => {
 		expect(config.webhookSecret).toBe("whsec");
 	});
 
-	it("detects SES email and named admins", () => {
+	it("detects SES email", () => {
 		const config = loadConfig({
 			EMAIL_FROM: "status@example.com",
 			AWS_SES_REGION: "eu-west-1",
 			AWS_REGION: "us-east-1",
-			ADMIN_EMAIL: "a@b.co",
-			ADMIN_PASSWORD: "password1",
-			ADMIN_NAME: "Root",
 		});
 		expect(config.email).toEqual({
 			provider: "ses",
 			from: "status@example.com",
 		});
 		expect(config.aws?.region).toBe("eu-west-1");
-		expect(config.admin?.name).toBe("Root");
 	});
 
 	it("honors explicit store and email provider overrides", () => {
@@ -119,7 +108,7 @@ describe("loadConfig", () => {
 	it("treats empty strings as unset", () => {
 		const config = loadConfig({
 			SITE_URL: "",
-			ADMIN_EMAIL: "",
+			SETUP_TOKEN: "",
 			SITE_NAME: "  ",
 			CACHE_TTL: "",
 			STORE: "",
@@ -130,6 +119,7 @@ describe("loadConfig", () => {
 		});
 		expect(config.store.kind).toBe("memory");
 		expect(config.siteUrl).toBeUndefined();
+		expect(config.setupToken).toBeUndefined();
 		expect(config.siteName).toBe("Status");
 		expect(config.cache.ttl).toBe(30_000);
 	});

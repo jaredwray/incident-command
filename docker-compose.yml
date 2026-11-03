@@ -34,11 +34,8 @@ services:
       HOSTNAME: 0.0.0.0
       DATABASE_URL: ${DATABASE_URL:-postgres://incident:incident@postgres:5432/incident_command}
       SITE_URL: ${SITE_URL:-http://localhost:3000}
-      # Bootstraps the first admin on first boot (only while no members exist).
-      # Change these before exposing the stack; later changes have no effect,
-      # so change the password in the portal instead.
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me-now}
+      # Create the first admin at /manage/setup. Set SETUP_TOKEN in .env so
+      # that page is not open to whoever reaches it first.
     depends_on:
       postgres:
         condition: service_healthy

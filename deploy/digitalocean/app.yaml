@@ -4,8 +4,7 @@
 #   doctl apps update <APP_ID> --spec deploy/digitalocean/app.yaml
 #
 # Builds the repo's Dockerfile and attaches a managed Postgres database.
-# Change ADMIN_EMAIL / ADMIN_PASSWORD (or use SETUP_TOKEN) before creating the
-# app. Guide: deploy/digitalocean/README.md
+# Change SETUP_TOKEN before creating the app. Guide: deploy/digitalocean/README.md
 name: incident-command
 region: nyc
 
@@ -40,10 +39,7 @@ services:
       - key: HOSTNAME
         scope: RUN_TIME
         value: 0.0.0.0
-      - key: ADMIN_EMAIL
-        scope: RUN_TIME
-        value: admin@example.com
-      - key: ADMIN_PASSWORD
+      - key: SETUP_TOKEN
         scope: RUN_TIME
         type: SECRET
         value: change-me-now

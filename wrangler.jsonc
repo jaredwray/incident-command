@@ -28,7 +28,7 @@
 	// 	}
 	// ],
 	// Non-secret configuration. Set secrets with `npx wrangler secret put NAME`
-	// (DATABASE_URL, ADMIN_EMAIL, ADMIN_PASSWORD, SETUP_TOKEN, WEBHOOK_SECRET,
+	// (DATABASE_URL, SETUP_TOKEN, WEBHOOK_SECRET,
 	// email provider keys).
 	"vars": {
 		"SITE_URL": "https://status.example.com",

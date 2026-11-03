@@ -13,7 +13,7 @@ Incident Command is one Next.js server (standalone output). Run it as a containe
 ## Quick start
 
 ```bash
-cp .env.example .env              # set SITE_URL, ADMIN_EMAIL, ADMIN_PASSWORD
+cp .env.example .env              # set SITE_URL and SETUP_TOKEN
 docker compose up -d --build      # app + Postgres 17
 curl http://localhost:3000/api/health
 ```
@@ -53,10 +53,7 @@ node-postgres currently treats `sslmode=require` as full certificate verificatio
 
 ## First admin
 
-Pick one:
-
-1. Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` (at least 8 characters, plus optional `ADMIN_NAME`). The admin is created on boot while no members exist. Changing these later has no effect; change the password in the portal.
-2. Open `/manage/setup` and create the admin there. Set `SETUP_TOKEN` to require a token on that page; without it, whoever reaches the page first becomes admin.
+Open `/manage/setup` and create the admin there. Set `SETUP_TOKEN` so the page requires that token. Without it, whoever reaches the page first becomes admin.
 
 ## Health checks, caching and scaling
 
@@ -98,10 +95,7 @@ All are optional, and empty values are treated as unset. Durations accept `ms`, 
 | `CACHE_MAX_ENTRIES`     | `5000`                      | Maximum cache entries per instance.                                                                        |
 | **Portal access**       |                             |                                                                                                            |
 | `SESSION_TTL`           | `7d`                        | Portal session lifetime.                                                                                   |
-| `ADMIN_EMAIL`           | unset                       | First admin's email; used with `ADMIN_PASSWORD` on first boot only.                                        |
-| `ADMIN_PASSWORD`        | unset                       | First admin's password (at least 8 characters).                                                            |
-| `ADMIN_NAME`            | `Admin`                     | First admin's display name.                                                                                |
-| `SETUP_TOKEN`           | unset                       | Required by `/manage/setup` when set.                                                                      |
+| `SETUP_TOKEN`           | unset                       | When set, required to create the first admin at `/manage/setup`.                                           |
 | **Notifications**       |                             |                                                                                                            |
 | `WEBHOOK_SECRET`        | unset                       | Signs webhook payloads (`x-incident-command-signature: sha256=<hex>`).                                     |
 | `EMAIL_FROM`            | unset                       | Sender address. Email is disabled without it.                                                              |

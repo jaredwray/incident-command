@@ -61,12 +61,13 @@ describe("app container", () => {
 	});
 
 	it("creates a fully wired app from env", async () => {
-		vi.stubEnv("ADMIN_EMAIL", "root@acme.dev");
-		vi.stubEnv("ADMIN_PASSWORD", "password123");
 		const app = await createApp();
 		expect(app.store.kind).toBe("memory");
-		expect(await app.services.members.count()).toBe(1);
+		expect(await app.services.members.count()).toBe(0);
 		expect(app.notifier.emailEnabled).toBe(false);
+		expect((await app.services.status.summary()).generatedAt).toMatch(
+			/^\d{4}-\d{2}-\d{2}T/,
+		);
 	});
 
 	it("accepts injected dependencies", async () => {

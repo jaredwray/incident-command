@@ -65,11 +65,11 @@ FQDN=$(az containerapp show --name incident-command --resource-group $RG \
   --query properties.configuration.ingress.fqdn -o tsv)
 
 az containerapp secret set --name incident-command --resource-group $RG \
-  --secrets database-url="$DATABASE_URL" admin-password='CHOOSE_AN_ADMIN_PASSWORD'
+  --secrets database-url="$DATABASE_URL" setup-token='CHOOSE_A_LONG_TOKEN'
 
 az containerapp update --name incident-command --resource-group $RG \
-  --set-env-vars DATABASE_URL=secretref:database-url ADMIN_PASSWORD=secretref:admin-password \
-    ADMIN_EMAIL=admin@example.com SITE_URL=https://$FQDN HOSTNAME=0.0.0.0 \
+  --set-env-vars DATABASE_URL=secretref:database-url SETUP_TOKEN=secretref:setup-token \
+    SITE_URL=https://$FQDN HOSTNAME=0.0.0.0 \
   --min-replicas 1 --max-replicas 3
 ```
 
@@ -79,18 +79,17 @@ Redeploy after code changes with the same `az containerapp up` command.
 
 ## Required environment variables
 
-| Variable                                           | How                                   |
-| -------------------------------------------------- | ------------------------------------- |
-| `DATABASE_URL`                                     | Secret (`secretref:`)                 |
-| `SITE_URL`                                         | `https://$FQDN` or your custom domain |
-| `ADMIN_EMAIL` + `ADMIN_PASSWORD`, or `SETUP_TOKEN` | First admin                           |
+| Variable       | How                                   |
+| -------------- | ------------------------------------- |
+| `DATABASE_URL` | Secret (`secretref:`)                 |
+| `SITE_URL`     | `https://$FQDN` or your custom domain |
+| `SETUP_TOKEN`  | First admin at `/manage/setup`        |
 
 Email: SendGrid (`SENDGRID_API_KEY`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`) or SES with access keys (`AWS_SES_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`), plus `EMAIL_FROM`. Full list: [docs/deployment.md](../../docs/deployment.md#environment-variables).
 
 ## First admin
 
-- `ADMIN_EMAIL` + `ADMIN_PASSWORD` (at least 8 characters) create the admin on first boot while no members exist. Changing them later has no effect; change the password in the portal.
-- Or open `https://$FQDN/manage/setup`. Set `SETUP_TOKEN` first, otherwise whoever reaches the page first becomes admin.
+Open `https://$FQDN/manage/setup` and create the admin. Set `SETUP_TOKEN` first. Without it, whoever reaches the page first becomes admin.
 
 ## Verify
 
