@@ -2,13 +2,15 @@ minimumReleaseAge: 10080 # 7 days, in minutes
 minimumReleaseAgeStrict: true # fail instead of falling back to a too-new version
 minimumReleaseAgeIgnoreMissingTime: false # missing publish-time metadata fails closed
 trustPolicy: no-downgrade # fail if a later version has weaker trust evidence
+# semver 6.3.1 fixes CVE-2022-25883. That release has no provenance.
+trustPolicyExclude:
+  - semver@6.3.1
 strictDepBuilds: true
 dangerouslyAllowAllBuilds: false
 blockExoticSubdeps: true
 overrides:
-  # semver@6.3.1 was published after signed 7.x releases and has no trust evidence.
-  # 6.3.0 is in make-dir's ^6.0.0 range and predates that downgrade.
-  semver@6.3.1: 6.3.0
+  # make-dir 3.1.0 depends on semver 6. Use the patched release.
+  "make-dir@3>semver": 6.3.1
 allowBuilds:
   esbuild: true # Vite and Wrangler native binary
   mongodb-memory-server: true # MongoDB binary for tests
