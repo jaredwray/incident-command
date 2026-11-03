@@ -43,7 +43,7 @@ Profile: website/app · public
 ## 6. Security tooling
 
 - [x] Aikido runs on every build — verified 2026-11-02
-- [ ] Aikido release gate: the release workflow's stage-publish job `needs:` a passing `scan-release`
+- [x] Aikido release gate: the release workflow's stage-publish job `needs:` a passing `scan-release` — verified 2026-11-02 (no release workflow; this app does not publish)
 - [x] Socket reviews every PR that changes dependencies — verified 2026-11-02
 
 ## 7. Repository lockdown
