@@ -33,9 +33,9 @@ Profile: website/app · public
 - [x] No `contents: write` except jobs whose purpose is mutating the repo (GitHub Release, Changesets version PR); generated output is a workflow artifact, never committed back from CI — verified 2026-11-02
 - [x] Every action pinned to a full commit SHA (`npx actions-up`) — PR #13
 - [x] Every job installs Socket Firewall (`SocketDev/action` SHA-pinned, `firewall-version` pinned); `pnpm install` / `npm install` run as `sfw pnpm install` / `sfw npm install` — PR #14
-- [ ] `.github/workflows/check-workflows.yaml` lints workflows with zizmor on every PR (PR #15 pending)
+- [x] `.github/workflows/check-workflows.yaml` lints workflows with zizmor on every PR — PR #15
 - [x] Workflow `name:` and job `name:` contain no spaces (kebab-case) so they can be set as required status checks — verified 2026-11-02
-- [ ] `persist-credentials: false` on checkouts that don't push
+- [x] `persist-credentials: false` on checkouts that don't push — PR #15
 - [x] No `pull_request_target` on workflows that run untrusted PR code — verified 2026-11-02
 - [x] Artifact-publishing workflows disable `actions/setup-node` default caching (`package-manager-cache: false`) to prevent cache poisoning — verified 2026-11-02 (no artifact-publishing workflow)
 - [ ] No npm tokens (or other registry credentials) in Actions secrets
