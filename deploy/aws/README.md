@@ -53,11 +53,11 @@ RDS requires TLS, and its CA is not in Node's trust store; `uselibpqcompat=true&
 ```bash
 DB_SECRET_ARN=$(aws secretsmanager create-secret --name incident-command/database-url \
   --secret-string "$DATABASE_URL" --query ARN --output text)
-ADMIN_SECRET_ARN=$(aws secretsmanager create-secret --name incident-command/admin-password \
-  --secret-string 'CHOOSE_AN_ADMIN_PASSWORD' --query ARN --output text)
+SETUP_SECRET_ARN=$(aws secretsmanager create-secret --name incident-command/setup-token \
+  --secret-string 'CHOOSE_A_LONG_TOKEN' --query ARN --output text)
 ```
 
-Add `incident-command/webhook-secret`, `incident-command/setup-token`, and so on, the same way.
+Add `incident-command/webhook-secret` and other optional secrets the same way.
 
 ## 4. Email with SES
 
@@ -100,13 +100,12 @@ cat > /tmp/apprunner-service.json <<EOF
         "Port": "3000",
         "RuntimeEnvironmentVariables": {
           "SITE_URL": "https://status.example.com",
-          "ADMIN_EMAIL": "admin@example.com",
           "EMAIL_FROM": "status@example.com",
           "AWS_SES_REGION": "$AWS_REGION"
         },
         "RuntimeEnvironmentSecrets": {
           "DATABASE_URL": "$DB_SECRET_ARN",
-          "ADMIN_PASSWORD": "$ADMIN_SECRET_ARN"
+          "SETUP_TOKEN": "$SETUP_SECRET_ARN"
         }
       }
     },
@@ -153,7 +152,7 @@ aws iam put-role-policy --role-name incident-command-ecs-task \
   --policy-name incident-command --policy-document file://deploy/aws/iam-policy.json
 ```
 
-Edit [`ecs-task-definition.json`](ecs-task-definition.json): replace `ACCOUNT_ID`, `REGION`, the secret ARNs (`$DB_SECRET_ARN`, `$ADMIN_SECRET_ARN`) and the environment values. Then:
+Edit [`ecs-task-definition.json`](ecs-task-definition.json): replace `ACCOUNT_ID`, `REGION`, the secret ARNs (`$DB_SECRET_ARN`, `$SETUP_SECRET_ARN`) and the environment values. Then:
 
 ```bash
 aws ecs register-task-definition --cli-input-json file://deploy/aws/ecs-task-definition.json
@@ -173,19 +172,18 @@ To roll out a new image: push it, then `aws ecs update-service --cluster inciden
 
 ## Required environment variables
 
-| Variable                                           | How                            |
-| -------------------------------------------------- | ------------------------------ |
-| `DATABASE_URL`                                     | Secrets Manager                |
-| `SITE_URL`                                         | Plain variable: the public URL |
-| `ADMIN_EMAIL` + `ADMIN_PASSWORD`, or `SETUP_TOKEN` | First admin                    |
-| `EMAIL_FROM`, `AWS_SES_REGION`                     | Optional, for SES email        |
+| Variable                       | How                            |
+| ------------------------------ | ------------------------------ |
+| `DATABASE_URL`                 | Secrets Manager                |
+| `SITE_URL`                     | Plain variable: the public URL |
+| `SETUP_TOKEN`                  | First admin at `/manage/setup` |
+| `EMAIL_FROM`, `AWS_SES_REGION` | Optional, for SES email        |
 
 Full list: [docs/deployment.md](../../docs/deployment.md#environment-variables).
 
 ## First admin
 
-- `ADMIN_EMAIL` + `ADMIN_PASSWORD` (at least 8 characters) create the admin on first boot while no members exist. Changing them later has no effect; change the password in the portal.
-- Or open `https://<host>/manage/setup`. Set `SETUP_TOKEN` first, otherwise whoever reaches the page first becomes admin.
+Open `https://<host>/manage/setup` and create the admin. Set `SETUP_TOKEN` first. Without it, whoever reaches the page first becomes admin.
 
 ## Verify
 

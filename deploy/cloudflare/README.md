@@ -74,9 +74,7 @@ See [TLS for Postgres](../../docs/deployment.md#tls-for-postgres) for `sslmode` 
 Each command prompts for the value. Set only the ones you use.
 
 ```bash
-npx wrangler secret put ADMIN_EMAIL      # first admin, created on first boot
-npx wrangler secret put ADMIN_PASSWORD   # at least 8 characters
-npx wrangler secret put SETUP_TOKEN      # protects /manage/setup if you skip ADMIN_*
+npx wrangler secret put SETUP_TOKEN      # required to create the first admin at /manage/setup
 npx wrangler secret put WEBHOOK_SECRET   # signs webhook payloads
 # Email (see docs/deployment.md): EMAIL_FROM plus SendGrid or SES credentials
 npx wrangler secret put SENDGRID_API_KEY
@@ -100,22 +98,21 @@ The Worker is served at `https://incident-command.<your-subdomain>.workers.dev`.
 pnpm cf:preview
 ```
 
-Runs the production build in workerd locally. Put local secrets in `.dev.vars` (git-ignored), for example `ADMIN_EMAIL=...`. With Hyperdrive, `localConnectionString` in `wrangler.jsonc` is used instead of the remote database.
+Runs the production build in workerd locally. Put local secrets in `.dev.vars` (git-ignored), for example `SETUP_TOKEN=...`. With Hyperdrive, `localConnectionString` in `wrangler.jsonc` is used instead of the remote database.
 
 ## Required environment variables
 
-| Variable                                           | Where                        | Notes                                            |
-| -------------------------------------------------- | ---------------------------- | ------------------------------------------------ |
-| `SITE_URL`                                         | `vars`                       | Public URL, used in notification links.          |
-| `DATABASE_URL`                                     | secret, or Hyperdrive bridge | Without it the per-isolate memory store is used. |
-| `ADMIN_EMAIL` + `ADMIN_PASSWORD`, or `SETUP_TOKEN` | secrets                      | First admin.                                     |
+| Variable       | Where                        | Notes                                                  |
+| -------------- | ---------------------------- | ------------------------------------------------------ |
+| `SITE_URL`     | `vars`                       | Public URL, used in notification links.                |
+| `DATABASE_URL` | secret, or Hyperdrive bridge | Without it the per-isolate memory store is used.       |
+| `SETUP_TOKEN`  | secret                       | Required to create the first admin at `/manage/setup`. |
 
 Full list: [docs/deployment.md](../../docs/deployment.md#environment-variables).
 
 ## First admin
 
-- Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` before the first deploy. The admin is created on first boot while no members exist; changing the variables later has no effect (change the password in the portal).
-- Or open `https://<host>/manage/setup`. Set `SETUP_TOKEN` first, otherwise whoever reaches the page first becomes admin.
+Open `https://<host>/manage/setup` and create the admin. Set `SETUP_TOKEN` first. Without it, whoever reaches the page first becomes admin.
 
 ## Verify
 

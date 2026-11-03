@@ -34,10 +34,10 @@ pnpm install
 ```
 
 ```bash
-SEED_DEMO=true ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD=password123 pnpm dev
+SEED_DEMO=true SETUP_TOKEN=replace-me pnpm dev
 ```
 
-Open http://localhost:3000 for the status page and http://localhost:3000/manage for the portal. Without `DATABASE_URL` the in-memory store is used, which is perfect for trying things out (data is lost on restart).
+Open http://localhost:3000 for the status page and http://localhost:3000/manage/setup to create the first admin (use the `SETUP_TOKEN` above). Without `DATABASE_URL` the in-memory store is used, which is perfect for trying things out (data is lost on restart).
 
 With Docker and Postgres:
 
@@ -58,14 +58,14 @@ docker compose up --build
 
 Every option is configured with environment variables; the full reference is in [docs/deployment.md](docs/deployment.md) and [`.env.example`](.env.example). The essentials:
 
-| Variable                         | Purpose                                                                                  |
-| -------------------------------- | ---------------------------------------------------------------------------------------- |
-| `DATABASE_URL`                   | `postgres://…`, `mongodb://…` or unset for memory. Tables/indexes are created on boot.   |
-| `SITE_URL`                       | Public URL, used in notification links.                                                  |
-| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Creates the first admin on boot. Or visit `/manage/setup` (guard it with `SETUP_TOKEN`). |
-| `CACHE_TTL`                      | How long cached reads are fresh (default `30s`).                                         |
-| `EMAIL_FROM` + SendGrid or SES   | Enables email subscriptions.                                                             |
-| `WEBHOOK_SECRET`                 | Signs webhook payloads (`x-incident-command-signature: sha256=…`).                       |
+| Variable                       | Purpose                                                                                                           |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                 | `postgres://…`, `mongodb://…` or unset for memory. Tables/indexes are created on boot.                            |
+| `SITE_URL`                     | Public URL, used in notification links.                                                                           |
+| `SETUP_TOKEN`                  | Required to create the first admin at `/manage/setup`. Without it, whoever reaches that page first becomes admin. |
+| `CACHE_TTL`                    | How long cached reads are fresh (default `30s`).                                                                  |
+| `EMAIL_FROM` + SendGrid or SES | Enables email subscriptions.                                                                                      |
+| `WEBHOOK_SECRET`               | Signs webhook payloads (`x-incident-command-signature: sha256=…`).                                                |
 
 Health check: `GET /api/health` returns `ok`, `degraded` (database offline, cached data still served) or `503` when the app cannot start.
 

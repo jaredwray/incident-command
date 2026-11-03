@@ -18,7 +18,7 @@ export interface Services {
 	sessions: SessionService;
 	agents: AgentService;
 	subscribers: SubscriberService;
-	/** Idempotent first-boot tasks such as creating the admin from env vars. */
+	/** Idempotent first-boot tasks, such as seeding demo data. */
 	bootstrap(): Promise<void>;
 }
 
@@ -42,10 +42,6 @@ export function createServices(ctx: ServiceContext): Services {
 		agents,
 		subscribers,
 		async bootstrap() {
-			const admin = ctx.config.admin;
-			if (admin && (await members.count()) === 0) {
-				await members.setup(admin, ctx.config.setupToken);
-			}
 			if (ctx.config.seedDemo && (await ctx.store.count("components")) === 0) {
 				await seedDemo(ctx);
 			}

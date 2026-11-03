@@ -42,13 +42,13 @@ Cloud Run has no fixed outbound IP. Either allow `0.0.0.0/0` in the Atlas IP acc
 
 ```bash
 printf '%s' "$DATABASE_URL" | gcloud secrets create incident-command-database-url --data-file=-
-printf '%s' 'CHOOSE_AN_ADMIN_PASSWORD' | gcloud secrets create incident-command-admin-password --data-file=-
+printf '%s' 'CHOOSE_A_LONG_TOKEN' | gcloud secrets create incident-command-setup-token --data-file=-
 
 gcloud iam service-accounts create incident-command
 export SA=incident-command@$PROJECT_ID.iam.gserviceaccount.com
 gcloud projects add-iam-policy-binding $PROJECT_ID \
   --member=serviceAccount:$SA --role=roles/cloudsql.client
-for s in incident-command-database-url incident-command-admin-password; do
+for s in incident-command-database-url incident-command-setup-token; do
   gcloud secrets add-iam-policy-binding $s \
     --member=serviceAccount:$SA --role=roles/secretmanager.secretAccessor
 done
@@ -66,8 +66,7 @@ gcloud run deploy incident-command \
   --port=3000 \
   --service-account=$SA \
   --add-cloudsql-instances=$INSTANCE \
-  --set-secrets=DATABASE_URL=incident-command-database-url:latest,ADMIN_PASSWORD=incident-command-admin-password:latest \
-  --set-env-vars=ADMIN_EMAIL=admin@example.com \
+  --set-secrets=DATABASE_URL=incident-command-database-url:latest,SETUP_TOKEN=incident-command-setup-token:latest \
   --min-instances=1 \
   --max-instances=2
 ```
@@ -93,18 +92,17 @@ The Cloud Build service account needs `roles/run.admin` and `roles/iam.serviceAc
 
 ## Required environment variables
 
-| Variable                                           | How                                         |
-| -------------------------------------------------- | ------------------------------------------- |
-| `DATABASE_URL`                                     | Secret Manager (`--set-secrets`)            |
-| `SITE_URL`                                         | `--update-env-vars`, after the first deploy |
-| `ADMIN_EMAIL` + `ADMIN_PASSWORD`, or `SETUP_TOKEN` | First admin                                 |
+| Variable       | How                                         |
+| -------------- | ------------------------------------------- |
+| `DATABASE_URL` | Secret Manager (`--set-secrets`)            |
+| `SITE_URL`     | `--update-env-vars`, after the first deploy |
+| `SETUP_TOKEN`  | First admin at `/manage/setup`              |
 
 Cloud Run sets `PORT` itself (`--port=3000`). Email via SES: set `EMAIL_FROM`, `AWS_SES_REGION` and secrets for `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`. Full list: [docs/deployment.md](../../docs/deployment.md#environment-variables).
 
 ## First admin
 
-- `ADMIN_EMAIL` + `ADMIN_PASSWORD` (at least 8 characters) create the admin on first boot while no members exist. Changing them later has no effect; change the password in the portal.
-- Or open `$URL/manage/setup`. Set `SETUP_TOKEN` first, otherwise whoever reaches the page first becomes admin.
+Open `$URL/manage/setup` and create the admin. Set `SETUP_TOKEN` first. Without it, whoever reaches the page first becomes admin.
 
 ## Verify
 

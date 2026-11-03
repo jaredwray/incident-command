@@ -28,7 +28,6 @@ export interface Config {
 	siteName: string;
 	sessionTtl: number;
 	setupToken?: string;
-	admin?: { email: string; password: string; name: string };
 	email?: EmailConfig;
 	twilio?: { accountSid: string; authToken: string; sendGridApiKey?: string };
 	aws?: { region: string; accessKeyId?: string; secretAccessKey?: string };
@@ -96,9 +95,6 @@ const envSchema = z.object({
 	SITE_NAME: optional,
 	SESSION_TTL: duration("7d"),
 	SETUP_TOKEN: optional,
-	ADMIN_EMAIL: z.email().optional(),
-	ADMIN_PASSWORD: optional,
-	ADMIN_NAME: optional,
 	EMAIL_FROM: optional,
 	EMAIL_PROVIDER: z.enum(["sendgrid", "ses"]).optional(),
 	TWILIO_ACCOUNT_SID: optional,
@@ -177,14 +173,6 @@ export function loadConfig(
 		siteName: env.SITE_NAME ?? "Status",
 		sessionTtl: env.SESSION_TTL,
 		setupToken: env.SETUP_TOKEN,
-		admin:
-			env.ADMIN_EMAIL && env.ADMIN_PASSWORD
-				? {
-						email: env.ADMIN_EMAIL,
-						password: env.ADMIN_PASSWORD,
-						name: env.ADMIN_NAME ?? "Admin",
-					}
-				: undefined,
 		email: emailConfig(env),
 		twilio:
 			env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN

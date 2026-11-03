@@ -12,7 +12,7 @@ The repo's [`Dockerfile`](../../Dockerfile) builds a small Node 24 image that ru
 ```bash
 git clone https://github.com/jaredwray/incident-command.git
 cd incident-command
-cp .env.example .env        # set SITE_URL, ADMIN_EMAIL, ADMIN_PASSWORD at least
+cp .env.example .env        # set SITE_URL and SETUP_TOKEN at least
 docker compose up -d --build
 docker compose logs -f app
 ```
@@ -30,7 +30,7 @@ docker build -t incident-command .
 docker run -d --name incident-command --restart unless-stopped -p 3000:3000 \
   -e DATABASE_URL='postgres://USER:PASSWORD@DB_HOST:5432/incident_command' \
   -e SITE_URL=https://status.example.com \
-  -e ADMIN_EMAIL=admin@example.com -e ADMIN_PASSWORD='CHOOSE_A_PASSWORD' \
+  -e SETUP_TOKEN='CHOOSE_A_LONG_TOKEN' \
   incident-command
 ```
 
@@ -53,7 +53,7 @@ These platforms build the `Dockerfile` straight from the repo. Point their healt
 ```bash
 fly launch --no-deploy        # detects the Dockerfile; internal_port = 3000
 fly secrets set DATABASE_URL='postgres://...' SITE_URL=https://<app>.fly.dev \
-  ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD='CHOOSE_A_PASSWORD'
+  SETUP_TOKEN='CHOOSE_A_LONG_TOKEN'
 fly deploy
 ```
 
@@ -73,18 +73,17 @@ These hosts set `PORT` themselves; the server listens on whatever `PORT` says. I
 
 ## Required environment variables
 
-| Variable                                           | Notes                                                                                      |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `DATABASE_URL`                                     | `postgres://…` or `mongodb://…`. Unset means the in-memory store: data is lost on restart. |
-| `SITE_URL`                                         | Public URL, used in notification links.                                                    |
-| `ADMIN_EMAIL` + `ADMIN_PASSWORD`, or `SETUP_TOKEN` | First admin.                                                                               |
+| Variable       | Notes                                                                                      |
+| -------------- | ------------------------------------------------------------------------------------------ |
+| `DATABASE_URL` | `postgres://…` or `mongodb://…`. Unset means the in-memory store: data is lost on restart. |
+| `SITE_URL`     | Public URL, used in notification links.                                                    |
+| `SETUP_TOKEN`  | Required to create the first admin at `/manage/setup`.                                     |
 
 Optional: `WEBHOOK_SECRET`, email settings, cache and session tuning. Full list: [docs/deployment.md](../../docs/deployment.md#environment-variables).
 
 ## First admin
 
-- `ADMIN_EMAIL` + `ADMIN_PASSWORD` (at least 8 characters) create the admin on first boot while no members exist. Changing them later has no effect; change the password in the portal.
-- Or open `https://<host>/manage/setup`. Set `SETUP_TOKEN` first, otherwise whoever reaches the page first becomes admin.
+Open `https://<host>/manage/setup` and create the admin. Set `SETUP_TOKEN` first. Without it, whoever reaches the page first becomes admin.
 
 ## Verify
 

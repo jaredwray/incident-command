@@ -9,7 +9,7 @@ Builds the repo's `Dockerfile` on App Platform and attaches a managed Postgres d
 
 ## Steps
 
-1. Edit [`app.yaml`](app.yaml): `region`, `github.repo`/`branch` if you use a fork, and `ADMIN_EMAIL` / `ADMIN_PASSWORD`.
+1. Edit [`app.yaml`](app.yaml): `region`, `github.repo`/`branch` if you use a fork, and `SETUP_TOKEN`.
 2. Create the app:
 
    ```bash
@@ -27,11 +27,11 @@ Builds the repo's `Dockerfile` on App Platform and attaches a managed Postgres d
 
 ## Required environment variables
 
-| Variable                                           | Value in `app.yaml`                                                    |
-| -------------------------------------------------- | ---------------------------------------------------------------------- |
-| `DATABASE_URL`                                     | `${db.DATABASE_URL}&uselibpqcompat=true` (bound to the `db` component) |
-| `SITE_URL`                                         | `${APP_URL}`; set it to your custom domain once you add one            |
-| `ADMIN_EMAIL` + `ADMIN_PASSWORD`, or `SETUP_TOKEN` | First admin                                                            |
+| Variable       | Value in `app.yaml`                                                    |
+| -------------- | ---------------------------------------------------------------------- |
+| `DATABASE_URL` | `${db.DATABASE_URL}&uselibpqcompat=true` (bound to the `db` component) |
+| `SITE_URL`     | `${APP_URL}`; set it to your custom domain once you add one            |
+| `SETUP_TOKEN`  | First admin at `/manage/setup`                                         |
 
 The `uselibpqcompat=true` suffix is needed because node-postgres treats `sslmode=require` as full certificate verification, and DigitalOcean databases use DigitalOcean's own CA. With it, the connection stays encrypted but the certificate chain is not verified. If the app logs a certificate or connection error at boot, set `DATABASE_URL` by hand to the database's connection string (Databases → your database → Connection details) with `sslmode=no-verify` in place of `sslmode=require`.
 
@@ -39,8 +39,7 @@ Email, webhooks and the rest: [docs/deployment.md](../../docs/deployment.md#envi
 
 ## First admin
 
-- `ADMIN_EMAIL` + `ADMIN_PASSWORD` (at least 8 characters) create the admin on first boot while no members exist. Changing them later has no effect; change the password in the portal.
-- Or open `https://<app-url>/manage/setup`. Set `SETUP_TOKEN` first, otherwise whoever reaches the page first becomes admin.
+Open `https://<app-url>/manage/setup` and create the admin. Set `SETUP_TOKEN` first. Without it, whoever reaches the page first becomes admin.
 
 ## Verify
 
