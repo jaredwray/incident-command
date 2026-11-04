@@ -122,6 +122,63 @@ curl https://incident-command.<your-subdomain>.workers.dev/api/health
 curl https://incident-command.<your-subdomain>.workers.dev/api/v1/status
 ```
 
+## Development Worker (GitHub Actions)
+
+The [`deploy-development`](../../.github/workflows/deploy-development.yml) workflow deploys the `incident-command-development` Worker to <https://dev.incident-command.org>. It runs on each push to `main`. You can also start it manually from the Actions tab. The job uses the `development` GitHub environment. The Worker settings are in the `env.development` block of [`wrangler.jsonc`](../../wrangler.jsonc).
+
+The workflow does these steps:
+
+1. It installs the dependencies through Socket Firewall.
+2. It runs `opennextjs-cloudflare build --env development`.
+3. It runs `wrangler deploy --env development`. Wrangler finds the OpenNext project and runs `opennextjs-cloudflare deploy`, which then runs `wrangler deploy`.
+
+The `development` environment in `wrangler.jsonc` sets these items:
+
+- The Worker name is `incident-command-development`.
+- The Worker has the custom domain `dev.incident-command.org`. The `workers.dev` URL and preview URLs are off.
+- Workers Logs keeps all `console` output and all invocation logs (`head_sampling_rate: 1`).
+- `SITE_URL` is `https://dev.incident-command.org`.
+
+An environment does not inherit `vars` or bindings such as `hyperdrive`. To use Hyperdrive for this Worker, add a `hyperdrive` block inside `env.development`.
+
+### One-time setup
+
+1. Add the `incident-command.org` zone to the Cloudflare account that hosts the Worker. Wrangler creates the DNS record and the certificate for `dev.incident-command.org`. If a CNAME record for that hostname exists, delete it first.
+2. Create a Cloudflare API token. Use the "Edit Cloudflare Workers" template, and limit it to the account and the `incident-command.org` zone. The token must have these permissions:
+   - Account > Workers Scripts > Edit
+   - Zone > Workers Routes > Edit, for `incident-command.org`
+3. In the GitHub repository, open **Settings > Environments** and create the `development` environment. You can add a deployment branch rule that allows only `main`.
+4. Add these environment secrets to `development`:
+
+   | Secret                  | Value                                     |
+   | ----------------------- | ----------------------------------------- |
+   | `CLOUDFLARE_API_TOKEN`  | The API token from step 2.                |
+   | `CLOUDFLARE_ACCOUNT_ID` | The account ID of the Cloudflare account. |
+
+5. Set the Worker secrets (see the next section) before the first deploy.
+
+### Worker secrets
+
+The workflow does not set Worker secrets. Wrangler keeps them between deploys, so set each secret one time:
+
+```bash
+npx wrangler secret put DATABASE_URL --env development
+```
+
+```bash
+npx wrangler secret put SETUP_TOKEN --env development
+```
+
+If the Worker does not exist yet, wrangler asks to create it.
+
+| Secret           | Needed | Notes                                                                                                                                        |
+| ---------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`   | Yes    | Postgres connection string. Without it, each isolate uses its own memory store and loses its data. Do not set it with the Hyperdrive bridge. |
+| `SETUP_TOKEN`    | Yes    | Protects `/manage/setup`. Without it, the first visitor becomes admin.                                                                       |
+| `WEBHOOK_SECRET` | No     | Signs webhook payloads. Workers do not send notifications now, so this secret has no effect.                                                 |
+
+Do not set the email secrets. Workers do not send subscriber notifications.
+
 ## Notes and scaling
 
 - Workers run many isolates across Cloudflare's network. Each isolate has its own in-process cache, so reads can be up to `CACHE_TTL` (default `30s`) stale between isolates. Sessions and API tokens are not cached, so sign-outs and token revocations apply immediately.
