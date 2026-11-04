@@ -24,7 +24,7 @@ describe("store factory", () => {
 		expect(memory).toBeInstanceOf(MemoryStore);
 		const postgres = (await createBaseStore(
 			loadConfig({
-				DATABASE_URL: "postgres://db/x",
+				DATABASE_URI: "postgres://db/x",
 				DATABASE_TABLE_PREFIX: "t_",
 			}).store,
 		)) as unknown as {
@@ -38,7 +38,7 @@ describe("store factory", () => {
 			pool: true,
 		});
 		const mongo = (await createBaseStore(
-			loadConfig({ DATABASE_URL: "mongodb://db", DATABASE_NAME: "status" })
+			loadConfig({ DATABASE_URI: "mongodb://db", DATABASE_NAME: "status" })
 				.store,
 		)) as unknown as {
 			kind: string;

@@ -30,7 +30,7 @@ services:
       # treats that as full certificate verification, which fails against
       # DigitalOcean's own CA; uselibpqcompat=true keeps TLS without verifying
       # the certificate chain.
-      - key: DATABASE_URL
+      - key: DATABASE_URI
         scope: RUN_TIME
         value: "${db.DATABASE_URL}&uselibpqcompat=true"
       - key: SITE_URL

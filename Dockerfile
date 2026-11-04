@@ -4,7 +4,7 @@
 #
 #   docker build -t incident-command .
 #   docker run -p 3000:3000 \
-#     -e DATABASE_URL=postgres://user:pass@db-host:5432/incident_command \
+#     -e DATABASE_URI=postgres://user:pass@db-host:5432/incident_command \
 #     -e SITE_URL=http://localhost:3000 \
 #     incident-command
 #

@@ -12,7 +12,7 @@
 # `localhost`.
 #
 # Using MongoDB instead of Postgres:
-#   1. In .env set:  DATABASE_URL=mongodb://mongo:27017/incident_command
+#   1. In .env set:  DATABASE_URI=mongodb://mongo:27017/incident_command
 #   2. docker compose --profile mongo up -d --build
 #   (Postgres still starts but is unused; data does not move between databases.)
 
@@ -32,7 +32,7 @@ services:
     environment:
       PORT: "3000"
       HOSTNAME: 0.0.0.0
-      DATABASE_URL: ${DATABASE_URL:-postgres://incident:incident@postgres:5432/incident_command}
+      DATABASE_URI: ${DATABASE_URI:-postgres://incident:incident@postgres:5432/incident_command}
       SITE_URL: ${SITE_URL:-http://localhost:3000}
       # Create the first admin at /manage/setup. Set SETUP_TOKEN in .env so
       # that page is not open to whoever reaches it first.

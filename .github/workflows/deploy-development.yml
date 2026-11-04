@@ -4,7 +4,7 @@ name: deploy-development
 # The "development" GitHub environment holds the Cloudflare credentials:
 #   CLOUDFLARE_API_TOKEN   secret: API token that can deploy Workers
 #   CLOUDFLARE_ACCOUNT_ID  secret: the Cloudflare account ID
-# Worker secrets (DATABASE_URL, SETUP_TOKEN, ...) stay on the Worker.
+# Worker secrets (DATABASE_URI, SETUP_TOKEN, ...) stay on the Worker.
 # See deploy/cloudflare/README.md.
 
 on:

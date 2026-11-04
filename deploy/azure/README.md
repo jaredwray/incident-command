@@ -30,7 +30,7 @@ az postgres flexible-server create \
 az postgres flexible-server db create --resource-group $RG \
   --server-name incident-command-db --database-name incident_command
 
-export DATABASE_URL="postgresql://incident:CHOOSE_A_DB_PASSWORD@incident-command-db.postgres.database.azure.com:5432/incident_command?sslmode=verify-full"
+export DATABASE_URI="postgresql://incident:CHOOSE_A_DB_PASSWORD@incident-command-db.postgres.database.azure.com:5432/incident_command?sslmode=verify-full"
 ```
 
 `--public-access 0.0.0.0` allows connections from Azure services; use VNet integration for private networking. Azure's server certificates chain to public roots, so `sslmode=verify-full` works. Tables are created on first boot.
@@ -40,7 +40,7 @@ export DATABASE_URL="postgresql://incident:CHOOSE_A_DB_PASSWORD@incident-command
 Create an **Azure Cosmos DB for MongoDB (vCore)** cluster in the portal, allow access from Azure services, and copy its connection string. It is MongoDB-compatible but not identical, so test it before relying on it. The connection string usually names no database, so also set `DATABASE_NAME`:
 
 ```bash
-export DATABASE_URL='mongodb+srv://USER:PASSWORD@CLUSTER.mongocluster.cosmos.azure.com/?tls=true&authMechanism=SCRAM-SHA-256&retrywrites=false&maxIdleTimeMS=120000'
+export DATABASE_URI='mongodb+srv://USER:PASSWORD@CLUSTER.mongocluster.cosmos.azure.com/?tls=true&authMechanism=SCRAM-SHA-256&retrywrites=false&maxIdleTimeMS=120000'
 # and add DATABASE_NAME=incident_command to --set-env-vars below
 ```
 
@@ -65,10 +65,10 @@ FQDN=$(az containerapp show --name incident-command --resource-group $RG \
   --query properties.configuration.ingress.fqdn -o tsv)
 
 az containerapp secret set --name incident-command --resource-group $RG \
-  --secrets database-url="$DATABASE_URL" setup-token='CHOOSE_A_LONG_TOKEN'
+  --secrets database-url="$DATABASE_URI" setup-token='CHOOSE_A_LONG_TOKEN'
 
 az containerapp update --name incident-command --resource-group $RG \
-  --set-env-vars DATABASE_URL=secretref:database-url SETUP_TOKEN=secretref:setup-token \
+  --set-env-vars DATABASE_URI=secretref:database-url SETUP_TOKEN=secretref:setup-token \
     SITE_URL=https://$FQDN HOSTNAME=0.0.0.0 \
   --min-replicas 1 --max-replicas 3
 ```
@@ -81,7 +81,7 @@ Redeploy after code changes with the same `az containerapp up` command.
 
 | Variable       | How                                   |
 | -------------- | ------------------------------------- |
-| `DATABASE_URL` | Secret (`secretref:`)                 |
+| `DATABASE_URI` | Secret (`secretref:`)                 |
 | `SITE_URL`     | `https://$FQDN` or your custom domain |
 | `SETUP_TOKEN`  | First admin at `/manage/setup`        |
 

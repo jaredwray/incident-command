@@ -19,7 +19,7 @@
 	//   npx wrangler hyperdrive create incident-command --connection-string="postgres://USER:PASSWORD@HOST:5432/DB"
 	// then uncomment and paste the returned id. `localConnectionString` is used
 	// by `pnpm cf:preview`. See deploy/cloudflare/README.md for wiring it to
-	// DATABASE_URL.
+	// DATABASE_URI.
 	// "hyperdrive": [
 	// 	{
 	// 		"binding": "HYPERDRIVE",
@@ -28,7 +28,7 @@
 	// 	}
 	// ],
 	// Non-secret configuration. Set secrets with `npx wrangler secret put NAME`
-	// (DATABASE_URL, SETUP_TOKEN, WEBHOOK_SECRET,
+	// (DATABASE_URI, SETUP_TOKEN, WEBHOOK_SECRET,
 	// email provider keys).
 	"vars": {
 		"SITE_URL": "https://status.example.com",

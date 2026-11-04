@@ -41,7 +41,7 @@ aws rds create-db-instance \
 aws rds wait db-instance-available --db-instance-identifier incident-command-db
 DB_HOST=$(aws rds describe-db-instances --db-instance-identifier incident-command-db \
   --query 'DBInstances[0].Endpoint.Address' --output text)
-export DATABASE_URL="postgresql://incident:CHOOSE_A_DB_PASSWORD@$DB_HOST:5432/incident_command?uselibpqcompat=true&sslmode=require"
+export DATABASE_URI="postgresql://incident:CHOOSE_A_DB_PASSWORD@$DB_HOST:5432/incident_command?uselibpqcompat=true&sslmode=require"
 ```
 
 RDS requires TLS, and its CA is not in Node's trust store; `uselibpqcompat=true&sslmode=require` encrypts without verifying the chain (see [TLS for Postgres](../../docs/deployment.md#tls-for-postgres)). The database security group must allow port 5432 from the app's security group. Tables are created on first boot.
@@ -52,7 +52,7 @@ RDS requires TLS, and its CA is not in Node's trust store; `uselibpqcompat=true&
 
 ```bash
 DB_SECRET_ARN=$(aws secretsmanager create-secret --name incident-command/database-url \
-  --secret-string "$DATABASE_URL" --query ARN --output text)
+  --secret-string "$DATABASE_URI" --query ARN --output text)
 SETUP_SECRET_ARN=$(aws secretsmanager create-secret --name incident-command/setup-token \
   --secret-string 'CHOOSE_A_LONG_TOKEN' --query ARN --output text)
 ```
@@ -104,7 +104,7 @@ cat > /tmp/apprunner-service.json <<EOF
           "AWS_SES_REGION": "$AWS_REGION"
         },
         "RuntimeEnvironmentSecrets": {
-          "DATABASE_URL": "$DB_SECRET_ARN",
+          "DATABASE_URI": "$DB_SECRET_ARN",
           "SETUP_TOKEN": "$SETUP_SECRET_ARN"
         }
       }
@@ -174,7 +174,7 @@ To roll out a new image: push it, then `aws ecs update-service --cluster inciden
 
 | Variable                       | How                            |
 | ------------------------------ | ------------------------------ |
-| `DATABASE_URL`                 | Secrets Manager                |
+| `DATABASE_URI`                 | Secrets Manager                |
 | `SITE_URL`                     | Plain variable: the public URL |
 | `SETUP_TOKEN`                  | First admin at `/manage/setup` |
 | `EMAIL_FROM`, `AWS_SES_REGION` | Optional, for SES email        |

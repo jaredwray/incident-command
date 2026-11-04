@@ -24,7 +24,7 @@
 			],
 			"secrets": [
 				{
-					"name": "DATABASE_URL",
+					"name": "DATABASE_URI",
 					"valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:incident-command/database-url-XXXXXX"
 				},
 				{

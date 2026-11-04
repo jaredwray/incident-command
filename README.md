@@ -14,7 +14,7 @@
 - **Manage portal** at `/manage`: declare incidents, post updates, manage components, members (viewer/editor/admin), agent tokens, subscribers and branding.
 - **Skinnable:** Tailwind CSS v4 on top of CSS design tokens. Pick a theme preset, set a brand color, logo and custom CSS from the portal, or add your own preset. See [docs/theming.md](docs/theming.md).
 - **Runs anywhere:** Docker image for any container host, plus guides for Cloudflare, DigitalOcean, Google Cloud, AWS and Azure. See [docs/deployment.md](docs/deployment.md).
-- **Pluggable storage:** PostgreSQL, MongoDB or in-memory, chosen from `DATABASE_URL`. Adding an adapter means implementing one small interface.
+- **Pluggable storage:** PostgreSQL, MongoDB or in-memory, chosen from `DATABASE_URI`. Adding an adapter means implementing one small interface.
 - **Keeps working when the database doesn't:** reads go through a [cacheable](https://cacheable.org) layer that never expires entries while the database is offline, so the status page keeps serving the last known state during an outage.
 - **Notifications with [airhorn](https://airhorn.org):** signed webhooks (Slack and Discord compatible) and double opt-in email via SendGrid or Amazon SES.
 
@@ -37,7 +37,7 @@ pnpm install
 SEED_DEMO=true SETUP_TOKEN=replace-me pnpm dev
 ```
 
-Open http://localhost:3000 for the status page and http://localhost:3000/manage/setup to create the first admin (use the `SETUP_TOKEN` above). Without `DATABASE_URL` the in-memory store is used, which is perfect for trying things out (data is lost on restart).
+Open http://localhost:3000 for the status page and http://localhost:3000/manage/setup to create the first admin (use the `SETUP_TOKEN` above). Without `DATABASE_URI` the in-memory store is used, which is perfect for trying things out (data is lost on restart).
 
 With Docker and Postgres:
 
@@ -60,7 +60,7 @@ Every option is configured with environment variables; the full reference is in 
 
 | Variable                       | Purpose                                                                                                           |
 | ------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`                 | `postgres://…`, `mongodb://…` or unset for memory. Tables/indexes are created on boot.                            |
+| `DATABASE_URI`                 | `postgres://…`, `mongodb://…` or unset for memory. Tables/indexes are created on boot.                            |
 | `SITE_URL`                     | Public URL, used in notification links.                                                                           |
 | `SETUP_TOKEN`                  | Required to create the first admin at `/manage/setup`. Without it, whoever reaches that page first becomes admin. |
 | `CACHE_TTL`                    | How long cached reads are fresh (default `30s`).                                                                  |
