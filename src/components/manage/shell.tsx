@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { logoutAction } from "@/app/manage/actions";
+import { WatchtowerLogo } from "@/components/watchtower-logo";
 import { hasRole, ROLE_LABELS } from "@/lib/domain/status";
 import type { PublicMember, Role } from "@/lib/domain/types";
 import type { StoreHealth } from "@/lib/store/cached";
@@ -79,11 +80,14 @@ export function ManageShell({
 	return (
 		<div className="min-h-dvh lg:grid lg:grid-cols-[240px_1fr]">
 			<aside className="border-b border-border bg-surface lg:min-h-dvh lg:border-r lg:border-b-0">
-				<div className="flex items-center justify-between px-5 py-4 lg:block">
-					<Link href="/manage" className="block font-semibold tracking-tight">
-						{siteName}
+				<div className="px-5 py-4">
+					<Link
+						href="/manage"
+						className="flex items-center gap-3 font-semibold tracking-tight"
+					>
+						<WatchtowerLogo />
+						<span className="min-w-0 break-words">{siteName}</span>
 					</Link>
-					<p className="text-xs text-muted lg:mt-1">Incident command</p>
 				</div>
 				<nav
 					className="flex gap-1 overflow-x-auto px-3 pb-3 lg:flex-col lg:pb-0"
@@ -154,7 +158,12 @@ export function AuthLayout({
 }) {
 	return (
 		<main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-4 py-12">
-			<p className="text-sm font-medium text-muted">{siteName}</p>
+			<div className="mb-3 flex items-center gap-3">
+				<WatchtowerLogo />
+				<p className="min-w-0 text-sm font-medium break-words text-muted">
+					{siteName}
+				</p>
+			</div>
 			<h1 className="mt-1 mb-6 text-2xl font-semibold tracking-tight">
 				{title}
 			</h1>

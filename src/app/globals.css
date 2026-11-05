@@ -21,6 +21,7 @@
 	--color-border: var(--ic-border);
 	--color-brand: var(--ic-brand);
 	--color-brand-fg: var(--ic-brand-fg);
+	--color-logo: var(--ic-logo);
 	--color-operational: var(--ic-operational);
 	--color-degraded: var(--ic-degraded);
 	--color-partial: var(--ic-partial);
