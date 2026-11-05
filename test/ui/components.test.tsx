@@ -5,7 +5,9 @@ import {
 	screen,
 	waitFor,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { StatusIcon } from "@/components/icons";
+import { AddSubscriberForm } from "@/components/manage/add-subscriber-form";
 import { ConfirmButton } from "@/components/manage/confirm-button";
 import { CreateAgentForm } from "@/components/manage/create-agent-form";
 import { statusesFor } from "@/components/manage/incident-fields";
@@ -87,6 +89,37 @@ describe("CreateAgentForm", () => {
 		expect(screen.getByRole("button", { name: "Creating…" })).toBeDisabled();
 		await act(async () => finish({ error: "name: Too small" }));
 		expect(screen.getByRole("alert")).toHaveTextContent("name: Too small");
+	});
+});
+
+describe("AddSubscriberForm", () => {
+	it("switches the destination field with the type and drops the old value", async () => {
+		const user = userEvent.setup();
+		render(<AddSubscriberForm emailEnabled />);
+		expect(screen.getByRole("radio", { name: /Webhook/ })).toBeChecked();
+		const url = screen.getByLabelText("Webhook URL");
+		expect(url).toHaveAttribute("type", "url");
+		expect(url).toHaveAttribute(
+			"placeholder",
+			"https://hooks.slack.com/services/…",
+		);
+		await user.type(url, "https://hooks.example.com");
+		await user.click(screen.getByText("Send updates to an address."));
+		expect(screen.getByRole("radio", { name: /Email/ })).toBeChecked();
+		expect(screen.queryByLabelText("Webhook URL")).not.toBeInTheDocument();
+		const email = screen.getByLabelText("Email address");
+		expect(email).toHaveAttribute("type", "email");
+		expect(email).toHaveAttribute("placeholder", "ops@example.com");
+		expect(email).toHaveValue("");
+	});
+
+	it("disables email when it is not configured", () => {
+		render(<AddSubscriberForm emailEnabled={false} />);
+		const email = screen.getByRole("radio", { name: /Email/ });
+		expect(email).toBeDisabled();
+		expect(screen.getByText("Not configured")).toBeInTheDocument();
+		expect(screen.getByRole("radio", { name: /Webhook/ })).toBeChecked();
+		expect(screen.getByLabelText("Webhook URL")).toHaveAttribute("type", "url");
 	});
 });
 
