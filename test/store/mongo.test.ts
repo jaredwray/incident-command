@@ -191,6 +191,50 @@ describe("MongoStore", () => {
 		await raw.dropDatabase();
 	});
 
+	it("completes a rename that stopped after the first collection", async () => {
+		const partialDb = `${dbName}_partial`;
+		const raw = client.db(partialDb);
+		await raw.collection("services").insertOne({
+			_id: "c1" as never,
+			...service("c1"),
+		});
+		await raw.collection("component_status_changes").insertOne({
+			_id: "s1" as never,
+			id: "s1",
+			componentId: "c1",
+			status: "major_outage",
+			previousStatus: "operational",
+			createdAt: "2026-01-02T00:00:00.000Z",
+		});
+		await raw.collection("incidents").insertOne({
+			_id: "i1" as never,
+			id: "i1",
+			componentIds: ["c1"],
+			title: "Down",
+		});
+		const resumed = new MongoStore({ client, dbName: partialDb });
+		await resumed.connect();
+		await expect(resumed.find("service_status_changes")).resolves.toEqual([
+			{
+				id: "s1",
+				serviceId: "c1",
+				status: "major_outage",
+				previousStatus: "operational",
+				createdAt: "2026-01-02T00:00:00.000Z",
+			},
+		]);
+		await expect(resumed.get("incidents", "i1")).resolves.toEqual({
+			id: "i1",
+			serviceIds: ["c1"],
+			title: "Down",
+		});
+		const names = (await raw.listCollections().toArray()).map(
+			(info) => info.name,
+		);
+		expect(names).not.toContain("component_status_changes");
+		await raw.dropDatabase();
+	});
+
 	it("keeps an old components collection when a services collection exists", async () => {
 		const raw = client.db(dbName);
 		await raw

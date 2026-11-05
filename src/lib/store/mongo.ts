@@ -181,9 +181,11 @@ export class MongoStore implements DocumentStore {
 
 	/**
 	 * Stores from older versions name services "components". This method
-	 * renames those collections and fields one time. It drops the indexes of
-	 * a renamed collection, and `connect` then creates the current ones. It
-	 * does nothing when the old collection is absent.
+	 * renames those collections and fields. It runs while an old collection
+	 * exists, so a boot that stops part way completes the work on the next
+	 * boot. Each step is safe to repeat. The field updates come first and
+	 * cover both the old and the new collection names. A renamed collection
+	 * loses its indexes, and `connect` then creates the current ones.
 	 */
 	private async renameComponents(db: Db): Promise<void> {
 		const existing = new Set(
@@ -191,28 +193,32 @@ export class MongoStore implements DocumentStore {
 				(info) => info.name,
 			),
 		);
-		if (!existing.has(`${this.prefix}components`)) {
+		const named = (collection: string) => `${this.prefix}${collection}`;
+		if (!RENAMED_COLLECTIONS.some(([from]) => existing.has(named(from)))) {
 			return;
 		}
-		for (const [from, to] of RENAMED_COLLECTIONS) {
-			if (
-				existing.has(`${this.prefix}${from}`) &&
-				!existing.has(`${this.prefix}${to}`)
-			) {
-				await db
-					.collection(`${this.prefix}${from}`)
-					.rename(`${this.prefix}${to}`);
-				await db.collection(`${this.prefix}${to}`).dropIndexes();
-			}
+		for (const changes of [
+			named("component_status_changes"),
+			named("service_status_changes"),
+		]) {
+			await db
+				.collection(changes)
+				.updateMany({ componentId: { $exists: true } }, [
+					{ $set: { serviceId: "$componentId" } },
+					{ $unset: "componentId" },
+				]);
 		}
-		await this.collection(db, "service_status_changes").updateMany(
-			{ componentId: { $exists: true } },
-			[{ $set: { serviceId: "$componentId" } }, { $unset: "componentId" }],
-		);
 		await this.collection(db, "incidents").updateMany(
 			{ componentIds: { $exists: true } },
 			[{ $set: { serviceIds: "$componentIds" } }, { $unset: "componentIds" }],
 		);
+		for (const [from, to] of RENAMED_COLLECTIONS) {
+			if (existing.has(named(from)) && !existing.has(named(to))) {
+				const source = db.collection(named(from));
+				await source.dropIndexes();
+				await source.rename(named(to));
+			}
+		}
 	}
 
 	/** Connects (when the client is ours) and creates every index. Safe to call on every boot. */
