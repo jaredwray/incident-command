@@ -67,7 +67,7 @@ Every option is configured with environment variables; the full reference is in 
 | `EMAIL_FROM` + SendGrid or SES | Enables email subscriptions.                                                                                      |
 | `WEBHOOK_SECRET`               | Signs webhook payloads (`x-incident-command-signature: sha256=…`).                                                |
 
-Health check: `GET /api/health` returns `ok`, `degraded` (database offline, cached data still served) or `503` when the app cannot start.
+Health check: `GET /healthz` returns `ok`, `degraded` (database offline, cached data still served) or `503` when the app cannot start.
 
 ## Connect an agent
 

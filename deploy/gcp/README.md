@@ -107,7 +107,7 @@ Open `$URL/manage/setup` and create the admin. Set `SETUP_TOKEN` first. Without 
 ## Verify
 
 ```bash
-curl $URL/api/health
+curl $URL/healthz
 # {"status":"ok","store":{...}}   ("degraded" while the database is down; 503 if the app cannot start)
 curl $URL/api/v1/status
 gcloud run services logs read incident-command --region=$REGION --limit=50
@@ -118,4 +118,4 @@ gcloud run services logs read incident-command --region=$REGION --limit=50
 - `--min-instances=1` avoids cold starts and keeps one warm in-process cache, which also keeps serving the last known data if the database goes offline. With `0`, an idle service scales to zero and the first request pays the startup cost.
 - Each instance has its own cache, so with several instances public reads can be up to `CACHE_TTL` (default `30s`) stale. Sessions and API tokens are not cached.
 - Each instance keeps its own Postgres connection pool (node-postgres defaults to 10 connections). Keep `--max-instances` × pool size under the database's limit (`db-f1-micro` allows 25), or pick a larger tier.
-- Cloud Run ignores the image's `HEALTHCHECK`. An HTTP liveness probe on `/api/health` is safe to add: it reports `degraded` with a 200 during a database outage, and 503 only when the app cannot start.
+- Cloud Run ignores the image's `HEALTHCHECK`. An HTTP liveness probe on `/healthz` is safe to add: it reports `degraded` with a 200 during a database outage, and 503 only when the app cannot start.

@@ -46,7 +46,7 @@ caddy reverse-proxy --from status.example.com --to localhost:3000
 
 ## Other container hosts
 
-These platforms build the `Dockerfile` straight from the repo. Point their health check at `/api/health`, set the variables below as secrets, and attach a managed Postgres.
+These platforms build the `Dockerfile` straight from the repo. Point their health check at `/healthz`, set the variables below as secrets, and attach a managed Postgres.
 
 ### Fly.io
 
@@ -57,15 +57,15 @@ fly secrets set DATABASE_URI='postgres://...' SITE_URL=https://<app>.fly.dev \
 fly deploy
 ```
 
-Create or attach a Postgres database first, and add an `[[http_service.checks]]` block with `path = "/api/health"` to `fly.toml`.
+Create or attach a Postgres database first, and add an `[[http_service.checks]]` block with `path = "/healthz"` to `fly.toml`.
 
 ### Render
 
-New **Web Service** from the repo with runtime **Docker**. Create a Render Postgres and set `DATABASE_URI` to its Internal Database URL. Health Check Path: `/api/health`.
+New **Web Service** from the repo with runtime **Docker**. Create a Render Postgres and set `DATABASE_URI` to its Internal Database URL. Health Check Path: `/healthz`.
 
 ### Railway
 
-New project from the GitHub repo (the Dockerfile is detected). Add a **PostgreSQL** service, set `DATABASE_URI=${{Postgres.DATABASE_URL}}` on the app, and set the healthcheck path to `/api/health`.
+New project from the GitHub repo (the Dockerfile is detected). Add a **PostgreSQL** service, set `DATABASE_URI=${{Postgres.DATABASE_URL}}` on the app, and set the healthcheck path to `/healthz`.
 
 ### Notes
 
@@ -88,7 +88,7 @@ Open `https://<host>/manage/setup` and create the admin. Set `SETUP_TOKEN` first
 ## Verify
 
 ```bash
-curl http://localhost:3000/api/health
+curl http://localhost:3000/healthz
 # {"status":"ok","store":{...}}   ("degraded" while the database is down; 503 if the app cannot start)
 curl http://localhost:3000/api/v1/status
 docker inspect --format '{{.State.Health.Status}}' incident-command   # healthy / unhealthy
@@ -98,4 +98,4 @@ docker inspect --format '{{.State.Health.Status}}' incident-command   # healthy 
 
 - Instances keep no state on disk; run as many as you like behind a load balancer, all pointing at the same database. Never scale out with the in-memory store: each instance would have its own data.
 - Each instance has its own in-process cache, so with several instances public reads can be up to `CACHE_TTL` (default `30s`) stale. Lower it if that matters. Sessions and API tokens are not cached.
-- If the database goes offline, each instance keeps serving its last known data and `/api/health` reports `"status":"degraded"` with a 200, so the container stays healthy. It returns 503 only when the app cannot start.
+- If the database goes offline, each instance keeps serving its last known data and `/healthz` reports `"status":"degraded"` with a 200, so the container stays healthy. It returns 503 only when the app cannot start.

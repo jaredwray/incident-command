@@ -120,7 +120,7 @@ cat > /tmp/apprunner-service.json <<EOF
     "InstanceRoleArn": "arn:aws:iam::$ACCOUNT_ID:role/incident-command-apprunner-instance"
   },
   "HealthCheckConfiguration": {
-    "Protocol": "HTTP", "Path": "/api/health",
+    "Protocol": "HTTP", "Path": "/healthz",
     "Interval": 10, "Timeout": 5, "HealthyThreshold": 1, "UnhealthyThreshold": 10
   },
   "NetworkConfiguration": {
@@ -158,7 +158,7 @@ Edit [`ecs-task-definition.json`](ecs-task-definition.json): replace `ACCOUNT_ID
 aws ecs register-task-definition --cli-input-json file://deploy/aws/ecs-task-definition.json
 
 TG_ARN=$(aws elbv2 create-target-group --name incident-command --protocol HTTP --port 3000 \
-  --target-type ip --vpc-id vpc-XXX --health-check-path /api/health \
+  --target-type ip --vpc-id vpc-XXX --health-check-path /healthz \
   --query 'TargetGroups[0].TargetGroupArn' --output text)
 # Create (or reuse) an internet-facing ALB with an HTTPS listener forwarding to $TG_ARN.
 
@@ -188,7 +188,7 @@ Open `https://<host>/manage/setup` and create the admin. Set `SETUP_TOKEN` first
 ## Verify
 
 ```bash
-curl https://<host>/api/health
+curl https://<host>/healthz
 # {"status":"ok","store":{...}}   ("degraded" while the database is down; 503 if the app cannot start)
 curl https://<host>/api/v1/status
 ```
@@ -198,4 +198,4 @@ curl https://<host>/api/v1/status
 - App Runner scales on concurrent requests (default auto scaling configuration); ECS scales with `--desired-count` or Service Auto Scaling.
 - Each instance has its own in-process cache, so with several instances public reads can be up to `CACHE_TTL` (default `30s`) stale. Sessions and API tokens are not cached.
 - Each instance keeps its own Postgres connection pool; size the RDS instance's connection limit accordingly.
-- `/api/health` stays at 200 (`"status":"degraded"`) when the database goes down after boot, so App Runner and ECS keep instances that are still serving cached data. It returns 503 only when the app cannot start, for example when the database is unreachable at boot.
+- `/healthz` stays at 200 (`"status":"degraded"`) when the database goes down after boot, so App Runner and ECS keep instances that are still serving cached data. It returns 503 only when the app cannot start, for example when the database is unreachable at boot.

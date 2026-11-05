@@ -44,7 +44,7 @@ Open `https://<app-url>/manage/setup` and create the admin. Set `SETUP_TOKEN` fi
 ## Verify
 
 ```bash
-curl https://<app-url>/api/health
+curl https://<app-url>/healthz
 # {"status":"ok","store":{...}}   ("degraded" while the database is down; 503 if the app cannot start)
 curl https://<app-url>/api/v1/status
 ```

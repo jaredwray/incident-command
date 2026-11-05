@@ -117,7 +117,7 @@ Open `https://<host>/manage/setup` and create the admin. Set `SETUP_TOKEN` first
 ## Verify
 
 ```bash
-curl https://incident-command.<your-subdomain>.workers.dev/api/health
+curl https://incident-command.<your-subdomain>.workers.dev/healthz
 # {"status":"ok","store":{...}}   ("degraded" while the database is down; 503 if the app cannot start)
 curl https://incident-command.<your-subdomain>.workers.dev/api/v1/status
 ```
