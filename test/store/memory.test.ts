@@ -16,7 +16,7 @@ describe("MemoryStore", () => {
 	runStoreContract(() => store);
 
 	it("returns copies so callers cannot mutate stored data", async () => {
-		await store.insert("components", {
+		await store.insert("services", {
 			id: "x",
 			name: "X",
 			status: "operational",
@@ -25,10 +25,10 @@ describe("MemoryStore", () => {
 			createdAt: "2026-01-01T00:00:00.000Z",
 			updatedAt: "2026-01-01T00:00:00.000Z",
 		});
-		const doc = await store.get("components", "x");
+		const doc = await store.get("services", "x");
 		if (doc) doc.name = "mutated";
-		const [found] = await store.find("components");
+		const [found] = await store.find("services");
 		if (found) found.name = "mutated";
-		expect((await store.get("components", "x"))?.name).toBe("X");
+		expect((await store.get("services", "x"))?.name).toBe("X");
 	});
 });

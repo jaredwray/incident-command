@@ -38,6 +38,12 @@ export interface MongoStoreOptions {
 
 type StoredDoc = Document & { _id: string };
 
+/** Collections that older versions named after "components". */
+const RENAMED_COLLECTIONS: readonly (readonly [string, CollectionName])[] = [
+	["components", "services"],
+	["component_status_changes", "service_status_changes"],
+];
+
 const IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const DUPLICATE_KEY = 11000;
 /** Never persist `undefined` as `null`, whatever the client's defaults are. */
@@ -173,10 +179,47 @@ export class MongoStore implements DocumentStore {
 			.toArray();
 	}
 
+	/**
+	 * Stores from older versions name services "components". This method
+	 * renames those collections and fields one time. It drops the indexes of
+	 * a renamed collection, and `connect` then creates the current ones. It
+	 * does nothing when the old collection is absent.
+	 */
+	private async renameComponents(db: Db): Promise<void> {
+		const existing = new Set(
+			(await db.listCollections({}, { nameOnly: true }).toArray()).map(
+				(info) => info.name,
+			),
+		);
+		if (!existing.has(`${this.prefix}components`)) {
+			return;
+		}
+		for (const [from, to] of RENAMED_COLLECTIONS) {
+			if (
+				existing.has(`${this.prefix}${from}`) &&
+				!existing.has(`${this.prefix}${to}`)
+			) {
+				await db
+					.collection(`${this.prefix}${from}`)
+					.rename(`${this.prefix}${to}`);
+				await db.collection(`${this.prefix}${to}`).dropIndexes();
+			}
+		}
+		await this.collection(db, "service_status_changes").updateMany(
+			{ componentId: { $exists: true } },
+			[{ $set: { serviceId: "$componentId" } }, { $unset: "componentId" }],
+		);
+		await this.collection(db, "incidents").updateMany(
+			{ componentIds: { $exists: true } },
+			[{ $set: { serviceIds: "$componentIds" } }, { $unset: "componentIds" }],
+		);
+	}
+
 	/** Connects (when the client is ours) and creates every index. Safe to call on every boot. */
 	async connect(): Promise<void> {
 		await this.owned?.connect();
 		await this.run(async (db) => {
+			await this.renameComponents(db);
 			for (const collection of COLLECTIONS) {
 				const indexes = INDEXES[collection];
 				if (indexes.length === 0) {

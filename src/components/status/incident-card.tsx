@@ -1,28 +1,28 @@
 import Link from "next/link";
 import { EVENT_STATUS_LABELS } from "@/lib/domain/status";
-import type { Component, Incident } from "@/lib/domain/types";
+import type { Incident, Service } from "@/lib/domain/types";
 import { LocalTime } from "../time";
 import { EventStatusBadge, eventColorStatus, STATUS_BG } from "./badges";
 
 export function affectedNames(
 	incident: Incident,
-	components: Component[],
+	services: Service[],
 ): string[] {
-	return components
-		.filter((component) => incident.componentIds.includes(component.id))
-		.map((component) => component.name);
+	return services
+		.filter((service) => incident.serviceIds.includes(service.id))
+		.map((service) => service.name);
 }
 
 /** Card for an open incident or maintenance showing its latest update. */
 export function IncidentCard({
 	incident,
-	components,
+	services,
 }: {
 	incident: Incident;
-	components: Component[];
+	services: Service[];
 }) {
 	const latest = incident.updates.at(-1);
-	const names = affectedNames(incident, components);
+	const names = affectedNames(incident, services);
 	const color = eventColorStatus(
 		incident.kind,
 		incident.impact,

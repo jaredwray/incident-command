@@ -1,8 +1,8 @@
 import { impactToStatus, worstStatus } from "../domain/status";
 import type {
-	Component,
-	ComponentStatus,
 	Incident,
+	Service,
+	ServiceStatus,
 	Settings,
 } from "../domain/types";
 import {
@@ -12,29 +12,29 @@ import {
 	type UptimeWindow,
 	uptimeWindow,
 } from "../domain/uptime";
-import type { ComponentService } from "./components";
+import type { ServiceCatalog } from "./catalog";
 import type { ServiceContext } from "./context";
 import type { IncidentService } from "./incidents";
 import type { SettingsService } from "./settings";
 
 export const RECENT_DAYS = 14;
 
-export interface ComponentView extends Component {
+export interface ServiceView extends Service {
 	uptime: number | null;
 	days: DayStatus[];
 }
 
-export interface ComponentGroupView {
+export interface ServiceGroupView {
 	name: string | null;
-	status: ComponentStatus;
-	components: ComponentView[];
+	status: ServiceStatus;
+	services: ServiceView[];
 }
 
 export interface StatusSummary {
 	settings: Settings;
-	overall: ComponentStatus;
-	groups: ComponentGroupView[];
-	components: ComponentView[];
+	overall: ServiceStatus;
+	groups: ServiceGroupView[];
+	services: ServiceView[];
 	activeIncidents: Incident[];
 	activeMaintenance: Incident[];
 	upcomingMaintenance: Incident[];
@@ -74,18 +74,18 @@ function monthStart(key: string): string {
 export class StatusService {
 	private readonly ctx: ServiceContext;
 	private readonly settings: SettingsService;
-	private readonly components: ComponentService;
+	private readonly catalog: ServiceCatalog;
 	private readonly incidents: IncidentService;
 
 	constructor(
 		ctx: ServiceContext,
 		settings: SettingsService,
-		components: ComponentService,
+		catalog: ServiceCatalog,
 		incidents: IncidentService,
 	) {
 		this.ctx = ctx;
 		this.settings = settings;
-		this.components = components;
+		this.catalog = catalog;
 		this.incidents = incidents;
 	}
 
@@ -96,9 +96,9 @@ export class StatusService {
 		const since = new Date(
 			Math.min(window.start.getTime(), now.getTime() - RECENT_DAYS * DAY_MS),
 		).toISOString();
-		const [components, changes, open, recent] = await Promise.all([
-			this.components.list({ includeHidden: false }),
-			this.ctx.store.find("component_status_changes", {
+		const [services, changes, open, recent] = await Promise.all([
+			this.catalog.list({ includeHidden: false }),
+			this.ctx.store.find("service_status_changes", {
 				where: [
 					{ field: "createdAt", op: "gte", value: window.start.toISOString() },
 				],
@@ -113,21 +113,21 @@ export class StatusService {
 		}
 		const relevant = [...byId.values()];
 
-		const views: ComponentView[] = components.map((component) => ({
-			...component,
-			...computeUptime(component, changes, relevant, window),
+		const views: ServiceView[] = services.map((service) => ({
+			...service,
+			...computeUptime(service, changes, relevant, window),
 		}));
 
-		const groups: ComponentGroupView[] = [];
+		const groups: ServiceGroupView[] = [];
 		for (const view of views) {
 			const name = view.group ?? null;
 			let group = groups.find((candidate) => candidate.name === name);
 			if (!group) {
-				group = { name, status: "operational", components: [] };
+				group = { name, status: "operational", services: [] };
 				groups.push(group);
 			}
-			group.components.push(view);
-			group.status = worstStatus(group.components.map((c) => c.status));
+			group.services.push(view);
+			group.status = worstStatus(group.services.map((c) => c.status));
 		}
 
 		const activeIncidents = open.filter(
@@ -154,14 +154,14 @@ export class StatusService {
 		const overall = worstStatus([
 			...views.map((view) => view.status),
 			...activeIncidents.map((incident) => impactToStatus(incident.impact)),
-			...activeMaintenance.map((): ComponentStatus => "under_maintenance"),
+			...activeMaintenance.map((): ServiceStatus => "under_maintenance"),
 		]);
 
 		return {
 			settings,
 			overall,
 			groups,
-			components: views,
+			services: views,
 			activeIncidents,
 			activeMaintenance,
 			upcomingMaintenance,

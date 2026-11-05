@@ -1,4 +1,4 @@
-import { COMPONENT_STATUS_LABELS } from "@/lib/domain/status";
+import { SERVICE_STATUS_LABELS } from "@/lib/domain/status";
 import { type DayStatus, formatUptime } from "@/lib/domain/uptime";
 import { formatDay } from "@/lib/format";
 import { STATUS_BG } from "./badges";
@@ -15,7 +15,7 @@ export function UptimeBars({ days }: { days: DayStatus[] }) {
 			{days.map((day, index) => {
 				const color = day.status ? STATUS_BG[day.status] : "bg-nodata";
 				const label = day.status
-					? COMPONENT_STATUS_LABELS[day.status]
+					? SERVICE_STATUS_LABELS[day.status]
 					: "No data";
 				return (
 					<li

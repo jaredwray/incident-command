@@ -29,12 +29,12 @@ export default async function IncidentPage({ params }: Props) {
 	if (!incident) {
 		notFound();
 	}
-	const [settings, components, canSubscribe] = await Promise.all([
+	const [settings, catalog, canSubscribe] = await Promise.all([
 		services.settings.get(),
-		services.components.list({ includeHidden: false }),
+		services.catalog.list({ includeHidden: false }),
 		services.subscribers.canSubscribe(),
 	]);
-	const names = affectedNames(incident, components);
+	const names = affectedNames(incident, catalog);
 	return (
 		<PublicPage settings={settings} canSubscribe={canSubscribe}>
 			<Link href="/" className="text-sm text-muted hover:text-fg">

@@ -1,9 +1,9 @@
 import type {
 	AgentToken,
-	Component,
-	ComponentStatusChange,
 	Incident,
 	Member,
+	Service,
+	ServiceStatusChange,
 	Session,
 	Settings,
 	Subscriber,
@@ -12,8 +12,8 @@ import type {
 /** Every collection the application persists, keyed by name. */
 export interface CollectionMap {
 	settings: Settings;
-	components: Component;
-	component_status_changes: ComponentStatusChange;
+	services: Service;
+	service_status_changes: ServiceStatusChange;
 	incidents: Incident;
 	members: Member;
 	sessions: Session;
@@ -26,8 +26,8 @@ export type Doc<C extends CollectionName> = CollectionMap[C];
 
 export const COLLECTIONS: readonly CollectionName[] = [
 	"settings",
-	"components",
-	"component_status_changes",
+	"services",
+	"service_status_changes",
 	"incidents",
 	"members",
 	"sessions",
@@ -46,8 +46,8 @@ export interface IndexDefinition {
  */
 export const INDEXES: Record<CollectionName, readonly IndexDefinition[]> = {
 	settings: [],
-	components: [{ field: "order" }],
-	component_status_changes: [{ field: "componentId" }, { field: "createdAt" }],
+	services: [{ field: "order" }],
+	service_status_changes: [{ field: "serviceId" }, { field: "createdAt" }],
 	incidents: [{ field: "status" }, { field: "createdAt" }],
 	members: [{ field: "email", unique: true }],
 	sessions: [{ field: "memberId" }, { field: "expiresAt" }],

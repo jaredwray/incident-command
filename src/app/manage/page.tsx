@@ -24,8 +24,8 @@ export default async function DashboardPage({
 		...summary.upcomingMaintenance,
 	];
 	const canEdit = hasRole(member.role, "editor");
-	const affected = summary.components.filter(
-		(component) => component.status !== "operational",
+	const affected = summary.services.filter(
+		(service) => service.status !== "operational",
 	);
 	return (
 		<ManageShell
@@ -68,12 +68,12 @@ export default async function DashboardPage({
 					</p>
 				</Card>
 				<Card>
-					<p className="text-sm text-muted">Components affected</p>
+					<p className="text-sm text-muted">Services affected</p>
 					<p className="mt-2 text-3xl font-semibold">
 						{affected.length}
 						<span className="text-base font-normal text-muted">
 							{" "}
-							/ {summary.components.length}
+							/ {summary.services.length}
 						</span>
 					</p>
 				</Card>

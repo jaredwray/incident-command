@@ -29,7 +29,7 @@ export default async function StatusPage() {
 						<IncidentCard
 							key={incident.id}
 							incident={incident}
-							components={summary.components}
+							services={summary.services}
 						/>
 					))}
 				</section>
@@ -42,7 +42,7 @@ export default async function StatusPage() {
 						<IncidentCard
 							key={incident.id}
 							incident={incident}
-							components={summary.components}
+							services={summary.services}
 						/>
 					))}
 				</section>

@@ -1,5 +1,4 @@
 import {
-	COMPONENT_STATUS_LABELS,
 	closedStatus,
 	EVENT_STATUS_LABELS,
 	hasRole,
@@ -8,10 +7,11 @@ import {
 	isClosedStatus,
 	isOpen,
 	OVERALL_STATUS_COPY,
+	SERVICE_STATUS_LABELS,
 	statusSeverity,
 	worstStatus,
 } from "@/lib/domain/status";
-import { COMPONENT_STATUSES } from "@/lib/domain/types";
+import { SERVICE_STATUSES } from "@/lib/domain/types";
 
 describe("status helpers", () => {
 	it("ranks statuses by severity", () => {
@@ -28,7 +28,7 @@ describe("status helpers", () => {
 		);
 	});
 
-	it("maps impact to component status", () => {
+	it("maps impact to service status", () => {
 		expect(impactToStatus("none")).toBe("operational");
 		expect(impactToStatus("minor")).toBe("degraded_performance");
 		expect(impactToStatus("major")).toBe("partial_outage");
@@ -53,8 +53,8 @@ describe("status helpers", () => {
 	});
 
 	it("has copy for every status", () => {
-		for (const status of COMPONENT_STATUSES) {
-			expect(COMPONENT_STATUS_LABELS[status]).toBeTruthy();
+		for (const status of SERVICE_STATUSES) {
+			expect(SERVICE_STATUS_LABELS[status]).toBeTruthy();
 			expect(OVERALL_STATUS_COPY[status].title).toBeTruthy();
 		}
 		expect(EVENT_STATUS_LABELS.in_progress).toBe("In progress");

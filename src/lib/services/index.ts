@@ -1,6 +1,6 @@
 import { seedDemo } from "../demo";
 import { AgentService } from "./agents";
-import { ComponentService } from "./components";
+import { ServiceCatalog } from "./catalog";
 import type { ServiceContext } from "./context";
 import { IncidentService } from "./incidents";
 import { MemberService } from "./members";
@@ -11,7 +11,7 @@ import { SubscriberService } from "./subscribers";
 
 export interface Services {
 	settings: SettingsService;
-	components: ComponentService;
+	catalog: ServiceCatalog;
 	incidents: IncidentService;
 	status: StatusService;
 	members: MemberService;
@@ -24,17 +24,17 @@ export interface Services {
 
 export function createServices(ctx: ServiceContext): Services {
 	const settings = new SettingsService(ctx);
-	const components = new ComponentService(ctx);
+	const catalog = new ServiceCatalog(ctx);
 	const subscribers = new SubscriberService(ctx, settings);
-	const incidents = new IncidentService(ctx, components, subscribers, settings);
-	const status = new StatusService(ctx, settings, components, incidents);
+	const incidents = new IncidentService(ctx, catalog, subscribers, settings);
+	const status = new StatusService(ctx, settings, catalog, incidents);
 	const sessions = new SessionService(ctx);
 	const members = new MemberService(ctx, sessions);
 	const agents = new AgentService(ctx);
 
 	return {
 		settings,
-		components,
+		catalog,
 		incidents,
 		status,
 		members,
@@ -42,7 +42,7 @@ export function createServices(ctx: ServiceContext): Services {
 		agents,
 		subscribers,
 		async bootstrap() {
-			if (ctx.config.seedDemo && (await ctx.store.count("components")) === 0) {
+			if (ctx.config.seedDemo && (await ctx.store.count("services")) === 0) {
 				await seedDemo(ctx);
 			}
 		},

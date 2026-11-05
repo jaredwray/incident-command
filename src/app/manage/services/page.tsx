@@ -11,87 +11,87 @@ import {
 } from "@/components/manage/ui";
 import { StatusBadge } from "@/components/status/badges";
 import { requireMember } from "@/lib/auth";
-import { COMPONENT_STATUS_LABELS, hasRole } from "@/lib/domain/status";
-import { COMPONENT_STATUSES } from "@/lib/domain/types";
+import { hasRole, SERVICE_STATUS_LABELS } from "@/lib/domain/status";
+import { SERVICE_STATUSES } from "@/lib/domain/types";
 import {
-	createComponentAction,
-	deleteComponentAction,
-	setComponentStatusAction,
-	updateComponentAction,
+	createServiceAction,
+	deleteServiceAction,
+	setServiceStatusAction,
+	updateServiceAction,
 } from "../actions";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Components" };
+export const metadata: Metadata = { title: "Services" };
 
-export default async function ComponentsPage({
+export default async function ServicesPage({
 	searchParams,
 }: {
 	searchParams: Promise<FlashParams>;
 }) {
 	const flash = await searchParams;
 	const { member, services, app } = await requireMember();
-	const [settings, components] = await Promise.all([
+	const [settings, catalog] = await Promise.all([
 		services.settings.get(),
-		services.components.list(),
+		services.catalog.list(),
 	]);
 	const canEdit = hasRole(member.role, "editor");
 	return (
 		<ManageShell
 			member={member}
 			siteName={settings.siteName}
-			active="components"
-			title="Components"
+			active="services"
+			title="Services"
 			flash={flash}
 			health={app.store.health}
 		>
 			<Card
-				title="All components"
-				description="Components appear on the status page in this order, grouped by group name."
+				title="All services"
+				description="Services appear on the status page in this order, grouped by group name."
 			>
-				{components.length === 0 ? (
+				{catalog.length === 0 ? (
 					<EmptyState>
-						No components yet. Add the services your customers rely on.
+						No services yet. Add the systems your customers rely on.
 					</EmptyState>
 				) : (
 					<ul className="divide-y divide-border">
-						{components.map((component) => (
-							<li key={component.id} className="space-y-3 py-4">
+						{catalog.map((service) => (
+							<li key={service.id} className="space-y-3 py-4">
 								<div className="flex flex-wrap items-center justify-between gap-3">
 									<div>
 										<p className="font-medium">
-											{component.name}
-											{component.hidden && (
+											{service.name}
+											{service.hidden && (
 												<span className="ml-2 text-xs text-muted">
 													(hidden)
 												</span>
 											)}
 										</p>
 										<p className="text-xs text-muted">
-											{component.group ? `${component.group} · ` : ""}order{" "}
-											{component.order}
+											{service.group ? `${service.group} · ` : ""}order{" "}
+											{service.order}
 										</p>
 									</div>
 									{canEdit ? (
 										<form
-											action={setComponentStatusAction}
+											action={setServiceStatusAction}
 											className="flex items-center gap-2"
 										>
-											<input type="hidden" name="id" value={component.id} />
+											<input type="hidden" name="id" value={service.id} />
 											<label
-												htmlFor={`status-${component.id}`}
+												htmlFor={`status-${service.id}`}
 												className="sr-only"
 											>
-												Status of {component.name}
+												Status of {service.name}
 											</label>
 											<select
-												id={`status-${component.id}`}
+												id={`status-${service.id}`}
 												name="status"
-												defaultValue={component.status}
+												defaultValue={service.status}
 												className={`${inputClass} w-auto`}
 											>
-												{COMPONENT_STATUSES.map((status) => (
+												{SERVICE_STATUSES.map((status) => (
 													<option key={status} value={status}>
-														{COMPONENT_STATUS_LABELS[status]}
+														{SERVICE_STATUS_LABELS[status]}
 													</option>
 												))}
 											</select>
@@ -100,7 +100,7 @@ export default async function ComponentsPage({
 											</button>
 										</form>
 									) : (
-										<StatusBadge status={component.status} />
+										<StatusBadge status={service.status} />
 									)}
 								</div>
 								{canEdit && (
@@ -109,73 +109,64 @@ export default async function ComponentsPage({
 											Edit details
 										</summary>
 										<div className="space-y-4 border-t border-border p-4">
-											<form
-												action={updateComponentAction}
-												className="space-y-4"
-											>
-												<input type="hidden" name="id" value={component.id} />
+											<form action={updateServiceAction} className="space-y-4">
+												<input type="hidden" name="id" value={service.id} />
 												<div className="grid gap-4 sm:grid-cols-2">
-													<Field label="Name" htmlFor={`name-${component.id}`}>
+													<Field label="Name" htmlFor={`name-${service.id}`}>
 														<input
-															id={`name-${component.id}`}
+															id={`name-${service.id}`}
 															name="name"
-															defaultValue={component.name}
+															defaultValue={service.name}
 															required
 															className={inputClass}
 														/>
 													</Field>
-													<Field
-														label="Group"
-														htmlFor={`group-${component.id}`}
-													>
+													<Field label="Group" htmlFor={`group-${service.id}`}>
 														<input
-															id={`group-${component.id}`}
+															id={`group-${service.id}`}
 															name="group"
-															defaultValue={component.group}
+															defaultValue={service.group}
 															className={inputClass}
 														/>
 													</Field>
 												</div>
 												<Field
 													label="Description"
-													htmlFor={`description-${component.id}`}
+													htmlFor={`description-${service.id}`}
 												>
 													<input
-														id={`description-${component.id}`}
+														id={`description-${service.id}`}
 														name="description"
-														defaultValue={component.description}
+														defaultValue={service.description}
 														className={inputClass}
 													/>
 												</Field>
 												<div className="flex flex-wrap items-end gap-4">
-													<Field
-														label="Order"
-														htmlFor={`order-${component.id}`}
-													>
+													<Field label="Order" htmlFor={`order-${service.id}`}>
 														<input
-															id={`order-${component.id}`}
+															id={`order-${service.id}`}
 															name="order"
 															type="number"
-															defaultValue={component.order}
+															defaultValue={service.order}
 															className={`${inputClass} w-24`}
 														/>
 													</Field>
 													<Checkbox
 														name="hidden"
 														label="Hide from status page"
-														defaultChecked={component.hidden}
+														defaultChecked={service.hidden}
 													/>
 												</div>
 												<button type="submit" className={buttonClass.secondary}>
 													Save
 												</button>
 											</form>
-											<form action={deleteComponentAction}>
-												<input type="hidden" name="id" value={component.id} />
+											<form action={deleteServiceAction}>
+												<input type="hidden" name="id" value={service.id} />
 												<ConfirmButton
-													message={`Delete ${component.name} and its uptime history?`}
+													message={`Delete ${service.name} and its uptime history?`}
 												>
-													Delete component
+													Delete service
 												</ConfirmButton>
 											</form>
 										</div>
@@ -187,8 +178,8 @@ export default async function ComponentsPage({
 				)}
 			</Card>
 			{canEdit && (
-				<Card title="Add a component">
-					<form action={createComponentAction} className="space-y-4">
+				<Card title="Add a service">
+					<form action={createServiceAction} className="space-y-4">
 						<div className="grid gap-4 sm:grid-cols-2">
 							<Field label="Name" htmlFor="new-name">
 								<input
@@ -216,7 +207,7 @@ export default async function ComponentsPage({
 						</Field>
 						<Checkbox name="hidden" label="Hide from status page" />
 						<button type="submit" className={buttonClass.primary}>
-							Add component
+							Add service
 						</button>
 					</form>
 				</Card>

@@ -33,7 +33,7 @@ export interface Config {
 	twilio?: { accountSid: string; authToken: string; sendGridApiKey?: string };
 	aws?: { region: string; accessKeyId?: string; secretAccessKey?: string };
 	webhookSecret?: string;
-	/** Seed demo components and incidents into an empty store on boot. */
+	/** Seed demo services and incidents into an empty store on boot. */
 	seedDemo: boolean;
 }
 

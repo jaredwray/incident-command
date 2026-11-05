@@ -1,9 +1,9 @@
 import { OVERALL_STATUS_COPY } from "@/lib/domain/status";
-import type { ComponentStatus } from "@/lib/domain/types";
+import type { ServiceStatus } from "@/lib/domain/types";
 import { StatusIcon } from "../icons";
 import { STATUS_BG, STATUS_TEXT } from "./badges";
 
-export function OverallBanner({ status }: { status: ComponentStatus }) {
+export function OverallBanner({ status }: { status: ServiceStatus }) {
 	const copy = OVERALL_STATUS_COPY[status];
 	return (
 		<section
