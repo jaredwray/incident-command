@@ -1,11 +1,11 @@
 import { z } from "zod";
 import {
-	COMPONENT_STATUSES,
 	INCIDENT_IMPACTS,
 	INCIDENT_KINDS,
 	INCIDENT_STATUSES,
 	MAINTENANCE_STATUSES,
 	ROLES,
+	SERVICE_STATUSES,
 } from "./types";
 
 /** Optional text where an empty string means "not set". */
@@ -38,7 +38,7 @@ const isoDate = z.iso
 	.datetime({ offset: true })
 	.transform((value) => new Date(value).toISOString());
 
-export const componentStatusSchema = z.enum(COMPONENT_STATUSES);
+export const serviceStatusSchema = z.enum(SERVICE_STATUSES);
 export const eventStatusSchema = z.enum([
 	...INCIDENT_STATUSES,
 	...MAINTENANCE_STATUSES,
@@ -47,25 +47,25 @@ export const impactSchema = z.enum(INCIDENT_IMPACTS);
 export const roleSchema = z.enum(ROLES);
 export const kindSchema = z.enum(INCIDENT_KINDS);
 
-export const createComponentSchema = z.object({
+export const createServiceSchema = z.object({
 	name: z.string().trim().min(1).max(120),
 	description: text(500),
 	group: text(80),
-	status: componentStatusSchema.optional(),
+	status: serviceStatusSchema.optional(),
 	order: z.number().int().optional(),
 	hidden: z.boolean().optional(),
 });
-export type CreateComponentInput = z.input<typeof createComponentSchema>;
+export type CreateServiceInput = z.input<typeof createServiceSchema>;
 
-export const updateComponentSchema = z.object({
+export const updateServiceSchema = z.object({
 	name: z.string().trim().min(1).max(120).optional(),
 	description: patchText(500),
 	group: patchText(80),
-	status: componentStatusSchema.optional(),
+	status: serviceStatusSchema.optional(),
 	order: z.number().int().optional(),
 	hidden: z.boolean().optional(),
 });
-export type UpdateComponentInput = z.input<typeof updateComponentSchema>;
+export type UpdateServiceInput = z.input<typeof updateServiceSchema>;
 
 export const createIncidentSchema = z.object({
 	kind: kindSchema.optional(),
@@ -73,8 +73,8 @@ export const createIncidentSchema = z.object({
 	message: z.string().trim().min(1).max(10_000),
 	status: eventStatusSchema.optional(),
 	impact: impactSchema.optional(),
-	componentIds: z.array(z.string().min(1)).max(100).optional(),
-	componentStatus: componentStatusSchema.optional(),
+	serviceIds: z.array(z.string().min(1)).max(100).optional(),
+	serviceStatus: serviceStatusSchema.optional(),
 	scheduledStart: isoDate.optional(),
 	scheduledEnd: isoDate.optional(),
 	notify: z.boolean().optional(),
@@ -84,7 +84,7 @@ export type CreateIncidentInput = z.input<typeof createIncidentSchema>;
 export const incidentUpdateSchema = z.object({
 	status: eventStatusSchema.optional(),
 	message: z.string().trim().min(1).max(10_000),
-	componentStatus: componentStatusSchema.optional(),
+	serviceStatus: serviceStatusSchema.optional(),
 	notify: z.boolean().optional(),
 });
 export type IncidentUpdateInput = z.input<typeof incidentUpdateSchema>;
@@ -92,7 +92,7 @@ export type IncidentUpdateInput = z.input<typeof incidentUpdateSchema>;
 export const editIncidentSchema = z.object({
 	title: z.string().trim().min(1).max(200).optional(),
 	impact: impactSchema.optional(),
-	componentIds: z.array(z.string().min(1)).max(100).optional(),
+	serviceIds: z.array(z.string().min(1)).max(100).optional(),
 	scheduledStart: isoDate.optional(),
 	scheduledEnd: isoDate.optional(),
 });

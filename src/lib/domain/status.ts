@@ -1,14 +1,14 @@
 import type {
-	ComponentStatus,
 	EventStatus,
 	Incident,
 	IncidentImpact,
 	IncidentKind,
 	Role,
+	ServiceStatus,
 } from "./types";
-import { COMPONENT_STATUSES, ROLES } from "./types";
+import { ROLES, SERVICE_STATUSES } from "./types";
 
-export const COMPONENT_STATUS_LABELS: Record<ComponentStatus, string> = {
+export const SERVICE_STATUS_LABELS: Record<ServiceStatus, string> = {
 	operational: "Operational",
 	under_maintenance: "Under maintenance",
 	degraded_performance: "Degraded performance",
@@ -45,7 +45,7 @@ export interface OverallStatusCopy {
 	description: string;
 }
 
-export const OVERALL_STATUS_COPY: Record<ComponentStatus, OverallStatusCopy> = {
+export const OVERALL_STATUS_COPY: Record<ServiceStatus, OverallStatusCopy> = {
 	operational: {
 		title: "We're fully operational",
 		description: "We're not aware of any issues affecting our systems.",
@@ -69,14 +69,12 @@ export const OVERALL_STATUS_COPY: Record<ComponentStatus, OverallStatusCopy> = {
 };
 
 /** Higher numbers are worse. */
-export function statusSeverity(status: ComponentStatus): number {
-	return COMPONENT_STATUSES.indexOf(status);
+export function statusSeverity(status: ServiceStatus): number {
+	return SERVICE_STATUSES.indexOf(status);
 }
 
-export function worstStatus(
-	statuses: Iterable<ComponentStatus>,
-): ComponentStatus {
-	let worst: ComponentStatus = "operational";
+export function worstStatus(statuses: Iterable<ServiceStatus>): ServiceStatus {
+	let worst: ServiceStatus = "operational";
 	for (const status of statuses) {
 		if (statusSeverity(status) > statusSeverity(worst)) {
 			worst = status;
@@ -85,15 +83,15 @@ export function worstStatus(
 	return worst;
 }
 
-const IMPACT_TO_STATUS: Record<IncidentImpact, ComponentStatus> = {
+const IMPACT_TO_STATUS: Record<IncidentImpact, ServiceStatus> = {
 	none: "operational",
 	minor: "degraded_performance",
 	major: "partial_outage",
 	critical: "major_outage",
 };
 
-/** The component status an incident of a given impact implies. */
-export function impactToStatus(impact: IncidentImpact): ComponentStatus {
+/** The service status an incident of a given impact implies. */
+export function impactToStatus(impact: IncidentImpact): ServiceStatus {
 	return IMPACT_TO_STATUS[impact];
 }
 
@@ -122,7 +120,7 @@ export function hasRole(role: Role, required: Role): boolean {
 }
 
 /** Downtime weight used for uptime percentages (Statuspage-compatible). */
-export const DOWNTIME_WEIGHT: Record<ComponentStatus, number> = {
+export const DOWNTIME_WEIGHT: Record<ServiceStatus, number> = {
 	operational: 0,
 	under_maintenance: 0,
 	degraded_performance: 0,

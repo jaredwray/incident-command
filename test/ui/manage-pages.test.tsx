@@ -1,13 +1,13 @@
 import { render, screen, within } from "@testing-library/react";
 import AccountPage from "@/app/manage/account/page";
 import AgentsPage from "@/app/manage/agents/page";
-import ComponentsPage from "@/app/manage/components/page";
 import IncidentPage from "@/app/manage/incidents/[id]/page";
 import NewIncidentPage from "@/app/manage/incidents/new/page";
 import IncidentsPage from "@/app/manage/incidents/page";
 import LoginPage from "@/app/manage/login/page";
 import MembersPage from "@/app/manage/members/page";
 import DashboardPage from "@/app/manage/page";
+import ServicesPage from "@/app/manage/services/page";
 import SettingsPage from "@/app/manage/settings/page";
 import SetupPage from "@/app/manage/setup/page";
 import SubscribersPage from "@/app/manage/subscribers/page";
@@ -69,12 +69,12 @@ describe("dashboard", () => {
 	it("summarizes open incidents for editors", async () => {
 		const { app, services } = await setupApp();
 		await signIn(app, "editor");
-		const api = await services.components.create(SYSTEM_ACTOR, { name: "API" });
+		const api = await services.catalog.create(SYSTEM_ACTOR, { name: "API" });
 		await services.incidents.create(SYSTEM_ACTOR, {
 			title: "API errors",
 			message: "x",
 			impact: "critical",
-			componentIds: [api.id],
+			serviceIds: [api.id],
 		});
 		render(await DashboardPage(flash({ notice: "Welcome" })));
 		expect(screen.getByRole("status")).toHaveTextContent("Welcome");
@@ -186,11 +186,11 @@ describe("incident pages", () => {
 			screen.getByRole("heading", { name: "Declare an incident" }),
 		).toBeInTheDocument();
 		expect(screen.getByLabelText("Impact")).toBeInTheDocument();
-		expect(screen.getByText("No components yet.")).toBeInTheDocument();
+		expect(screen.getByText("No services yet.")).toBeInTheDocument();
 		expect(screen.getByRole("alert")).toHaveTextContent("title: Too small");
 		page.unmount();
 
-		await services.components.create(SYSTEM_ACTOR, {
+		await services.catalog.create(SYSTEM_ACTOR, {
 			name: "API",
 			group: "Core",
 		});
@@ -211,11 +211,11 @@ describe("incident pages", () => {
 	it("renders incident management for editors", async () => {
 		const { app, services } = await setupApp();
 		await signIn(app, "editor");
-		const api = await services.components.create(SYSTEM_ACTOR, { name: "API" });
+		const api = await services.catalog.create(SYSTEM_ACTOR, { name: "API" });
 		const incident = await services.incidents.create(SYSTEM_ACTOR, {
 			title: "API errors",
 			message: "Looking",
-			componentIds: [api.id],
+			serviceIds: [api.id],
 		});
 		render(
 			await IncidentPage({
@@ -293,44 +293,44 @@ describe("incident pages", () => {
 	});
 });
 
-describe("components page", () => {
-	it("lets editors manage components", async () => {
+describe("services page", () => {
+	it("lets editors manage services", async () => {
 		const { app, services } = await setupApp();
 		await signIn(app, "editor");
-		await services.components.create(SYSTEM_ACTOR, {
+		await services.catalog.create(SYSTEM_ACTOR, {
 			name: "API",
 			group: "Core",
 			description: "Public API",
 			hidden: true,
 		});
-		await services.components.create(SYSTEM_ACTOR, { name: "Web" });
-		render(await ComponentsPage(flash()));
+		await services.catalog.create(SYSTEM_ACTOR, { name: "Web" });
+		render(await ServicesPage(flash()));
 		expect(screen.getByText("(hidden)")).toBeInTheDocument();
 		expect(screen.getByText("Core · order 0")).toBeInTheDocument();
 		expect(screen.getByText("order 1")).toBeInTheDocument();
 		expect(screen.getByLabelText("Status of API")).toHaveValue("operational");
 		expect(
-			screen.getByRole("button", { name: "Add component" }),
+			screen.getByRole("button", { name: "Add service" }),
 		).toBeInTheDocument();
 		expect(
-			screen.getAllByRole("button", { name: "Delete component" }),
+			screen.getAllByRole("button", { name: "Delete service" }),
 		).toHaveLength(2);
 	});
 
 	it("is read-only for viewers", async () => {
 		const { app, services } = await setupApp();
 		await signIn(app, "viewer");
-		const page = render(await ComponentsPage(flash()));
-		expect(screen.getByText(/No components yet/)).toBeInTheDocument();
+		const page = render(await ServicesPage(flash()));
+		expect(screen.getByText(/No services yet/)).toBeInTheDocument();
 		page.unmount();
-		await services.components.create(SYSTEM_ACTOR, {
+		await services.catalog.create(SYSTEM_ACTOR, {
 			name: "API",
 			status: "partial_outage",
 		});
-		render(await ComponentsPage(flash()));
+		render(await ServicesPage(flash()));
 		expect(screen.getByText("Partial outage")).toBeInTheDocument();
 		expect(
-			screen.queryByRole("button", { name: "Add component" }),
+			screen.queryByRole("button", { name: "Add service" }),
 		).not.toBeInTheDocument();
 	});
 });

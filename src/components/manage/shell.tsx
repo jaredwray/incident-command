@@ -9,7 +9,7 @@ import { Flash } from "./ui";
 export type NavKey =
 	| "dashboard"
 	| "incidents"
-	| "components"
+	| "services"
 	| "members"
 	| "agents"
 	| "subscribers"
@@ -25,9 +25,9 @@ export const NAV: { key: NavKey; label: string; href: string; role: Role }[] = [
 		role: "viewer",
 	},
 	{
-		key: "components",
-		label: "Components",
-		href: "/manage/components",
+		key: "services",
+		label: "Services",
+		href: "/manage/services",
 		role: "viewer",
 	},
 	{ key: "members", label: "Members", href: "/manage/members", role: "admin" },

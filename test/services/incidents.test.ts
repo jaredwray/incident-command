@@ -14,28 +14,28 @@ describe("IncidentService", () => {
 
 	beforeEach(async () => {
 		t = createTestContext();
-		api = (await t.services.components.create(ADMIN, { name: "API" })).id;
-		web = (await t.services.components.create(ADMIN, { name: "Web" })).id;
+		api = (await t.services.catalog.create(ADMIN, { name: "API" })).id;
+		web = (await t.services.catalog.create(ADMIN, { name: "Web" })).id;
 		await t.services.subscribers.addWebhook(ADMIN, {
 			url: "https://hooks.example.com/x",
 		});
 	});
 
 	const statusOf = async (id: string) =>
-		(await t.services.components.get(id)).status;
+		(await t.services.catalog.get(id)).status;
 
-	it("creates an incident, sets component status and notifies", async () => {
+	it("creates an incident, sets service status and notifies", async () => {
 		const incident = await t.services.incidents.create(EDITOR, {
 			title: "API errors",
 			message: "Investigating elevated errors",
 			impact: "critical",
-			componentIds: [api, api],
+			serviceIds: [api, api],
 		});
 		expect(incident).toMatchObject({
 			kind: "incident",
 			status: "investigating",
 			impact: "critical",
-			componentIds: [api],
+			serviceIds: [api],
 			createdBy: { type: "member", id: EDITOR.id, name: EDITOR.name },
 			startedAt: "2026-11-02T12:00:00.000Z",
 		});
@@ -49,19 +49,19 @@ describe("IncidentService", () => {
 			"incident.created",
 		);
 		expect(
-			t.notifier.incidents[0]?.notification.components.map((c) => c.id),
+			t.notifier.incidents[0]?.notification.services.map((c) => c.id),
 		).toEqual([api]);
 		await expect(t.services.incidents.get(incident.id)).resolves.toEqual(
 			incident,
 		);
 	});
 
-	it("defaults impact to minor and respects an explicit component status", async () => {
+	it("defaults impact to minor and respects an explicit service status", async () => {
 		const incident = await t.services.incidents.create(EDITOR, {
 			title: "Slow",
 			message: "Slow pages",
-			componentIds: [web],
-			componentStatus: "partial_outage",
+			serviceIds: [web],
+			serviceStatus: "partial_outage",
 			notify: false,
 		});
 		expect(incident.impact).toBe("minor");
@@ -69,13 +69,13 @@ describe("IncidentService", () => {
 		expect(t.notifier.incidents).toHaveLength(0);
 	});
 
-	it("leaves components alone for impact none", async () => {
-		await t.services.components.setStatus(EDITOR, web, "degraded_performance");
+	it("leaves services alone for impact none", async () => {
+		await t.services.catalog.setStatus(EDITOR, web, "degraded_performance");
 		await t.services.incidents.create(EDITOR, {
 			title: "FYI",
 			message: "Heads up",
 			impact: "none",
-			componentIds: [web],
+			serviceIds: [web],
 		});
 		expect(await statusOf(web)).toBe("degraded_performance");
 	});
@@ -85,13 +85,13 @@ describe("IncidentService", () => {
 			title: "Earlier blip",
 			message: "Resolved",
 			status: "resolved",
-			componentIds: [api],
+			serviceIds: [api],
 		});
 		expect(incident.resolvedAt).toBe("2026-11-02T12:00:00.000Z");
 		expect(await statusOf(api)).toBe("operational");
 	});
 
-	it("validates status, components and permissions", async () => {
+	it("validates status, services and permissions", async () => {
 		await expect(
 			t.services.incidents.create(VIEWER, { title: "x", message: "y" }),
 		).rejects.toBeInstanceOf(ForbiddenError);
@@ -106,7 +106,7 @@ describe("IncidentService", () => {
 			t.services.incidents.create(EDITOR, {
 				title: "x",
 				message: "y",
-				componentIds: ["nope"],
+				serviceIds: ["nope"],
 			}),
 		).rejects.toBeInstanceOf(NotFoundError);
 		await expect(
@@ -114,12 +114,12 @@ describe("IncidentService", () => {
 		).rejects.toBeInstanceOf(ValidationError);
 	});
 
-	it("posts updates and resolves, restoring components and notifying", async () => {
+	it("posts updates and resolves, restoring services and notifying", async () => {
 		const incident = await t.services.incidents.create(EDITOR, {
 			title: "Down",
 			message: "Down",
 			impact: "major",
-			componentIds: [api],
+			serviceIds: [api],
 		});
 		t.clock.advance(60_000);
 		const identified = await t.services.incidents.postUpdate(
@@ -133,7 +133,7 @@ describe("IncidentService", () => {
 
 		const noted = await t.services.incidents.postUpdate(ADMIN, incident.id, {
 			message: "Still working",
-			componentStatus: "degraded_performance",
+			serviceStatus: "degraded_performance",
 		});
 		expect(noted.status).toBe("identified");
 		expect(await statusOf(api)).toBe("degraded_performance");
@@ -153,8 +153,8 @@ describe("IncidentService", () => {
 			"incident.resolved",
 		]);
 
-		// a post-resolution note neither re-notifies as resolved nor touches components
-		await t.services.components.setStatus(EDITOR, api, "major_outage");
+		// a post-resolution note neither re-notifies as resolved nor touches services
+		await t.services.catalog.setStatus(EDITOR, api, "major_outage");
 		const note = await t.services.incidents.postUpdate(EDITOR, incident.id, {
 			message: "Postmortem published",
 		});
@@ -176,48 +176,48 @@ describe("IncidentService", () => {
 		await t.services.incidents.postUpdate(EDITOR, incident.id, {
 			status: "resolved",
 			message: "Done",
-			componentStatus: "degraded_performance",
+			serviceStatus: "degraded_performance",
 		});
 		expect(await statusOf(api)).toBe("degraded_performance");
 		// explicit status on an already-closed incident is still applied
 		await t.services.incidents.postUpdate(EDITOR, incident.id, {
 			message: "All clear",
-			componentStatus: "operational",
+			serviceStatus: "operational",
 		});
 		expect(await statusOf(api)).toBe("operational");
 	});
 
-	it("does not restore components still affected by another open incident", async () => {
+	it("does not restore services still affected by another open incident", async () => {
 		const first = await t.services.incidents.create(EDITOR, {
 			title: "A",
 			message: "A",
 			impact: "critical",
-			componentIds: [api, web],
+			serviceIds: [api, web],
 		});
 		await t.services.incidents.create(EDITOR, {
 			title: "B",
 			message: "B",
 			impact: "critical",
-			componentIds: [api],
+			serviceIds: [api],
 		});
 		await t.services.incidents.resolve(EDITOR, first.id, "First fixed");
 		expect(await statusOf(api)).toBe("major_outage");
 		expect(await statusOf(web)).toBe("operational");
 	});
 
-	it("skips components that were deleted", async () => {
+	it("skips services that were deleted", async () => {
 		const incident = await t.services.incidents.create(EDITOR, {
 			title: "A",
 			message: "A",
 			impact: "critical",
-			componentIds: [api, web],
+			serviceIds: [api, web],
 		});
-		await t.services.components.delete(EDITOR, web);
+		await t.services.catalog.delete(EDITOR, web);
 		await t.services.incidents.resolve(EDITOR, incident.id);
 		expect(await statusOf(api)).toBe("operational");
-		expect(
-			await t.services.incidents.affectedComponents(incident),
-		).toHaveLength(1);
+		expect(await t.services.incidents.affectedServices(incident)).toHaveLength(
+			1,
+		);
 	});
 
 	it("validates update status for the kind", async () => {
@@ -247,7 +247,7 @@ describe("IncidentService", () => {
 				kind: "maintenance",
 				title: "DB upgrade",
 				message: "Upgrading Postgres",
-				componentIds: [api],
+				serviceIds: [api],
 				...window,
 			});
 			expect(maintenance).toMatchObject({
@@ -330,20 +330,20 @@ describe("IncidentService", () => {
 		const incident = await t.services.incidents.create(EDITOR, {
 			title: "A",
 			message: "A",
-			componentIds: [api],
+			serviceIds: [api],
 		});
 		const edited = await t.services.incidents.edit(EDITOR, incident.id, {
 			title: "Renamed",
 			impact: "critical",
-			componentIds: [web],
+			serviceIds: [web],
 		});
 		expect(edited).toMatchObject({
 			title: "Renamed",
 			impact: "critical",
-			componentIds: [web],
+			serviceIds: [web],
 		});
 		const untouched = await t.services.incidents.edit(EDITOR, incident.id, {});
-		expect(untouched).toMatchObject({ title: "Renamed", componentIds: [web] });
+		expect(untouched).toMatchObject({ title: "Renamed", serviceIds: [web] });
 		expect(untouched.scheduledStart).toBeUndefined();
 	});
 

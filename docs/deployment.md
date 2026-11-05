@@ -41,6 +41,8 @@ The adapter is picked from `DATABASE_URI` (or forced with `STORE`):
 
 The Postgres user must be able to create tables. On Postgres 15+ that means owning the database or having `CREATE` on its schema; the setups in these guides already do.
 
+Stores from older versions name services "components". On the first boot after the upgrade, the app renames the old tables or collections and their fields. This runs one time and keeps all data.
+
 ### TLS for Postgres
 
 node-postgres currently treats `sslmode=require` as full certificate verification (`verify-full`). Pick the mode by how the database's certificate is issued:
@@ -89,7 +91,7 @@ All are optional, and empty values are treated as unset. Durations accept `ms`, 
 | `DATABASE_NAME`         | database in the URL         | MongoDB database name.                                                                                     |
 | `DATABASE_TABLE_PREFIX` | `ic_`                       | Postgres table name prefix.                                                                                |
 | `DATABASE_POOL`         | `true` (`false` on Workers) | Keep a database connection pool. `false` opens a connection per operation (Workers).                       |
-| `SEED_DEMO`             | `false`                     | `true` or `1` seeds demo components and incidents on boot when the store has no components.                |
+| `SEED_DEMO`             | `false`                     | `true` or `1` seeds demo services and incidents on boot when the store has no services.                    |
 | **Cache**               |                             |                                                                                                            |
 | `CACHE_TTL`             | `30s`                       | How long cached reads stay fresh. Cached data keeps being served while the database is offline.            |
 | `CACHE_MAX_ENTRIES`     | `5000`                      | Maximum cache entries per instance.                                                                        |

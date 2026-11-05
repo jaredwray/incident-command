@@ -1,5 +1,5 @@
 import { Cacheable } from "cacheable";
-import type { Component } from "@/lib/domain/types";
+import type { Service } from "@/lib/domain/types";
 import { ConflictError, StoreUnavailableError } from "@/lib/errors";
 import { CachedStore } from "@/lib/store/cached";
 import { MemoryStore } from "@/lib/store/memory";
@@ -52,7 +52,7 @@ class FlakyStore extends MemoryStore {
 	}
 }
 
-const component = (id: string, name = id): Component => ({
+const service = (id: string, name = id): Service => ({
 	id,
 	name,
 	status: "operational",
@@ -90,7 +90,7 @@ describe("CachedStore", () => {
 		now = Date.parse("2026-11-02T12:00:00.000Z");
 		store = new CachedStore(inner, { ttl: "30s", now: () => now });
 		await store.connect();
-		await inner.insert("components", component("a"));
+		await inner.insert("services", service("a"));
 	});
 
 	it("exposes the inner kind and health", async () => {
@@ -103,69 +103,69 @@ describe("CachedStore", () => {
 	});
 
 	it("serves cached reads while fresh and refreshes when stale", async () => {
-		await store.find("components");
-		await store.get("components", "a");
-		await store.count("components");
-		await store.find("components");
-		await store.get("components", "a");
-		await store.count("components");
+		await store.find("services");
+		await store.get("services", "a");
+		await store.count("services");
+		await store.find("services");
+		await store.get("services", "a");
+		await store.count("services");
 		expect(inner.reads).toBe(3);
 
 		now += 31_000;
-		await store.find("components");
+		await store.find("services");
 		expect(inner.reads).toBe(4);
 	});
 
 	it("caches distinct queries separately", async () => {
-		await store.find("components", { limit: 1 });
-		await store.find("components", { limit: 2 });
-		await store.find("components");
+		await store.find("services", { limit: 1 });
+		await store.find("services", { limit: 2 });
+		await store.find("services");
 		expect(inner.reads).toBe(3);
 	});
 
 	it("marks entries stale on writes", async () => {
-		expect(await store.find("components")).toHaveLength(1);
-		await store.insert("components", component("b"));
-		expect(await store.find("components")).toHaveLength(2);
-		await store.update("components", component("b", "renamed"));
-		expect((await store.get("components", "b"))?.name).toBe("renamed");
-		await store.delete("components", "b");
-		expect(await store.get("components", "b")).toBeUndefined();
-		await store.deleteMany("components", {
+		expect(await store.find("services")).toHaveLength(1);
+		await store.insert("services", service("b"));
+		expect(await store.find("services")).toHaveLength(2);
+		await store.update("services", service("b", "renamed"));
+		expect((await store.get("services", "b"))?.name).toBe("renamed");
+		await store.delete("services", "b");
+		expect(await store.get("services", "b")).toBeUndefined();
+		await store.deleteMany("services", {
 			where: [{ field: "id", op: "eq", value: "a" }],
 		});
-		expect(await store.count("components")).toBe(0);
+		expect(await store.count("services")).toBe(0);
 	});
 
 	it("keeps serving the last known data while the store is offline", async () => {
-		const fresh = await store.find("components");
+		const fresh = await store.find("services");
 		inner.down = true;
 		now += 10 * 60_000;
-		await expect(store.find("components")).resolves.toEqual(fresh);
+		await expect(store.find("services")).resolves.toEqual(fresh);
 		expect(store.health).toMatchObject({
 			online: false,
 			lastError: "connection refused",
 		});
 
 		// even after a write elsewhere bumped the version, stale data is still served
-		store.invalidate("components");
+		store.invalidate("services");
 		now += 24 * 60 * 60_000;
-		await expect(store.find("components")).resolves.toEqual(fresh);
+		await expect(store.find("services")).resolves.toEqual(fresh);
 
 		inner.down = false;
-		await store.find("components");
+		await store.find("services");
 		expect(store.health.online).toBe(true);
 	});
 
 	it("throws StoreUnavailableError when offline with nothing cached", async () => {
 		inner.down = true;
-		await expect(store.get("components", "a")).rejects.toBeInstanceOf(
+		await expect(store.get("services", "a")).rejects.toBeInstanceOf(
 			StoreUnavailableError,
 		);
 		await expect(store.ping()).rejects.toBeInstanceOf(StoreUnavailableError);
-		await expect(
-			store.insert("components", component("z")),
-		).rejects.toBeInstanceOf(StoreUnavailableError);
+		await expect(store.insert("services", service("z"))).rejects.toBeInstanceOf(
+			StoreUnavailableError,
+		);
 		expect(store.health.online).toBe(false);
 	});
 
@@ -176,23 +176,21 @@ describe("CachedStore", () => {
 	});
 
 	it("propagates application errors without marking the store offline", async () => {
-		await expect(
-			store.insert("components", component("a")),
-		).rejects.toBeInstanceOf(ConflictError);
-		expect(store.health.online).toBe(true);
-
-		await store.find("components");
-		now += 60_000;
-		inner.failWith = new ConflictError("nope");
-		await expect(store.find("components")).rejects.toBeInstanceOf(
+		await expect(store.insert("services", service("a"))).rejects.toBeInstanceOf(
 			ConflictError,
 		);
+		expect(store.health.online).toBe(true);
+
+		await store.find("services");
+		now += 60_000;
+		inner.failWith = new ConflictError("nope");
+		await expect(store.find("services")).rejects.toBeInstanceOf(ConflictError);
 		expect(store.health.online).toBe(true);
 	});
 
 	it("bypasses the cache for consistent reads and uncached collections", async () => {
-		await store.get("components", "a");
-		await store.get("components", "a", { consistent: true });
+		await store.get("services", "a");
+		await store.get("services", "a", { consistent: true });
 		expect(inner.reads).toBe(2);
 		await store.find("members");
 		await store.find("members");
@@ -200,19 +198,19 @@ describe("CachedStore", () => {
 	});
 
 	it("returns copies of cached values", async () => {
-		const first = await store.get("components", "a");
+		const first = await store.get("services", "a");
 		if (first) first.name = "mutated";
-		const second = await store.get("components", "a");
+		const second = await store.get("services", "a");
 		expect(second?.name).toBe("a");
 		if (second) second.name = "mutated again";
-		expect((await store.get("components", "a"))?.name).toBe("a");
+		expect((await store.get("services", "a"))?.name).toBe("a");
 	});
 
 	it("invalidates every cached collection at once", async () => {
-		await store.find("components");
+		await store.find("services");
 		await store.find("incidents");
 		store.invalidate();
-		await store.find("components");
+		await store.find("services");
 		await store.find("incidents");
 		expect(inner.reads).toBe(4);
 	});
@@ -222,8 +220,8 @@ describe("CachedStore", () => {
 		const custom = new CachedStore(inner, { cache, collections: ["members"] });
 		await custom.find("members");
 		await custom.find("members");
-		await custom.find("components");
-		await custom.find("components");
+		await custom.find("services");
+		await custom.find("services");
 		expect(inner.reads).toBe(3);
 		expect(custom.cache).toBe(cache);
 		await custom.disconnect();
@@ -231,8 +229,8 @@ describe("CachedStore", () => {
 
 	it("defaults to a 30 second ttl and the real clock", async () => {
 		const defaults = new CachedStore(inner);
-		await defaults.find("components");
-		await defaults.find("components");
+		await defaults.find("services");
+		await defaults.find("services");
 		expect(inner.reads).toBe(1);
 	});
 });

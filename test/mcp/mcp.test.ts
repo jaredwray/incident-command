@@ -99,7 +99,7 @@ describe("MCP handler", () => {
 		expect(viewer).toEqual([
 			"whoami",
 			"get_status",
-			"list_components",
+			"list_services",
 			"list_incidents",
 			"get_incident",
 		]);
@@ -119,12 +119,12 @@ describe("MCP handler", () => {
 			role: "editor",
 		});
 
-		const api = (await call("create_component", { name: "API", group: "Core" }))
+		const api = (await call("create_service", { name: "API", group: "Core" }))
 			.data;
-		const web = (await call("create_component", { name: "Web" })).data;
+		const web = (await call("create_service", { name: "Web" })).data;
 		expect(
 			(
-				await call("update_component", {
+				await call("update_service", {
 					id: web.id,
 					description: "Marketing site",
 					order: 5,
@@ -136,20 +136,20 @@ describe("MCP handler", () => {
 		});
 		expect(
 			(
-				await call("set_component_status", {
+				await call("set_service_status", {
 					id: web.id,
 					status: "degraded_performance",
 				})
 			).data.status,
 		).toBe("degraded_performance");
-		expect((await call("list_components")).data).toHaveLength(2);
+		expect((await call("list_services")).data).toHaveLength(2);
 
 		const incident = (
 			await call("create_incident", {
 				title: "API errors",
 				message: "Investigating",
 				impact: "critical",
-				componentIds: [api.id],
+				serviceIds: [api.id],
 			})
 		).data;
 		expect(incident).toMatchObject({
@@ -163,7 +163,7 @@ describe("MCP handler", () => {
 			overall: "major_outage",
 			uptimeWindowDays: 90,
 		});
-		expect(status.components[0]).toMatchObject({
+		expect(status.services[0]).toMatchObject({
 			name: "API",
 			status: "major_outage",
 			uptime: "No data",
@@ -203,7 +203,7 @@ describe("MCP handler", () => {
 				message: "Upgrading",
 				scheduledStart: "2026-11-03T02:00:00Z",
 				scheduledEnd: "2026-11-03T03:00:00Z",
-				componentIds: [api.id],
+				serviceIds: [api.id],
 			})
 		).data;
 		expect(maintenance).toMatchObject({
@@ -221,7 +221,7 @@ describe("MCP handler", () => {
 		expect(
 			(await call("delete_incident", { id: maintenance.id })).data,
 		).toEqual({ deleted: maintenance.id });
-		expect((await call("delete_component", { id: web.id })).data).toEqual({
+		expect((await call("delete_service", { id: web.id })).data).toEqual({
 			deleted: web.id,
 		});
 		await client.close();

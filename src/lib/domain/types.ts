@@ -1,11 +1,11 @@
-export const COMPONENT_STATUSES = [
+export const SERVICE_STATUSES = [
 	"operational",
 	"under_maintenance",
 	"degraded_performance",
 	"partial_outage",
 	"major_outage",
 ] as const;
-export type ComponentStatus = (typeof COMPONENT_STATUSES)[number];
+export type ServiceStatus = (typeof SERVICE_STATUSES)[number];
 
 export const INCIDENT_KINDS = ["incident", "maintenance"] as const;
 export type IncidentKind = (typeof INCIDENT_KINDS)[number];
@@ -67,23 +67,23 @@ export interface Settings {
 	updatedAt: string;
 }
 
-export interface Component {
+export interface Service {
 	id: string;
 	name: string;
 	description?: string;
 	group?: string;
-	status: ComponentStatus;
+	status: ServiceStatus;
 	order: number;
 	hidden: boolean;
 	createdAt: string;
 	updatedAt: string;
 }
 
-export interface ComponentStatusChange {
+export interface ServiceStatusChange {
 	id: string;
-	componentId: string;
-	status: ComponentStatus;
-	previousStatus: ComponentStatus;
+	serviceId: string;
+	status: ServiceStatus;
+	previousStatus: ServiceStatus;
 	incidentId?: string;
 	createdAt: string;
 }
@@ -102,7 +102,7 @@ export interface Incident {
 	title: string;
 	status: EventStatus;
 	impact: IncidentImpact;
-	componentIds: string[];
+	serviceIds: string[];
 	updates: IncidentUpdate[];
 	scheduledStart?: string;
 	scheduledEnd?: string;

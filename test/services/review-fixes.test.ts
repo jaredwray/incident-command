@@ -78,28 +78,26 @@ describe("concurrent incident writes", () => {
 	});
 });
 
-describe("restoring components", () => {
+describe("restoring services", () => {
 	it("is not blocked by maintenance that is only scheduled", async () => {
 		const t = createTestContext();
-		const api = await t.services.components.create(EDITOR, { name: "API" });
+		const api = await t.services.catalog.create(EDITOR, { name: "API" });
 		const incident = await t.services.incidents.create(EDITOR, {
 			title: "Down",
 			message: "x",
 			impact: "critical",
-			componentIds: [api.id],
+			serviceIds: [api.id],
 		});
 		await t.services.incidents.create(EDITOR, {
 			kind: "maintenance",
 			title: "Later",
 			message: "Planned",
-			componentIds: [api.id],
+			serviceIds: [api.id],
 			scheduledStart: "2026-11-10T00:00:00.000Z",
 			scheduledEnd: "2026-11-10T01:00:00.000Z",
 		});
 		await t.services.incidents.resolve(EDITOR, incident.id);
-		expect((await t.services.components.get(api.id)).status).toBe(
-			"operational",
-		);
+		expect((await t.services.catalog.get(api.id)).status).toBe("operational");
 	});
 });
 

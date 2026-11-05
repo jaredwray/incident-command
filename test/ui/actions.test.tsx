@@ -2,23 +2,23 @@ import {
 	addSubscriberAction,
 	changePasswordAction,
 	createAgentAction,
-	createComponentAction,
 	createIncidentAction,
 	createMemberAction,
+	createServiceAction,
 	deleteAgentAction,
-	deleteComponentAction,
 	deleteIncidentAction,
 	deleteMemberAction,
+	deleteServiceAction,
 	deleteSubscriberAction,
 	editIncidentAction,
 	loginAction,
 	logoutAction,
 	postIncidentUpdateAction,
 	revokeAgentAction,
-	setComponentStatusAction,
+	setServiceStatusAction,
 	setupAction,
-	updateComponentAction,
 	updateMemberAction,
+	updateServiceAction,
 	updateSettingsAction,
 } from "@/app/manage/actions";
 import { subscribeAction, unsubscribeAction } from "@/app/subscribe/actions";
@@ -126,11 +126,11 @@ describe("session actions", () => {
 
 	it("requires a session and the right role", async () => {
 		const { app } = await setupApp();
-		expect(await redirectOf(createComponentAction(form({ name: "API" })))).toBe(
+		expect(await redirectOf(createServiceAction(form({ name: "API" })))).toBe(
 			"/manage/login",
 		);
 		await signIn(app, "viewer");
-		expect(await redirectOf(createComponentAction(form({ name: "API" })))).toBe(
+		expect(await redirectOf(createServiceAction(form({ name: "API" })))).toBe(
 			"/manage?error=That page requires the editor role",
 		);
 	});
@@ -138,10 +138,10 @@ describe("session actions", () => {
 	it("rethrows unexpected errors", async () => {
 		const { app } = await setupApp();
 		await signIn(app, "editor");
-		vi.spyOn(app.services.components, "create").mockRejectedValueOnce(
+		vi.spyOn(app.services.catalog, "create").mockRejectedValueOnce(
 			new Error("boom"),
 		);
-		await expect(createComponentAction(form({ name: "API" }))).rejects.toThrow(
+		await expect(createServiceAction(form({ name: "API" }))).rejects.toThrow(
 			"boom",
 		);
 	});
@@ -151,7 +151,7 @@ describe("incident actions", () => {
 	it("declares, updates, edits and deletes incidents", async () => {
 		const { app, services } = await setupApp();
 		await signIn(app, "editor");
-		const api = await services.components.create(SYSTEM_ACTOR, { name: "API" });
+		const api = await services.catalog.create(SYSTEM_ACTOR, { name: "API" });
 
 		const created = await redirectOf(
 			createIncidentAction(
@@ -159,7 +159,7 @@ describe("incident actions", () => {
 					title: "API down",
 					message: "Investigating",
 					impact: "critical",
-					componentIds: [api.id, ""],
+					serviceIds: [api.id, ""],
 					notify: "on",
 					status: "",
 				}),
@@ -172,9 +172,9 @@ describe("incident actions", () => {
 		expect(incident).toMatchObject({
 			kind: "incident",
 			impact: "critical",
-			componentIds: [api.id],
+			serviceIds: [api.id],
 		});
-		expect((await services.components.get(api.id)).status).toBe("major_outage");
+		expect((await services.catalog.get(api.id)).status).toBe("major_outage");
 
 		expect(
 			await redirectOf(
@@ -183,7 +183,7 @@ describe("incident actions", () => {
 						id: incident?.id ?? "",
 						status: "resolved",
 						message: "Fixed",
-						componentStatus: "",
+						serviceStatus: "",
 					}),
 				),
 			),
@@ -264,23 +264,23 @@ describe("incident actions", () => {
 	});
 });
 
-describe("component actions", () => {
-	it("creates, edits, sets status and deletes components", async () => {
+describe("service actions", () => {
+	it("creates, edits, sets status and deletes services", async () => {
 		const { app, services } = await setupApp();
 		await signIn(app, "editor");
 		expect(
 			await redirectOf(
-				createComponentAction(
+				createServiceAction(
 					form({ name: "API", group: "Core", description: "", hidden: "on" }),
 				),
 			),
-		).toBe("/manage/components?notice=Component created");
-		const [api] = await services.components.list();
+		).toBe("/manage/services?notice=Service created");
+		const [api] = await services.catalog.list();
 		expect(api).toMatchObject({ name: "API", group: "Core", hidden: true });
 
 		expect(
 			await redirectOf(
-				updateComponentAction(
+				updateServiceAction(
 					form({
 						id: api?.id ?? "",
 						name: "REST API",
@@ -290,8 +290,8 @@ describe("component actions", () => {
 					}),
 				),
 			),
-		).toBe("/manage/components?notice=Component saved");
-		const updated = await services.components.get(api?.id ?? "");
+		).toBe("/manage/services?notice=Service saved");
+		const updated = await services.catalog.get(api?.id ?? "");
 		expect(updated).toMatchObject({
 			name: "REST API",
 			description: "Public",
@@ -302,34 +302,34 @@ describe("component actions", () => {
 
 		expect(
 			await redirectOf(
-				updateComponentAction(
+				updateServiceAction(
 					form({ id: api?.id ?? "", name: "REST API", order: "" }),
 				),
 			),
-		).toBe("/manage/components?notice=Component saved");
+		).toBe("/manage/services?notice=Service saved");
 
 		expect(
 			await redirectOf(
-				setComponentStatusAction(
+				setServiceStatusAction(
 					form({ id: api?.id ?? "", status: "partial_outage" }),
 				),
 			),
-		).toBe("/manage/components?notice=Status updated");
-		expect((await services.components.get(api?.id ?? "")).status).toBe(
+		).toBe("/manage/services?notice=Status updated");
+		expect((await services.catalog.get(api?.id ?? "")).status).toBe(
 			"partial_outage",
 		);
 		expect(
 			await redirectOf(
-				setComponentStatusAction(form({ id: api?.id ?? "", status: "bogus" })),
+				setServiceStatusAction(form({ id: api?.id ?? "", status: "bogus" })),
 			),
 		).toMatch(/error=/);
 
 		expect(
-			await redirectOf(deleteComponentAction(form({ id: api?.id ?? "" }))),
-		).toBe("/manage/components?notice=Component deleted");
+			await redirectOf(deleteServiceAction(form({ id: api?.id ?? "" }))),
+		).toBe("/manage/services?notice=Service deleted");
 		expect(
-			await redirectOf(deleteComponentAction(form({ id: api?.id ?? "" }))),
-		).toMatch(/error=Component/);
+			await redirectOf(deleteServiceAction(form({ id: api?.id ?? "" }))),
+		).toMatch(/error=Service/);
 	});
 });
 

@@ -1,9 +1,9 @@
 import type { AirhornTemplate } from "airhorn";
 import { EVENT_STATUS_LABELS } from "../domain/status";
 import type {
-	Component,
 	Incident,
 	IncidentUpdate,
+	Service,
 	Settings,
 	Subscriber,
 } from "../domain/types";
@@ -21,7 +21,7 @@ export interface IncidentNotification {
 	incident: Incident;
 	update: IncidentUpdate;
 	settings: Settings;
-	components: Component[];
+	services: Service[];
 	siteUrl?: string;
 }
 
@@ -40,7 +40,7 @@ export const EMAIL_TEMPLATE: AirhornTemplate = {
 	content: `<div style="font-family:system-ui,-apple-system,sans-serif;max-width:560px;margin:0 auto;color:#111827">
 <p style="color:#6b7280;font-size:13px;margin:0 0 4px"><%= siteName %></p>
 <h2 style="margin:0 0 8px;font-size:20px"><%= title %></h2>
-<p style="margin:0 0 16px;font-size:14px"><strong><%= statusLabel %></strong><% if (components) { %> &middot; Affects <%= components %><% } %></p>
+<p style="margin:0 0 16px;font-size:14px"><strong><%= statusLabel %></strong><% if (services) { %> &middot; Affects <%= services %><% } %></p>
 <p style="white-space:pre-wrap;font-size:15px;line-height:1.5;margin:0 0 16px"><%= message %></p>
 <% if (incidentUrl) { %><p><a href="<%= incidentUrl %>" style="color:#2563eb">View on the status page</a></p><% } %>
 <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0 12px">
@@ -128,9 +128,7 @@ export function emailData(
 		title: notification.incident.title,
 		statusLabel: EVENT_STATUS_LABELS[notification.update.status],
 		message: notification.update.message,
-		components: notification.components
-			.map((component) => component.name)
-			.join(", "),
+		services: notification.services.map((service) => service.name).join(", "),
 		incidentUrl: incidentUrl(notification),
 		unsubscribeUrl: unsubscribeUrl(
 			subscriber,
@@ -154,7 +152,7 @@ export function webhookPayload(notification: IncidentNotification) {
 			status: incident.status,
 			impact: incident.impact,
 			url: incidentUrl(notification),
-			components: notification.components.map(({ id, name, status }) => ({
+			services: notification.services.map(({ id, name, status }) => ({
 				id,
 				name,
 				status,

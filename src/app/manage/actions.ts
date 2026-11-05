@@ -5,11 +5,11 @@ import { redirect } from "next/navigation";
 import { getApp } from "@/lib/app";
 import { endSession, flash, requireMember, startSession } from "@/lib/auth";
 import type {
-	ComponentStatus,
 	EventStatus,
 	IncidentImpact,
 	IncidentKind,
 	Role,
+	ServiceStatus,
 } from "@/lib/domain/types";
 import { isAppError } from "@/lib/errors";
 import {
@@ -83,9 +83,9 @@ export async function createIncidentAction(form: FormData): Promise<void> {
 			message: text(form, "message"),
 			impact: nonEmpty(form, "impact") as IncidentImpact | undefined,
 			status: nonEmpty(form, "status") as EventStatus | undefined,
-			componentIds: list(form, "componentIds"),
-			componentStatus: nonEmpty(form, "componentStatus") as
-				| ComponentStatus
+			serviceIds: list(form, "serviceIds"),
+			serviceStatus: nonEmpty(form, "serviceStatus") as
+				| ServiceStatus
 				| undefined,
 			scheduledStart: dateTime(form, "scheduledStart"),
 			scheduledEnd: dateTime(form, "scheduledEnd"),
@@ -108,8 +108,8 @@ export async function postIncidentUpdateAction(form: FormData): Promise<void> {
 		services.incidents.postUpdate(actor, id, {
 			status: nonEmpty(form, "status") as EventStatus | undefined,
 			message: text(form, "message"),
-			componentStatus: nonEmpty(form, "componentStatus") as
-				| ComponentStatus
+			serviceStatus: nonEmpty(form, "serviceStatus") as
+				| ServiceStatus
 				| undefined,
 			notify: checkbox(form, "notify"),
 		}),
@@ -124,7 +124,7 @@ export async function editIncidentAction(form: FormData): Promise<void> {
 		services.incidents.edit(actor, id, {
 			title: text(form, "title"),
 			impact: nonEmpty(form, "impact") as IncidentImpact | undefined,
-			componentIds: list(form, "componentIds"),
+			serviceIds: list(form, "serviceIds"),
 			scheduledStart: dateTime(form, "scheduledStart"),
 			scheduledEnd: dateTime(form, "scheduledEnd"),
 		}),
@@ -140,25 +140,25 @@ export async function deleteIncidentAction(form: FormData): Promise<void> {
 	redirect(flash("/manage/incidents", "notice", "Incident deleted"));
 }
 
-// ---- components -------------------------------------------------------------------
+// ---- services -------------------------------------------------------------------
 
-export async function createComponentAction(form: FormData): Promise<void> {
+export async function createServiceAction(form: FormData): Promise<void> {
 	const { actor, services } = await requireMember("editor");
-	await attempt("/manage/components", () =>
-		services.components.create(actor, {
+	await attempt("/manage/services", () =>
+		services.catalog.create(actor, {
 			name: text(form, "name"),
 			description: text(form, "description"),
 			group: text(form, "group"),
 			hidden: checkbox(form, "hidden"),
 		}),
 	);
-	redirect(flash("/manage/components", "notice", "Component created"));
+	redirect(flash("/manage/services", "notice", "Service created"));
 }
 
-export async function updateComponentAction(form: FormData): Promise<void> {
+export async function updateServiceAction(form: FormData): Promise<void> {
 	const { actor, services } = await requireMember("editor");
-	await attempt("/manage/components", () =>
-		services.components.update(actor, text(form, "id"), {
+	await attempt("/manage/services", () =>
+		services.catalog.update(actor, text(form, "id"), {
 			name: text(form, "name"),
 			description: text(form, "description"),
 			group: text(form, "group"),
@@ -166,27 +166,27 @@ export async function updateComponentAction(form: FormData): Promise<void> {
 			hidden: checkbox(form, "hidden"),
 		}),
 	);
-	redirect(flash("/manage/components", "notice", "Component saved"));
+	redirect(flash("/manage/services", "notice", "Service saved"));
 }
 
-export async function setComponentStatusAction(form: FormData): Promise<void> {
+export async function setServiceStatusAction(form: FormData): Promise<void> {
 	const { actor, services } = await requireMember("editor");
-	await attempt("/manage/components", () =>
-		services.components.setStatus(
+	await attempt("/manage/services", () =>
+		services.catalog.setStatus(
 			actor,
 			text(form, "id"),
-			text(form, "status") as ComponentStatus,
+			text(form, "status") as ServiceStatus,
 		),
 	);
-	redirect(flash("/manage/components", "notice", "Status updated"));
+	redirect(flash("/manage/services", "notice", "Status updated"));
 }
 
-export async function deleteComponentAction(form: FormData): Promise<void> {
+export async function deleteServiceAction(form: FormData): Promise<void> {
 	const { actor, services } = await requireMember("editor");
-	await attempt("/manage/components", () =>
-		services.components.delete(actor, text(form, "id")),
+	await attempt("/manage/services", () =>
+		services.catalog.delete(actor, text(form, "id")),
 	);
-	redirect(flash("/manage/components", "notice", "Component deleted"));
+	redirect(flash("/manage/services", "notice", "Service deleted"));
 }
 
 // ---- members ----------------------------------------------------------------------

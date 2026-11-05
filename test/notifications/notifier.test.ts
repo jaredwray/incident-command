@@ -61,7 +61,7 @@ const incident: Incident = {
 	title: "API errors <script>",
 	status: "investigating",
 	impact: "major",
-	componentIds: ["cmp_1"],
+	serviceIds: ["svc_1"],
 	updates: [],
 	startedAt: "2026-11-02T10:00:00.000Z",
 	createdBy: { type: "agent", id: "agt_1", name: "Bot" },
@@ -82,9 +82,9 @@ const notification: IncidentNotification = {
 	incident,
 	update,
 	settings,
-	components: [
+	services: [
 		{
-			id: "cmp_1",
+			id: "svc_1",
 			name: "API",
 			status: "partial_outage",
 			order: 0,
@@ -153,15 +153,15 @@ describe("templates", () => {
 			siteName: "Acme Status",
 			prefix: "New incident",
 			statusLabel: "Investigating",
-			components: "API",
+			services: "API",
 			incidentUrl: "https://x.co/incidents/inc_1",
 			unsubscribeUrl: "https://x.co/subscribe/unsubscribe?token=tok%201",
 		});
 		const payload = webhookPayload(notification);
 		expect(payload.event).toBe("incident.created");
 		expect(payload.text).toBe(payload.content);
-		expect(payload.incident.components).toEqual([
-			{ id: "cmp_1", name: "API", status: "partial_outage" },
+		expect(payload.incident.services).toEqual([
+			{ id: "svc_1", name: "API", status: "partial_outage" },
 		]);
 		expect(payload.page).toEqual({ name: "Acme Status", url: undefined });
 		expect(payload.update.message).toBe(update.message);
@@ -249,7 +249,7 @@ describe("AirhornNotifier", () => {
 		});
 	});
 
-	it("renders emails without links or components when unavailable", async () => {
+	it("renders emails without links or services when unavailable", async () => {
 		const { sent } = setup();
 		const airhorn = new Airhorn({
 			providers: [
@@ -268,7 +268,7 @@ describe("AirhornNotifier", () => {
 			airhorn,
 			email: { provider: "ses", from: "a@b.co" },
 		});
-		await notifier.notifyIncident({ ...notification, components: [] }, [
+		await notifier.notifyIncident({ ...notification, services: [] }, [
 			subscriber(),
 		]);
 		expect(sent[0]?.content).not.toContain("Affects");

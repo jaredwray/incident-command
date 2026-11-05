@@ -3,9 +3,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ConfirmButton } from "@/components/manage/confirm-button";
 import {
-	ComponentPicker,
-	ComponentStatusSelect,
 	ImpactSelect,
+	ServicePicker,
+	ServiceStatusSelect,
 	StatusSelect,
 	WindowFields,
 } from "@/components/manage/incident-fields";
@@ -45,9 +45,9 @@ export default async function ManageIncidentPage({
 	if (!incident) {
 		notFound();
 	}
-	const [settings, components] = await Promise.all([
+	const [settings, catalog] = await Promise.all([
 		services.settings.get(),
-		services.components.list(),
+		services.catalog.list(),
 	]);
 	const canEdit = hasRole(member.role, "editor");
 	const isIncident = incident.kind === "incident";
@@ -92,7 +92,7 @@ export default async function ManageIncidentPage({
 										className={inputClass}
 									/>
 								</Field>
-								<ComponentStatusSelect hint="Automatic restores components when resolving and starts maintenance mode when in progress." />
+								<ServiceStatusSelect hint="Automatic restores services when resolving and starts maintenance mode when in progress." />
 								<Checkbox
 									name="notify"
 									label="Notify subscribers"
@@ -130,9 +130,9 @@ export default async function ManageIncidentPage({
 										end={incident.scheduledEnd}
 									/>
 								)}
-								<ComponentPicker
-									components={components}
-									selected={incident.componentIds}
+								<ServicePicker
+									services={catalog}
+									selected={incident.serviceIds}
 								/>
 								<button type="submit" className={buttonClass.secondary}>
 									Save details
