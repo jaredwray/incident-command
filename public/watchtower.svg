@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" color="#ffffff" role="img" aria-label="Fortress watchtower">
+	<g id="watchtower" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+		<path d="M12 6h5v5h4V6h6v5h4V6h5v10l-3 4v18l3 5H12l3-5V20l-3-4Z" />
+		<path d="M12 16h24M15 20h18M22 29v-4a2 2 0 0 1 4 0v4ZM20 43v-5a4 4 0 0 1 8 0v5" />
+	</g>
+</svg>

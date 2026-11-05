@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { WatchtowerLogo } from "@/components/watchtower-logo";
 import type { Settings } from "@/lib/domain/types";
 
 export function SiteHeader({
@@ -20,9 +21,12 @@ export function SiteHeader({
 						className="h-8 w-auto"
 					/>
 				) : (
-					<span className="text-lg font-semibold tracking-tight">
-						{settings.siteName}
-					</span>
+					<>
+						<WatchtowerLogo />
+						<span className="text-lg font-semibold tracking-tight">
+							{settings.siteName}
+						</span>
+					</>
 				)}
 			</Link>
 			<nav className="flex items-center gap-2 text-sm">
