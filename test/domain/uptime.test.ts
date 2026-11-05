@@ -1,7 +1,7 @@
 import type {
-	Component,
-	ComponentStatusChange,
 	Incident,
+	Service,
+	ServiceStatusChange,
 } from "@/lib/domain/types";
 import {
 	computeUptime,
@@ -14,7 +14,7 @@ import {
 
 const NOW = new Date("2026-11-02T12:00:00.000Z");
 
-function component(overrides: Partial<Component> = {}): Component {
+function service(overrides: Partial<Service> = {}): Service {
 	return {
 		id: "c1",
 		name: "API",
@@ -29,11 +29,11 @@ function component(overrides: Partial<Component> = {}): Component {
 
 function change(
 	at: string,
-	previousStatus: Component["status"],
-	status: Component["status"],
-	componentId = "c1",
-): ComponentStatusChange {
-	return { id: `ch_${at}`, componentId, status, previousStatus, createdAt: at };
+	previousStatus: Service["status"],
+	status: Service["status"],
+	serviceId = "c1",
+): ServiceStatusChange {
+	return { id: `ch_${at}`, serviceId, status, previousStatus, createdAt: at };
 }
 
 function incident(overrides: Partial<Incident> = {}): Incident {
@@ -43,7 +43,7 @@ function incident(overrides: Partial<Incident> = {}): Incident {
 		title: "Outage",
 		status: "resolved",
 		impact: "major",
-		componentIds: ["c1"],
+		serviceIds: ["c1"],
 		updates: [],
 		startedAt: "2026-11-01T10:00:00.000Z",
 		resolvedAt: "2026-11-01T11:00:00.000Z",
@@ -77,7 +77,7 @@ describe("computeUptime", () => {
 	const window = uptimeWindow(NOW, 3);
 
 	it("reports full uptime with no changes", () => {
-		const result = computeUptime(component(), [], [], window);
+		const result = computeUptime(service(), [], [], window);
 		expect(result.uptime).toBe(1);
 		expect(result.days.map((day) => day.date)).toEqual([
 			"2026-10-31",
@@ -93,7 +93,7 @@ describe("computeUptime", () => {
 
 	it("uses the current status when nothing changed", () => {
 		const result = computeUptime(
-			component({ status: "major_outage" }),
+			service({ status: "major_outage" }),
 			[],
 			[],
 			window,
@@ -102,9 +102,9 @@ describe("computeUptime", () => {
 		expect(result.days[0]?.status).toBe("major_outage");
 	});
 
-	it("has no data before the component existed", () => {
+	it("has no data before the service existed", () => {
 		const result = computeUptime(
-			component({ createdAt: "2026-11-01T12:00:00.000Z" }),
+			service({ createdAt: "2026-11-01T12:00:00.000Z" }),
 			[],
 			[],
 			window,
@@ -119,9 +119,9 @@ describe("computeUptime", () => {
 		expect(result.uptime).toBe(1);
 	});
 
-	it("has no data at all for a component created in the future", () => {
+	it("has no data at all for a service created in the future", () => {
 		const result = computeUptime(
-			component({ createdAt: "2026-12-01T00:00:00.000Z" }),
+			service({ createdAt: "2026-12-01T00:00:00.000Z" }),
 			[],
 			[],
 			window,
@@ -146,7 +146,7 @@ describe("computeUptime", () => {
 				"other",
 			),
 		];
-		const result = computeUptime(component(), changes, [], window);
+		const result = computeUptime(service(), changes, [], window);
 		const day = result.days[1];
 		expect(day?.status).toBe("major_outage");
 		// 6h down + 6h * 0.3 = 7.8h of 24h
@@ -160,7 +160,7 @@ describe("computeUptime", () => {
 		const changes = [
 			change("2026-11-02T06:00:00.000Z", "major_outage", "operational"),
 		];
-		const result = computeUptime(component(), changes, [], window);
+		const result = computeUptime(service(), changes, [], window);
 		expect(result.days[0]?.status).toBe("major_outage");
 		expect(result.days[2]?.status).toBe("major_outage");
 		expect(result.days[2]?.uptime).toBeCloseTo(0.5, 10);
@@ -171,7 +171,7 @@ describe("computeUptime", () => {
 			change("2026-10-31T00:00:00.000Z", "major_outage", "partial_outage"),
 			change(NOW.toISOString(), "partial_outage", "operational"),
 		];
-		const result = computeUptime(component(), changes, [], window);
+		const result = computeUptime(service(), changes, [], window);
 		expect(result.days.every((day) => day.status === "partial_outage")).toBe(
 			true,
 		);
@@ -182,7 +182,7 @@ describe("computeUptime", () => {
 		const changes = [
 			change("2026-11-02T00:00:00.000Z", "operational", "under_maintenance"),
 		];
-		const result = computeUptime(component(), changes, [], window);
+		const result = computeUptime(service(), changes, [], window);
 		expect(result.days[2]?.status).toBe("under_maintenance");
 		expect(result.days[2]?.uptime).toBe(1);
 	});
@@ -198,14 +198,14 @@ describe("computeUptime", () => {
 				status: "investigating",
 			}),
 			incident({ id: "maint", kind: "maintenance" }),
-			incident({ id: "other", componentIds: ["c2"] }),
+			incident({ id: "other", serviceIds: ["c2"] }),
 			incident({
 				id: "spanning",
 				startedAt: "2026-10-31T23:00:00.000Z",
 				resolvedAt: "2026-11-01T01:00:00.000Z",
 			}),
 		];
-		const result = computeUptime(component(), [], incidents, window);
+		const result = computeUptime(service(), [], incidents, window);
 		expect(result.days[0]?.incidents.map((i) => i.id)).toEqual(["spanning"]);
 		expect(result.days[1]?.incidents).toEqual([
 			{ id: "i1", title: "Outage", impact: "major" },

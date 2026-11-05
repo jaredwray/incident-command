@@ -55,7 +55,7 @@ export default async function AgentsPage({
 		>
 			<Card
 				title="Connect an agent"
-				description="Agents use the MCP server to manage incidents, components and more."
+				description="Agents use the MCP server to manage incidents, services and more."
 			>
 				<div className="space-y-3 text-sm">
 					<p>

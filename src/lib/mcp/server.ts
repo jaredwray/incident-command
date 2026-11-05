@@ -2,11 +2,11 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import {
-	componentStatusSchema,
 	eventStatusSchema,
 	impactSchema,
 	kindSchema,
 	roleSchema,
+	serviceStatusSchema,
 } from "../domain/schemas";
 import { hasRole } from "../domain/status";
 import type { Actor, Incident, Role } from "../domain/types";
@@ -21,8 +21,8 @@ const INSTRUCTIONS = `You are connected to an incident command service that powe
 - Use get_status first to understand the current state.
 - Declare incidents with create_incident, keep customers informed with post_incident_update
   (statuses: investigating -> identified -> monitoring -> resolved), and close with resolve_incident.
-- Affected components move to a status derived from the incident impact (minor=degraded_performance,
-  major=partial_outage, critical=major_outage) unless componentStatus is given; resolving restores them.
+- Affected services move to a status derived from the incident impact (minor=degraded_performance,
+  major=partial_outage, critical=major_outage) unless serviceStatus is given; resolving restores them.
 - Schedule planned work with schedule_maintenance (statuses: scheduled -> in_progress -> verifying -> completed).
 - Everything you post is public on the status page and may notify subscribers. Write for customers.`;
 
@@ -73,7 +73,7 @@ function incidentSummary(incident: Incident) {
 		title: incident.title,
 		status: incident.status,
 		impact: incident.impact,
-		componentIds: incident.componentIds,
+		serviceIds: incident.serviceIds,
 		startedAt: incident.startedAt,
 		resolvedAt: incident.resolvedAt,
 		scheduledStart: incident.scheduledStart,
@@ -153,7 +153,7 @@ export function createMcpServer(services: Services, actor: Actor): McpServer {
 		{
 			title: "Get status",
 			description:
-				"Current overall status, every visible component with its status and uptime, open incidents and maintenance.",
+				"Current overall status, every visible service with its status and uptime, open incidents and maintenance.",
 			inputSchema: {},
 			readOnly: true,
 		},
@@ -162,12 +162,12 @@ export function createMcpServer(services: Services, actor: Actor): McpServer {
 			return {
 				page: summary.settings.siteName,
 				overall: summary.overall,
-				components: summary.components.map((component) => ({
-					id: component.id,
-					name: component.name,
-					group: component.group,
-					status: component.status,
-					uptime: formatUptime(component.uptime),
+				services: summary.services.map((service) => ({
+					id: service.id,
+					name: service.name,
+					group: service.group,
+					status: service.status,
+					uptime: formatUptime(service.uptime),
 				})),
 				activeIncidents: summary.activeIncidents.map(incidentSummary),
 				activeMaintenance: summary.activeMaintenance.map(incidentSummary),
@@ -179,14 +179,14 @@ export function createMcpServer(services: Services, actor: Actor): McpServer {
 
 	tool(
 		"viewer",
-		"list_components",
+		"list_services",
 		{
-			title: "List components",
-			description: "All components, including hidden ones, in display order.",
+			title: "List services",
+			description: "All services, including hidden ones, in display order.",
 			inputSchema: {},
 			readOnly: true,
 		},
-		async () => services.components.list(),
+		async () => services.catalog.list(),
 	);
 
 	tool(
@@ -229,72 +229,72 @@ export function createMcpServer(services: Services, actor: Actor): McpServer {
 		async (args) => services.incidents.get(args.id),
 	);
 
-	// ---- components -----------------------------------------------------------
+	// ---- services -----------------------------------------------------------
 
 	tool(
 		"editor",
-		"create_component",
+		"create_service",
 		{
-			title: "Create component",
+			title: "Create service",
 			description:
-				"Adds a component (a service or system customers care about) to the status page.",
+				"Adds a service (a system customers care about) to the status page.",
 			inputSchema: {
 				name: z.string(),
 				description: z.string().optional(),
 				group: z
 					.string()
 					.optional()
-					.describe("Optional group name used to cluster components"),
-				status: componentStatusSchema.optional(),
+					.describe("Optional group name used to cluster services"),
+				status: serviceStatusSchema.optional(),
 				hidden: z.boolean().optional().describe("Hide from the public page"),
 			},
 		},
-		async (args) => services.components.create(actor, args),
+		async (args) => services.catalog.create(actor, args),
 	);
 
 	tool(
 		"editor",
-		"update_component",
+		"update_service",
 		{
-			title: "Update component",
+			title: "Update service",
 			description:
-				"Edits a component. Pass null or an empty string to clear description or group.",
+				"Edits a service. Pass null or an empty string to clear description or group.",
 			inputSchema: {
 				id,
 				name: z.string().optional(),
 				description: z.string().nullable().optional(),
 				group: z.string().nullable().optional(),
-				status: componentStatusSchema.optional(),
+				status: serviceStatusSchema.optional(),
 				hidden: z.boolean().optional(),
 				order: z.number().int().optional(),
 			},
 		},
-		async ({ id: componentId, ...patch }) =>
-			services.components.update(actor, componentId, patch),
+		async ({ id: serviceId, ...patch }) =>
+			services.catalog.update(actor, serviceId, patch),
 	);
 
 	tool(
 		"editor",
-		"set_component_status",
+		"set_service_status",
 		{
-			title: "Set component status",
+			title: "Set service status",
 			description:
-				"Changes a component's status without posting an incident. Status changes feed uptime history.",
-			inputSchema: { id, status: componentStatusSchema },
+				"Changes a service's status without posting an incident. Status changes feed uptime history.",
+			inputSchema: { id, status: serviceStatusSchema },
 		},
-		async (args) => services.components.setStatus(actor, args.id, args.status),
+		async (args) => services.catalog.setStatus(actor, args.id, args.status),
 	);
 
 	tool(
 		"editor",
-		"delete_component",
+		"delete_service",
 		{
-			title: "Delete component",
-			description: "Permanently deletes a component and its status history.",
+			title: "Delete service",
+			description: "Permanently deletes a service and its status history.",
 			inputSchema: { id },
 		},
 		async (args) => {
-			await services.components.delete(actor, args.id);
+			await services.catalog.delete(actor, args.id);
 			return { deleted: args.id };
 		},
 	);
@@ -307,17 +307,17 @@ export function createMcpServer(services: Services, actor: Actor): McpServer {
 		{
 			title: "Create incident",
 			description:
-				"Declares a public incident with an initial update. Affected components change status based on impact.",
+				"Declares a public incident with an initial update. Affected services change status based on impact.",
 			inputSchema: {
 				title: z.string().describe("Short customer-facing title"),
 				message: z.string().describe("First public update"),
 				impact: impactSchema
 					.optional()
 					.describe("none | minor | major | critical (default minor)"),
-				componentIds: z.array(z.string()).optional(),
-				componentStatus: componentStatusSchema
+				serviceIds: z.array(z.string()).optional(),
+				serviceStatus: serviceStatusSchema
 					.optional()
-					.describe("Override the status applied to affected components"),
+					.describe("Override the status applied to affected services"),
 				status: eventStatusSchema
 					.optional()
 					.describe(
@@ -341,7 +341,7 @@ export function createMcpServer(services: Services, actor: Actor): McpServer {
 				id,
 				message: z.string(),
 				status: eventStatusSchema.optional(),
-				componentStatus: componentStatusSchema.optional(),
+				serviceStatus: serviceStatusSchema.optional(),
 				notify,
 			},
 		},
@@ -355,7 +355,7 @@ export function createMcpServer(services: Services, actor: Actor): McpServer {
 		{
 			title: "Resolve incident",
 			description:
-				"Resolves an incident (or completes maintenance) and restores affected components.",
+				"Resolves an incident (or completes maintenance) and restores affected services.",
 			inputSchema: { id, message: z.string().optional() },
 		},
 		async (args) => services.incidents.resolve(actor, args.id, args.message),
@@ -367,12 +367,12 @@ export function createMcpServer(services: Services, actor: Actor): McpServer {
 		{
 			title: "Edit incident",
 			description:
-				"Edits incident metadata (title, impact, components, maintenance window) without posting an update.",
+				"Edits incident metadata (title, impact, services, maintenance window) without posting an update.",
 			inputSchema: {
 				id,
 				title: z.string().optional(),
 				impact: impactSchema.optional(),
-				componentIds: z.array(z.string()).optional(),
+				serviceIds: z.array(z.string()).optional(),
 				scheduledStart: isoDate.optional(),
 				scheduledEnd: isoDate.optional(),
 			},
@@ -407,7 +407,7 @@ export function createMcpServer(services: Services, actor: Actor): McpServer {
 				message: z.string(),
 				scheduledStart: isoDate,
 				scheduledEnd: isoDate,
-				componentIds: z.array(z.string()).optional(),
+				serviceIds: z.array(z.string()).optional(),
 				notify,
 			},
 		},

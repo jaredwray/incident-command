@@ -16,7 +16,8 @@ export interface Config {
 		tablePrefix: string;
 		/**
 		 * Keep a connection pool (default). Disabled on Cloudflare Workers, where
-		 * connections cannot be shared between requests (use Hyperdrive).
+		 * a socket cannot outlive the request that opened it. Postgres and
+		 * MongoDB then connect for each operation.
 		 */
 		pool: boolean;
 	};
@@ -32,7 +33,7 @@ export interface Config {
 	twilio?: { accountSid: string; authToken: string; sendGridApiKey?: string };
 	aws?: { region: string; accessKeyId?: string; secretAccessKey?: string };
 	webhookSecret?: string;
-	/** Seed demo components and incidents into an empty store on boot. */
+	/** Seed demo services and incidents into an empty store on boot. */
 	seedDemo: boolean;
 }
 

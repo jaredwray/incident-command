@@ -9,7 +9,7 @@ function publicIncident(incident: Incident, visible: Set<string>) {
 		title: incident.title,
 		status: incident.status,
 		impact: incident.impact,
-		components: incident.componentIds.filter((id) => visible.has(id)),
+		services: incident.serviceIds.filter((id) => visible.has(id)),
 		startedAt: incident.startedAt,
 		resolvedAt: incident.resolvedAt ?? null,
 		scheduledStart: incident.scheduledStart ?? null,
@@ -25,7 +25,7 @@ function publicIncident(incident: Incident, visible: Set<string>) {
 
 /** The public JSON representation of the status page (no internal fields). */
 export function buildPublicStatus(summary: StatusSummary) {
-	const visible = new Set(summary.components.map((component) => component.id));
+	const visible = new Set(summary.services.map((service) => service.id));
 	const toPublic = (incident: Incident) => publicIncident(incident, visible);
 	return {
 		page: {
@@ -36,13 +36,13 @@ export function buildPublicStatus(summary: StatusSummary) {
 			indicator: summary.overall,
 			description: OVERALL_STATUS_COPY[summary.overall].title,
 		},
-		components: summary.components.map((component) => ({
-			id: component.id,
-			name: component.name,
-			description: component.description ?? null,
-			group: component.group ?? null,
-			status: component.status,
-			uptime: component.uptime,
+		services: summary.services.map((service) => ({
+			id: service.id,
+			name: service.name,
+			description: service.description ?? null,
+			group: service.group ?? null,
+			status: service.status,
+			uptime: service.uptime,
 		})),
 		incidents: summary.activeIncidents.map(toPublic),
 		maintenance: {

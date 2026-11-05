@@ -1,17 +1,17 @@
 import {
-	COMPONENT_STATUS_LABELS,
 	EVENT_STATUS_LABELS,
 	IMPACT_LABELS,
+	SERVICE_STATUS_LABELS,
 } from "@/lib/domain/status";
 import {
-	COMPONENT_STATUSES,
-	type Component,
 	type EventStatus,
 	INCIDENT_IMPACTS,
 	INCIDENT_STATUSES,
 	type IncidentImpact,
 	type IncidentKind,
 	MAINTENANCE_STATUSES,
+	SERVICE_STATUSES,
+	type Service,
 } from "@/lib/domain/types";
 import { toDateTimeInput } from "@/lib/format";
 import { Field, inputClass } from "./ui";
@@ -67,25 +67,25 @@ export function ImpactSelect({
 	);
 }
 
-export function ComponentStatusSelect({
-	id = "componentStatus",
+export function ServiceStatusSelect({
+	id = "serviceStatus",
 	hint,
 }: {
 	id?: string;
 	hint: string;
 }) {
 	return (
-		<Field label="Set affected components to" htmlFor={id} hint={hint}>
+		<Field label="Set affected services to" htmlFor={id} hint={hint}>
 			<select
 				id={id}
-				name="componentStatus"
+				name="serviceStatus"
 				defaultValue=""
 				className={inputClass}
 			>
 				<option value="">Automatic</option>
-				{COMPONENT_STATUSES.map((status) => (
+				{SERVICE_STATUSES.map((status) => (
 					<option key={status} value={status}>
-						{COMPONENT_STATUS_LABELS[status]}
+						{SERVICE_STATUS_LABELS[status]}
 					</option>
 				))}
 			</select>
@@ -93,36 +93,36 @@ export function ComponentStatusSelect({
 	);
 }
 
-export function ComponentPicker({
-	components,
+export function ServicePicker({
+	services,
 	selected = [],
 }: {
-	components: Component[];
+	services: Service[];
 	selected?: string[];
 }) {
 	return (
 		<fieldset className="space-y-2">
-			<legend className="text-sm font-medium">Affected components</legend>
-			{components.length === 0 ? (
-				<p className="text-sm text-muted">No components yet.</p>
+			<legend className="text-sm font-medium">Affected services</legend>
+			{services.length === 0 ? (
+				<p className="text-sm text-muted">No services yet.</p>
 			) : (
 				<div className="grid gap-2 sm:grid-cols-2">
-					{components.map((component) => (
+					{services.map((service) => (
 						<label
-							key={component.id}
+							key={service.id}
 							className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm"
 						>
 							<input
 								type="checkbox"
-								name="componentIds"
-								value={component.id}
-								defaultChecked={selected.includes(component.id)}
+								name="serviceIds"
+								value={service.id}
+								defaultChecked={selected.includes(service.id)}
 								className="size-4 accent-brand"
 							/>
-							<span className="min-w-0 flex-1 truncate">{component.name}</span>
-							{component.group && (
+							<span className="min-w-0 flex-1 truncate">{service.name}</span>
+							{service.group && (
 								<span className="shrink-0 text-xs text-muted">
-									{component.group}
+									{service.group}
 								</span>
 							)}
 						</label>

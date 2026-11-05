@@ -1,38 +1,36 @@
-import { COMPONENT_STATUS_LABELS } from "@/lib/domain/status";
+import { SERVICE_STATUS_LABELS } from "@/lib/domain/status";
 import { formatUptime, type UptimeWindow } from "@/lib/domain/uptime";
 import { formatMonthRange } from "@/lib/format";
-import type { ComponentGroupView, ComponentView } from "@/lib/services/status";
+import type { ServiceGroupView, ServiceView } from "@/lib/services/status";
 import { StatusIcon } from "../icons";
 import { STATUS_TEXT } from "./badges";
 import { MOBILE_DAYS, UptimeBars } from "./uptime-bars";
 
-function ComponentRow({ component }: { component: ComponentView }) {
+function ServiceRow({ service }: { service: ServiceView }) {
 	return (
 		<li className="px-5 py-4">
 			<div className="flex items-center justify-between gap-4">
 				<div className="flex min-w-0 items-center gap-2">
-					<span className={STATUS_TEXT[component.status]}>
-						<StatusIcon status={component.status} className="size-4" />
+					<span className={STATUS_TEXT[service.status]}>
+						<StatusIcon status={service.status} className="size-4" />
 					</span>
-					<span className="truncate font-medium" title={component.description}>
-						{component.name}
+					<span className="truncate font-medium" title={service.description}>
+						{service.name}
 					</span>
 				</div>
 				<span
-					className={`shrink-0 text-sm ${component.status === "operational" ? "text-muted" : STATUS_TEXT[component.status]}`}
+					className={`shrink-0 text-sm ${service.status === "operational" ? "text-muted" : STATUS_TEXT[service.status]}`}
 				>
-					{component.status === "operational"
-						? `${formatUptime(component.uptime)} uptime`
-						: COMPONENT_STATUS_LABELS[component.status]}
+					{service.status === "operational"
+						? `${formatUptime(service.uptime)} uptime`
+						: SERVICE_STATUS_LABELS[service.status]}
 				</span>
 			</div>
-			{component.description && (
-				<p className="mt-0.5 pl-6 text-sm text-muted">
-					{component.description}
-				</p>
+			{service.description && (
+				<p className="mt-0.5 pl-6 text-sm text-muted">{service.description}</p>
 			)}
 			<div className="mt-3">
-				<UptimeBars days={component.days} />
+				<UptimeBars days={service.days} />
 			</div>
 		</li>
 	);
@@ -42,7 +40,7 @@ export function SystemStatus({
 	groups,
 	window,
 }: {
-	groups: ComponentGroupView[];
+	groups: ServiceGroupView[];
 	window: UptimeWindow;
 }) {
 	return (
@@ -55,7 +53,7 @@ export function SystemStatus({
 			</header>
 			{groups.length === 0 ? (
 				<p className="px-5 py-8 text-center text-sm text-muted">
-					No components have been added yet.
+					No services have been added yet.
 				</p>
 			) : (
 				<div className="divide-y divide-border">
@@ -67,8 +65,8 @@ export function SystemStatus({
 								</h3>
 							)}
 							<ul className="divide-y divide-border">
-								{group.components.map((component) => (
-									<ComponentRow key={component.id} component={component} />
+								{group.services.map((service) => (
+									<ServiceRow key={service.id} service={service} />
 								))}
 							</ul>
 						</div>

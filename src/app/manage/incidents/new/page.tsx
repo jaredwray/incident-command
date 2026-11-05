@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import {
-	ComponentPicker,
-	ComponentStatusSelect,
 	ImpactSelect,
+	ServicePicker,
+	ServiceStatusSelect,
 	StatusSelect,
 	WindowFields,
 } from "@/components/manage/incident-fields";
@@ -30,9 +30,9 @@ export default async function NewIncidentPage({
 	const kind: IncidentKind =
 		rawKind === "maintenance" ? "maintenance" : "incident";
 	const { member, services, app } = await requireMember("editor");
-	const [settings, components] = await Promise.all([
+	const [settings, catalog] = await Promise.all([
 		services.settings.get(),
-		services.components.list(),
+		services.catalog.list(),
 	]);
 	const isIncident = kind === "incident";
 	return (
@@ -78,9 +78,9 @@ export default async function NewIncidentPage({
 							className={inputClass}
 						/>
 					</Field>
-					<ComponentPicker components={components} />
+					<ServicePicker services={catalog} />
 					{isIncident && (
-						<ComponentStatusSelect hint="Automatic derives the status from the impact." />
+						<ServiceStatusSelect hint="Automatic derives the status from the impact." />
 					)}
 					<Checkbox name="notify" label="Notify subscribers" defaultChecked />
 					<button type="submit" className={buttonClass.primary}>

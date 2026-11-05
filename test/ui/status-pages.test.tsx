@@ -79,7 +79,7 @@ describe("status page", () => {
 			screen.getByRole("heading", { name: "We're fully operational" }),
 		).toBeInTheDocument();
 		expect(
-			screen.getByText("No components have been added yet."),
+			screen.getByText("No services have been added yet."),
 		).toBeInTheDocument();
 		expect(
 			screen.getByText("No incidents reported in the last 14 days."),
@@ -87,7 +87,7 @@ describe("status page", () => {
 		expect(screen.queryByText("Subscribe to updates")).not.toBeInTheDocument();
 	});
 
-	it("renders components, incidents and maintenance", async () => {
+	it("renders services, incidents and maintenance", async () => {
 		const { services, clock } = await setupApp();
 		await services.settings.update(SYSTEM_ACTOR, {
 			siteName: "Acme",
@@ -96,18 +96,18 @@ describe("status page", () => {
 			supportUrl: "https://acme.dev/help",
 		});
 		clock.set("2026-10-01T00:00:00.000Z");
-		const api = await services.components.create(SYSTEM_ACTOR, {
+		const api = await services.catalog.create(SYSTEM_ACTOR, {
 			name: "API",
 			group: "Core",
 			description: "Public API",
 		});
-		await services.components.create(SYSTEM_ACTOR, { name: "Website" });
+		await services.catalog.create(SYSTEM_ACTOR, { name: "Website" });
 		clock.set("2026-11-02T12:00:00.000Z");
 		await services.incidents.create(SYSTEM_ACTOR, {
 			title: "API errors",
 			message: "Looking into it",
 			impact: "major",
-			componentIds: [api.id],
+			serviceIds: [api.id],
 		});
 		await services.incidents.create(SYSTEM_ACTOR, {
 			kind: "maintenance",
@@ -166,8 +166,8 @@ describe("status page", () => {
 describe("incident page", () => {
 	it("renders an incident with its timeline", async () => {
 		const { services, clock } = await setupApp();
-		const api = await services.components.create(SYSTEM_ACTOR, { name: "API" });
-		const hidden = await services.components.create(SYSTEM_ACTOR, {
+		const api = await services.catalog.create(SYSTEM_ACTOR, { name: "API" });
+		const hidden = await services.catalog.create(SYSTEM_ACTOR, {
 			name: "Secret",
 			hidden: true,
 		});
@@ -175,7 +175,7 @@ describe("incident page", () => {
 			title: "API errors",
 			message: "Investigating",
 			impact: "critical",
-			componentIds: [api.id, hidden.id],
+			serviceIds: [api.id, hidden.id],
 		});
 		clock.advance(95 * 60_000);
 		await services.incidents.resolve(SYSTEM_ACTOR, incident.id, "All good");

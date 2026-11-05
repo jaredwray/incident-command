@@ -184,7 +184,7 @@ describe("status components", () => {
 			kind: "incident" as const,
 			status: "resolved" as const,
 			impact: "minor" as const,
-			componentIds: [],
+			serviceIds: [],
 			startedAt: "2026-11-02T00:00:00.000Z",
 			createdBy: { type: "system" as const, id: "s", name: "S" },
 			updatedAt: "2026-11-02T00:00:00.000Z",

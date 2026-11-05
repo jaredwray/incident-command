@@ -12,7 +12,7 @@ const DEMO_ACTOR: Actor = {
 const HOUR_MS = 3_600_000;
 
 /**
- * Seeds a realistic status page: grouped components, a few past incidents
+ * Seeds a realistic status page: grouped services, a few past incidents
  * spread across the uptime window and an upcoming maintenance. Uses a
  * movable clock so history lands in the past.
  */
@@ -25,7 +25,7 @@ export async function seedDemo(ctx: ServiceContext): Promise<void> {
 	};
 
 	const make = (name: string, group: string, description: string) =>
-		services.components.create(DEMO_ACTOR, { name, group, description });
+		services.catalog.create(DEMO_ACTOR, { name, group, description });
 	const website = await make(
 		"Website",
 		"Web",
@@ -45,7 +45,7 @@ export async function seedDemo(ctx: ServiceContext): Promise<void> {
 		title: "Elevated API latency",
 		message: "We are investigating slower than normal API responses.",
 		impact: "minor",
-		componentIds: [api.id],
+		serviceIds: [api.id],
 	});
 	at(41, 15);
 	await services.incidents.postUpdate(DEMO_ACTOR, latency.id, {
@@ -66,7 +66,7 @@ export async function seedDemo(ctx: ServiceContext): Promise<void> {
 		message:
 			"Webhook deliveries are delayed. Events are queued and will be delivered.",
 		impact: "major",
-		componentIds: [webhooks.id],
+		serviceIds: [webhooks.id],
 	});
 	at(17, 10);
 	await services.incidents.postUpdate(DEMO_ACTOR, outage.id, {
@@ -85,7 +85,7 @@ export async function seedDemo(ctx: ServiceContext): Promise<void> {
 		title: "Dashboard unavailable",
 		message: "The dashboard is returning errors for all users.",
 		impact: "critical",
-		componentIds: [dashboard.id, website.id],
+		serviceIds: [dashboard.id, website.id],
 	});
 	at(3, 22.5);
 	await services.incidents.resolve(
@@ -100,7 +100,7 @@ export async function seedDemo(ctx: ServiceContext): Promise<void> {
 		title: "Database upgrade",
 		message:
 			"We are upgrading the primary database. Brief read-only periods are expected.",
-		componentIds: [database.id],
+		serviceIds: [database.id],
 		scheduledStart: new Date(end + 2 * DAY_MS).toISOString(),
 		scheduledEnd: new Date(end + 2 * DAY_MS + 2 * HOUR_MS).toISOString(),
 		notify: false,

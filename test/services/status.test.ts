@@ -15,18 +15,18 @@ describe("StatusService", () => {
 		expect(summary.generatedAt).toBe("2026-11-02T12:00:00.000Z");
 	});
 
-	it("groups components, computes uptime and the overall status", async () => {
+	it("groups services, computes uptime and the overall status", async () => {
 		t.clock.set("2026-10-01T00:00:00.000Z");
-		const api = await t.services.components.create(EDITOR, {
+		const api = await t.services.catalog.create(EDITOR, {
 			name: "API",
 			group: "Core",
 		});
-		await t.services.components.create(EDITOR, { name: "Web" });
-		await t.services.components.create(EDITOR, {
+		await t.services.catalog.create(EDITOR, { name: "Web" });
+		await t.services.catalog.create(EDITOR, {
 			name: "Workers",
 			group: "Core",
 		});
-		await t.services.components.create(EDITOR, {
+		await t.services.catalog.create(EDITOR, {
 			name: "Secret",
 			hidden: true,
 			status: "major_outage",
@@ -36,7 +36,7 @@ describe("StatusService", () => {
 			title: "API down",
 			message: "Down",
 			impact: "critical",
-			componentIds: [api.id],
+			serviceIds: [api.id],
 		});
 		t.clock.set("2026-11-01T11:00:00.000Z");
 		await t.services.incidents.resolve(EDITOR, incident.id);
@@ -44,13 +44,13 @@ describe("StatusService", () => {
 
 		const summary = await t.services.status.summary();
 		expect(
-			summary.groups.map((g) => [g.name, g.components.map((c) => c.name)]),
+			summary.groups.map((g) => [g.name, g.services.map((c) => c.name)]),
 		).toEqual([
 			["Core", ["API", "Workers"]],
 			[null, ["Web"]],
 		]);
 		expect(summary.overall).toBe("operational");
-		const apiView = summary.components.find((c) => c.id === api.id);
+		const apiView = summary.services.find((c) => c.id === api.id);
 		const day = apiView?.days.find((d) => d.date === "2026-11-01");
 		expect(day?.status).toBe("major_outage");
 		expect(day?.incidents.map((i) => i.id)).toEqual([incident.id]);
@@ -61,7 +61,7 @@ describe("StatusService", () => {
 	});
 
 	it("reflects active incidents and maintenance", async () => {
-		const api = await t.services.components.create(EDITOR, { name: "API" });
+		const api = await t.services.catalog.create(EDITOR, { name: "API" });
 		const incident = await t.services.incidents.create(EDITOR, {
 			title: "Elevated errors",
 			message: "Hmm",
@@ -86,7 +86,7 @@ describe("StatusService", () => {
 			title: "Now",
 			message: "Now",
 			status: "in_progress",
-			componentIds: [api.id],
+			serviceIds: [api.id],
 			scheduledStart: "2026-11-02T11:00:00.000Z",
 			scheduledEnd: "2026-11-02T13:00:00.000Z",
 		});
@@ -99,7 +99,7 @@ describe("StatusService", () => {
 		]);
 		expect(summary.recentIncidents.map((i) => i.id)).not.toContain(soon.id);
 		expect(summary.overall).toBe("partial_outage");
-		expect(summary.components[0]?.status).toBe("under_maintenance");
+		expect(summary.services[0]?.status).toBe("under_maintenance");
 
 		await t.services.incidents.resolve(EDITOR, incident.id);
 		expect((await t.services.status.summary()).overall).toBe(

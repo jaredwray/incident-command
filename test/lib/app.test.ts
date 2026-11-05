@@ -44,7 +44,11 @@ describe("store factory", () => {
 			kind: string;
 			options: unknown;
 		};
-		expect(mongo.options).toEqual({ url: "mongodb://db", dbName: "status" });
+		expect(mongo.options).toEqual({
+			url: "mongodb://db",
+			dbName: "status",
+			pool: true,
+		});
 	});
 
 	it("wraps the adapter in the cache", async () => {

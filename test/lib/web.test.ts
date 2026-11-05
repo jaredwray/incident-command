@@ -1,7 +1,7 @@
-import { GET as health } from "@/app/api/health/route";
 import { POST as mcp } from "@/app/api/mcp/route";
 import { GET as status } from "@/app/api/v1/status/route";
 import { GET as feed } from "@/app/feed.xml/route";
+import { GET as health } from "@/app/healthz/route";
 import { createApp, setApp } from "@/lib/app";
 import { loadConfig } from "@/lib/config";
 import { buildRssFeed, escapeXml } from "@/lib/feed";
@@ -73,21 +73,21 @@ describe("API routes", () => {
 
 	it("serves the public status json", async () => {
 		const { services } = await setup();
-		const api = await services.components.create(SYSTEM_ACTOR, {
+		const api = await services.catalog.create(SYSTEM_ACTOR, {
 			name: "API",
 			description: "Public",
 			group: "Core",
 		});
-		const hidden = await services.components.create(SYSTEM_ACTOR, {
+		const hidden = await services.catalog.create(SYSTEM_ACTOR, {
 			name: "Secret",
 			hidden: true,
 		});
-		const web = await services.components.create(SYSTEM_ACTOR, { name: "Web" });
+		const web = await services.catalog.create(SYSTEM_ACTOR, { name: "Web" });
 		const incident = await services.incidents.create(SYSTEM_ACTOR, {
 			title: "Down",
 			message: "Looking",
 			impact: "critical",
-			componentIds: [api.id, hidden.id],
+			serviceIds: [api.id, hidden.id],
 		});
 		await services.incidents.postUpdate(SYSTEM_ACTOR, incident.id, {
 			message: "Still looking",
@@ -106,7 +106,7 @@ describe("API routes", () => {
 			indicator: "major_outage",
 			description: "We're experiencing a major outage",
 		});
-		expect(body.components).toEqual([
+		expect(body.services).toEqual([
 			{
 				id: api.id,
 				name: "API",
@@ -126,7 +126,7 @@ describe("API routes", () => {
 		]);
 		expect(body.incidents[0]).toMatchObject({
 			title: "Down",
-			components: [api.id],
+			services: [api.id],
 			resolvedAt: null,
 			scheduledStart: null,
 		});
@@ -190,7 +190,7 @@ describe("feed helpers", () => {
 					title: "T",
 					status: "investigating",
 					impact: "minor",
-					componentIds: [],
+					serviceIds: [],
 					updates: [],
 					startedAt: "2026-11-02T00:00:00.000Z",
 					createdBy: { type: "system", id: "s", name: "S" },

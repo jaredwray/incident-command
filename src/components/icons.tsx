@@ -1,4 +1,4 @@
-import type { ComponentStatus } from "@/lib/domain/types";
+import type { ServiceStatus } from "@/lib/domain/types";
 
 interface IconProps {
 	className?: string;
@@ -52,7 +52,7 @@ export function WrenchIcon({ className }: IconProps) {
 export function StatusIcon({
 	status,
 	className,
-}: IconProps & { status: ComponentStatus }) {
+}: IconProps & { status: ServiceStatus }) {
 	switch (status) {
 		case "operational":
 			return <CheckIcon className={className} />;

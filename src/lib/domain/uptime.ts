@@ -1,10 +1,10 @@
 import { DOWNTIME_WEIGHT, statusSeverity } from "./status";
 import type {
-	Component,
-	ComponentStatus,
-	ComponentStatusChange,
 	Incident,
 	IncidentImpact,
+	Service,
+	ServiceStatus,
+	ServiceStatusChange,
 } from "./types";
 
 export const DAY_MS = 86_400_000;
@@ -18,8 +18,8 @@ export interface DayIncident {
 export interface DayStatus {
 	/** UTC date, `YYYY-MM-DD`. */
 	date: string;
-	/** Worst status during the day, or `null` when there is no data (before the component existed). */
-	status: ComponentStatus | null;
+	/** Worst status during the day, or `null` when there is no data (before the service existed). */
+	status: ServiceStatus | null;
 	/** Fraction between 0 and 1, or `null` when there is no data. */
 	uptime: number | null;
 	incidents: DayIncident[];
@@ -53,25 +53,25 @@ export function uptimeWindow(now: Date, days: number): UptimeWindow {
 }
 
 interface Segment {
-	status: ComponentStatus;
+	status: ServiceStatus;
 	start: number;
 	end: number;
 }
 
 function buildSegments(
-	component: Component,
-	changes: readonly ComponentStatusChange[],
+	service: Service,
+	changes: readonly ServiceStatusChange[],
 	window: UptimeWindow,
 ): Segment[] {
 	const sorted = [...changes]
-		.filter((change) => change.componentId === component.id)
+		.filter((change) => change.serviceId === service.id)
 		.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 	const segments: Segment[] = [];
 	let cursor = Math.max(
 		window.start.getTime(),
-		new Date(component.createdAt).getTime(),
+		new Date(service.createdAt).getTime(),
 	);
-	let status = sorted[0]?.previousStatus ?? component.status;
+	let status = sorted[0]?.previousStatus ?? service.status;
 	for (const change of sorted) {
 		const at = new Date(change.createdAt).getTime();
 		if (at > cursor) {
@@ -88,21 +88,20 @@ function buildSegments(
 }
 
 /**
- * Computes the uptime of a component across a window of days from its status
+ * Computes the uptime of a service across a window of days from its status
  * change history. Partial outages count as 30% downtime and major outages as
  * 100%; degraded performance and maintenance do not count as downtime.
  */
 export function computeUptime(
-	component: Component,
-	changes: readonly ComponentStatusChange[],
+	service: Service,
+	changes: readonly ServiceStatusChange[],
 	incidents: readonly Incident[],
 	window: UptimeWindow,
 ): UptimeResult {
-	const segments = buildSegments(component, changes, window);
+	const segments = buildSegments(service, changes, window);
 	const affecting = incidents.filter(
 		(incident) =>
-			incident.kind === "incident" &&
-			incident.componentIds.includes(component.id),
+			incident.kind === "incident" && incident.serviceIds.includes(service.id),
 	);
 	const now = window.end.getTime();
 	let totalTracked = 0;
@@ -114,7 +113,7 @@ export function computeUptime(
 		const dayEnd = Math.min(dayStart + DAY_MS, now);
 		let tracked = 0;
 		let down = 0;
-		let worst: ComponentStatus | null = null;
+		let worst: ServiceStatus | null = null;
 		for (const segment of segments) {
 			const overlap =
 				Math.min(segment.end, dayEnd) - Math.max(segment.start, dayStart);

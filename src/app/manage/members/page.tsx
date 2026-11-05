@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Members" };
 
 const ROLE_HELP =
-	"Viewers can read, editors manage incidents and components, admins manage everything.";
+	"Viewers can read, editors manage incidents and services, admins manage everything.";
 
 export default async function MembersPage({
 	searchParams,

@@ -12,8 +12,8 @@ import type {
 /** Collections served from cache by default: everything the public status page reads. */
 export const DEFAULT_CACHED_COLLECTIONS: readonly CollectionName[] = [
 	"settings",
-	"components",
-	"component_status_changes",
+	"services",
+	"service_status_changes",
 	"incidents",
 ];
 

@@ -14,19 +14,19 @@ import {
 } from "../domain/status";
 import {
 	type Actor,
-	type Component,
-	type ComponentStatus,
 	type EventStatus,
 	INCIDENT_STATUSES,
 	type Incident,
 	type IncidentKind,
 	type IncidentUpdate,
 	MAINTENANCE_STATUSES,
+	type Service,
+	type ServiceStatus,
 } from "../domain/types";
 import { ConflictError, NotFoundError, ValidationError } from "../errors";
 import type { NotificationEvent } from "../notifications/templates";
 import type { Condition } from "../store/types";
-import type { ComponentService } from "./components";
+import type { ServiceCatalog } from "./catalog";
 import {
 	authorRef,
 	iso,
@@ -63,8 +63,8 @@ export interface IncidentListOptions {
 	limit?: number;
 }
 
-interface ComponentPlan {
-	status: ComponentStatus;
+interface ServicePlan {
+	status: ServiceStatus;
 	restore: boolean;
 }
 
@@ -86,18 +86,18 @@ function assertWindow(start?: string, end?: string): void {
 
 export class IncidentService {
 	private readonly ctx: ServiceContext;
-	private readonly components: ComponentService;
+	private readonly catalog: ServiceCatalog;
 	private readonly subscribers: SubscriberService;
 	private readonly settings: SettingsService;
 
 	constructor(
 		ctx: ServiceContext,
-		components: ComponentService,
+		catalog: ServiceCatalog,
 		subscribers: SubscriberService,
 		settings: SettingsService,
 	) {
 		this.ctx = ctx;
-		this.components = components;
+		this.catalog = catalog;
 		this.subscribers = subscribers;
 		this.settings = settings;
 	}
@@ -139,11 +139,11 @@ export class IncidentService {
 		return incident;
 	}
 
-	/** Components referenced by an incident that still exist. */
-	async affectedComponents(incident: Incident): Promise<Component[]> {
-		const components = await this.components.list();
-		return components.filter((component) =>
-			incident.componentIds.includes(component.id),
+	/** Services referenced by an incident that still exist. */
+	async affectedServices(incident: Incident): Promise<Service[]> {
+		const services = await this.catalog.list();
+		return services.filter((service) =>
+			incident.serviceIds.includes(service.id),
 		);
 	}
 
@@ -162,7 +162,7 @@ export class IncidentService {
 			);
 		}
 		assertWindow(data.scheduledStart, data.scheduledEnd);
-		const componentIds = await this.validateComponents(data.componentIds ?? []);
+		const serviceIds = await this.validateServices(data.serviceIds ?? []);
 		const now = iso(this.ctx.now());
 		const author = authorRef(actor);
 		const update: IncidentUpdate = {
@@ -178,7 +178,7 @@ export class IncidentService {
 			title: data.title,
 			status,
 			impact: data.impact ?? (kind === "incident" ? "minor" : "none"),
-			componentIds,
+			serviceIds,
 			updates: [update],
 			startedAt: data.scheduledStart ?? now,
 			revision: 1,
@@ -194,9 +194,9 @@ export class IncidentService {
 			incident.resolvedAt = now;
 		}
 		await this.ctx.store.insert("incidents", incident);
-		await this.syncComponents(
+		await this.syncServices(
 			incident,
-			this.plan(incident, data.componentStatus, true),
+			this.plan(incident, data.serviceStatus, true),
 		);
 		await this.notify(
 			kind === "incident" ? "incident.created" : "maintenance.scheduled",
@@ -246,10 +246,10 @@ export class IncidentService {
 		const closing = isClosedStatus(next.status);
 		const wasClosed = isClosedStatus(current.status);
 		const plan =
-			closing && wasClosed && !data.componentStatus
+			closing && wasClosed && !data.serviceStatus
 				? undefined
-				: this.plan(next, data.componentStatus, false);
-		await this.syncComponents(next, plan);
+				: this.plan(next, data.serviceStatus, false);
+		await this.syncServices(next, plan);
 		const event: NotificationEvent =
 			next.kind === "incident"
 				? closing && !wasClosed
@@ -283,15 +283,15 @@ export class IncidentService {
 	): Promise<Incident> {
 		requireRole(actor, "editor");
 		const patch = parse(editIncidentSchema, input);
-		const componentIds = patch.componentIds
-			? await this.validateComponents(patch.componentIds)
+		const serviceIds = patch.serviceIds
+			? await this.validateServices(patch.serviceIds)
 			: undefined;
 		const { next } = await this.mutate(id, (current) => {
 			const next: Incident = {
 				...current,
 				title: patch.title ?? current.title,
 				impact: patch.impact ?? current.impact,
-				componentIds: componentIds ?? current.componentIds,
+				serviceIds: serviceIds ?? current.serviceIds,
 				updatedAt: iso(this.ctx.now()),
 			};
 			if (current.kind === "maintenance") {
@@ -351,20 +351,20 @@ export class IncidentService {
 		);
 	}
 
-	private async validateComponents(ids: readonly string[]): Promise<string[]> {
+	private async validateServices(ids: readonly string[]): Promise<string[]> {
 		const unique = [...new Set(ids)];
 		for (const id of unique) {
-			await this.components.get(id);
+			await this.catalog.get(id);
 		}
 		return unique;
 	}
 
-	/** Decides which status (if any) the affected components should move to. */
+	/** Decides which status (if any) the affected services should move to. */
 	private plan(
 		incident: Incident,
-		explicit: ComponentStatus | undefined,
+		explicit: ServiceStatus | undefined,
 		isNew: boolean,
-	): ComponentPlan | undefined {
+	): ServicePlan | undefined {
 		if (explicit) {
 			return { status: explicit, restore: false };
 		}
@@ -381,30 +381,30 @@ export class IncidentService {
 			: undefined;
 	}
 
-	private async syncComponents(
+	private async syncServices(
 		incident: Incident,
-		plan: ComponentPlan | undefined,
+		plan: ServicePlan | undefined,
 	): Promise<void> {
-		if (!plan || incident.componentIds.length === 0) {
+		if (!plan || incident.serviceIds.length === 0) {
 			return;
 		}
 		const others = plan.restore
 			? (await this.list({ open: true })).filter(
-					// scheduled maintenance has not touched any component yet
+					// scheduled maintenance has not touched any service yet
 					(other) => other.id !== incident.id && other.status !== "scheduled",
 				)
 			: [];
-		for (const componentId of incident.componentIds) {
-			const component = await this.ctx.store.get("components", componentId, {
+		for (const serviceId of incident.serviceIds) {
+			const service = await this.ctx.store.get("services", serviceId, {
 				consistent: true,
 			});
-			if (!component) {
+			if (!service) {
 				continue;
 			}
-			if (others.some((other) => other.componentIds.includes(componentId))) {
+			if (others.some((other) => other.serviceIds.includes(serviceId))) {
 				continue;
 			}
-			await this.components.applyStatus(component, plan.status, incident.id);
+			await this.catalog.applyStatus(service, plan.status, incident.id);
 		}
 	}
 
@@ -428,7 +428,7 @@ export class IncidentService {
 					incident,
 					update,
 					settings: await this.settings.get(),
-					components: await this.affectedComponents(incident),
+					services: await this.affectedServices(incident),
 				},
 				subscribers,
 			);

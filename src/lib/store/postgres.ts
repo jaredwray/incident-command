@@ -195,8 +195,40 @@ export class PostgresStore implements DocumentStore {
 			: error;
 	}
 
+	/**
+	 * Stores from older versions name services "components". This method
+	 * renames those tables, indexes and fields one time. The statement does
+	 * nothing when the old table is absent or when the new table exists.
+	 */
+	private async renameComponents(): Promise<void> {
+		const name = (collection: string) =>
+			`${this.prefix}${collection}`.toLowerCase();
+		const literal = (collection: string) => pg.escapeLiteral(name(collection));
+		const table = (collection: string) => identifier(name(collection));
+		const index = (collection: string, suffix: string) =>
+			identifier(`${name(collection)}_${suffix}`);
+		await this.run(`DO $$ BEGIN
+IF to_regclass(${literal("components")}) IS NOT NULL AND to_regclass(${literal("services")}) IS NULL THEN
+	ALTER TABLE ${table("components")} RENAME TO ${table("services")};
+	ALTER INDEX IF EXISTS ${index("components", "pkey")} RENAME TO ${index("services", "pkey")};
+	ALTER INDEX IF EXISTS ${index("components", "order_idx")} RENAME TO ${index("services", "order_idx")};
+	ALTER TABLE IF EXISTS ${table("component_status_changes")} RENAME TO ${table("service_status_changes")};
+	ALTER INDEX IF EXISTS ${index("component_status_changes", "pkey")} RENAME TO ${index("service_status_changes", "pkey")};
+	ALTER INDEX IF EXISTS ${index("component_status_changes", "createdat_idx")} RENAME TO ${index("service_status_changes", "createdat_idx")};
+	DROP INDEX IF EXISTS ${index("component_status_changes", "componentid_idx")};
+	IF to_regclass(${literal("service_status_changes")}) IS NOT NULL THEN
+		UPDATE ${table("service_status_changes")} SET data = (data - 'componentId') || jsonb_build_object('serviceId', data->'componentId') WHERE data ? 'componentId';
+	END IF;
+	IF to_regclass(${literal("incidents")}) IS NOT NULL THEN
+		UPDATE ${table("incidents")} SET data = (data - 'componentIds') || jsonb_build_object('serviceIds', data->'componentIds') WHERE data ? 'componentIds';
+	END IF;
+END IF;
+END $$`);
+	}
+
 	/** Creates every table and index if missing. Safe to call on every boot. */
 	async connect(): Promise<void> {
+		await this.renameComponents();
 		for (const collection of COLLECTIONS) {
 			const table = this.table(collection);
 			await this.run(

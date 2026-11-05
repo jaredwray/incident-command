@@ -8,26 +8,26 @@ Incident Command is one Next.js server (standalone output). Run it as a containe
 | `/manage`        | Management portal                                                                                                                 |
 | `/api/mcp`       | MCP server for AI agents (Streamable HTTP; bearer tokens `icmd_...` created in the portal)                                        |
 | `/api/v1/status` | Public status JSON                                                                                                                |
-| `/api/health`    | Health check: `200` with `"status":"ok"` (`"degraded"` while the database is down after boot), or `503` when the app cannot start |
+| `/healthz`       | Health check: `200` with `"status":"ok"` (`"degraded"` while the database is down after boot), or `503` when the app cannot start |
 
 ## Quick start
 
 ```bash
 cp .env.example .env              # set SITE_URL and SETUP_TOKEN
 docker compose up -d --build      # app + Postgres 17
-curl http://localhost:3000/api/health
+curl http://localhost:3000/healthz
 ```
 
 ## Provider guides
 
-| Provider                              | Guide                                                   | Runs as                                     | Recommended database                                 | Notes                                                                                                                                                            |
-| ------------------------------------- | ------------------------------------------------------- | ------------------------------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Docker / VPS, Fly.io, Render, Railway | [deploy/docker](../deploy/docker/README.md)             | Container                                   | Postgres (bundled in Compose)                        | Simplest. Compose file at the repo root.                                                                                                                         |
-| DigitalOcean App Platform             | [deploy/digitalocean](../deploy/digitalocean/README.md) | Container built from the Dockerfile         | Managed Postgres (in `app.yaml`)                     | `doctl apps create --spec deploy/digitalocean/app.yaml`.                                                                                                         |
-| Google Cloud Run                      | [deploy/gcp](../deploy/gcp/README.md)                   | Container (`gcloud run deploy --source .`)  | Cloud SQL for PostgreSQL, or MongoDB Atlas           | Secrets in Secret Manager; use `--min-instances=1`.                                                                                                              |
-| AWS App Runner / ECS Fargate          | [deploy/aws](../deploy/aws/README.md)                   | Container image in ECR                      | RDS for PostgreSQL (DocumentDB: test first)          | SES email through the IAM role.                                                                                                                                  |
-| Azure Container Apps                  | [deploy/azure](../deploy/azure/README.md)               | Container (`az containerapp up --source .`) | PostgreSQL Flexible Server, or Cosmos DB for MongoDB | Use `--min-replicas 1`.                                                                                                                                          |
-| Cloudflare Workers                    | [deploy/cloudflare](../deploy/cloudflare/README.md)     | OpenNext Worker                             | Postgres through Hyperdrive                          | Status page, portal and MCP work; subscriber notifications are not sent ([details](../deploy/cloudflare/README.md)). No MongoDB; memory store for previews only. |
+| Provider                              | Guide                                                   | Runs as                                     | Recommended database                                 | Notes                                                                                                                                                |
+| ------------------------------------- | ------------------------------------------------------- | ------------------------------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Docker / VPS, Fly.io, Render, Railway | [deploy/docker](../deploy/docker/README.md)             | Container                                   | Postgres (bundled in Compose)                        | Simplest. Compose file at the repo root.                                                                                                             |
+| DigitalOcean App Platform             | [deploy/digitalocean](../deploy/digitalocean/README.md) | Container built from the Dockerfile         | Managed Postgres (in `app.yaml`)                     | `doctl apps create --spec deploy/digitalocean/app.yaml`.                                                                                             |
+| Google Cloud Run                      | [deploy/gcp](../deploy/gcp/README.md)                   | Container (`gcloud run deploy --source .`)  | Cloud SQL for PostgreSQL, or MongoDB Atlas           | Secrets in Secret Manager; use `--min-instances=1`.                                                                                                  |
+| AWS App Runner / ECS Fargate          | [deploy/aws](../deploy/aws/README.md)                   | Container image in ECR                      | RDS for PostgreSQL (DocumentDB: test first)          | SES email through the IAM role.                                                                                                                      |
+| Azure Container Apps                  | [deploy/azure](../deploy/azure/README.md)               | Container (`az containerapp up --source .`) | PostgreSQL Flexible Server, or Cosmos DB for MongoDB | Use `--min-replicas 1`.                                                                                                                              |
+| Cloudflare Workers                    | [deploy/cloudflare](../deploy/cloudflare/README.md)     | OpenNext Worker                             | Postgres through Hyperdrive, or MongoDB              | Status page, portal and MCP work; subscriber notifications are not sent ([details](../deploy/cloudflare/README.md)). Memory store for previews only. |
 
 ## Databases
 
@@ -40,6 +40,8 @@ The adapter is picked from `DATABASE_URI` (or forced with `STORE`):
 | unset or `memory://`               | In-memory                                                                             | Development and demos only. Data is lost on restart and not shared between instances. |
 
 The Postgres user must be able to create tables. On Postgres 15+ that means owning the database or having `CREATE` on its schema; the setups in these guides already do.
+
+Stores from older versions name services "components". On the first boot after the upgrade, the app renames the old tables or collections and their fields. This runs one time and keeps all data.
 
 ### TLS for Postgres
 
@@ -57,9 +59,9 @@ Open `/manage/setup` and create the admin there. Set `SETUP_TOKEN` so the page r
 
 ## Health checks, caching and scaling
 
-- Reads go through an in-process cache. `CACHE_TTL` (default `30s`) is how long cached reads stay fresh. If the database goes offline, the last known data keeps being served (it does not expire while offline) and `/api/health` reports `"status":"degraded"` with a 200.
+- Reads go through an in-process cache. `CACHE_TTL` (default `30s`) is how long cached reads stay fresh. If the database goes offline, the last known data keeps being served (it does not expire while offline) and `/healthz` reports `"status":"degraded"` with a 200.
 - The cache is per instance. With N instances, public reads can be up to `CACHE_TTL` stale on some of them; lower `CACHE_TTL` if that matters. Sessions and API tokens are not cached, so sign-outs and token revocations take effect immediately everywhere.
-- `/api/health` returns 503 only when the app cannot start: invalid configuration, or a database that is unreachable at boot (startup is retried on the next request). A database outage after boot keeps it at 200, so platforms do not restart instances that are still serving cached data.
+- `/healthz` returns 503 only when the app cannot start: invalid configuration, or a database that is unreachable at boot (startup is retried on the next request). A database outage after boot keeps it at 200, so platforms do not restart instances that are still serving cached data.
 - Never run more than one instance on the in-memory store.
 - Each instance keeps its own database connection pool; size the instance count against your database's connection limit.
 
@@ -88,8 +90,8 @@ All are optional, and empty values are treated as unset. Durations accept `ms`, 
 | `STORE`                 | from `DATABASE_URI`         | Force the adapter: `memory`, `postgres` or `mongo`.                                                        |
 | `DATABASE_NAME`         | database in the URL         | MongoDB database name.                                                                                     |
 | `DATABASE_TABLE_PREFIX` | `ic_`                       | Postgres table name prefix.                                                                                |
-| `DATABASE_POOL`         | `true` (`false` on Workers) | Keep a Postgres connection pool. `false` opens a connection per query (Workers + Hyperdrive).              |
-| `SEED_DEMO`             | `false`                     | `true` or `1` seeds demo components and incidents on boot when the store has no components.                |
+| `DATABASE_POOL`         | `true` (`false` on Workers) | Keep a database connection pool. `false` opens a connection per operation (Workers).                       |
+| `SEED_DEMO`             | `false`                     | `true` or `1` seeds demo services and incidents on boot when the store has no services.                    |
 | **Cache**               |                             |                                                                                                            |
 | `CACHE_TTL`             | `30s`                       | How long cached reads stay fresh. Cached data keeps being served while the database is offline.            |
 | `CACHE_MAX_ENTRIES`     | `5000`                      | Maximum cache entries per instance.                                                                        |
