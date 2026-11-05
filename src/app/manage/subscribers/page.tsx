@@ -1,16 +1,11 @@
 import type { Metadata } from "next";
+import { AddSubscriberForm } from "@/components/manage/add-subscriber-form";
 import { ConfirmButton } from "@/components/manage/confirm-button";
 import { type FlashParams, ManageShell } from "@/components/manage/shell";
-import {
-	buttonClass,
-	Card,
-	EmptyState,
-	Field,
-	inputClass,
-} from "@/components/manage/ui";
+import { Card, EmptyState } from "@/components/manage/ui";
 import { LocalTime } from "@/components/time";
 import { requireMember } from "@/lib/auth";
-import { addSubscriberAction, deleteSubscriberAction } from "../actions";
+import { deleteSubscriberAction } from "../actions";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Subscribers" };
@@ -44,36 +39,9 @@ export default async function SubscribersPage({
 			)}
 			<Card
 				title="Add a subscriber"
-				description="Webhooks receive a JSON payload with Slack-compatible text and Discord-compatible content fields."
+				description="Choose webhook or email. Each subscriber receives incident updates."
 			>
-				<form
-					action={addSubscriberAction}
-					className="grid gap-4 sm:grid-cols-[160px_1fr_auto] sm:items-end"
-				>
-					<Field label="Type" htmlFor="sub-type">
-						<select
-							id="sub-type"
-							name="type"
-							defaultValue="webhook"
-							className={inputClass}
-						>
-							<option value="webhook">Webhook</option>
-							<option value="email">Email</option>
-						</select>
-					</Field>
-					<Field label="URL or email" htmlFor="sub-target">
-						<input
-							id="sub-target"
-							name="target"
-							required
-							placeholder="https://hooks.slack.com/services/…"
-							className={inputClass}
-						/>
-					</Field>
-					<button type="submit" className={buttonClass.primary}>
-						Add
-					</button>
-				</form>
+				<AddSubscriberForm emailEnabled={app.notifier.emailEnabled} />
 			</Card>
 			<Card title={`Subscribers (${subscribers.length})`}>
 				{subscribers.length === 0 ? (
