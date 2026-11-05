@@ -8,14 +8,14 @@ Incident Command is one Next.js server (standalone output). Run it as a containe
 | `/manage`        | Management portal                                                                                                                 |
 | `/api/mcp`       | MCP server for AI agents (Streamable HTTP; bearer tokens `icmd_...` created in the portal)                                        |
 | `/api/v1/status` | Public status JSON                                                                                                                |
-| `/api/health`    | Health check: `200` with `"status":"ok"` (`"degraded"` while the database is down after boot), or `503` when the app cannot start |
+| `/healthz`       | Health check: `200` with `"status":"ok"` (`"degraded"` while the database is down after boot), or `503` when the app cannot start |
 
 ## Quick start
 
 ```bash
 cp .env.example .env              # set SITE_URL and SETUP_TOKEN
 docker compose up -d --build      # app + Postgres 17
-curl http://localhost:3000/api/health
+curl http://localhost:3000/healthz
 ```
 
 ## Provider guides
@@ -57,9 +57,9 @@ Open `/manage/setup` and create the admin there. Set `SETUP_TOKEN` so the page r
 
 ## Health checks, caching and scaling
 
-- Reads go through an in-process cache. `CACHE_TTL` (default `30s`) is how long cached reads stay fresh. If the database goes offline, the last known data keeps being served (it does not expire while offline) and `/api/health` reports `"status":"degraded"` with a 200.
+- Reads go through an in-process cache. `CACHE_TTL` (default `30s`) is how long cached reads stay fresh. If the database goes offline, the last known data keeps being served (it does not expire while offline) and `/healthz` reports `"status":"degraded"` with a 200.
 - The cache is per instance. With N instances, public reads can be up to `CACHE_TTL` stale on some of them; lower `CACHE_TTL` if that matters. Sessions and API tokens are not cached, so sign-outs and token revocations take effect immediately everywhere.
-- `/api/health` returns 503 only when the app cannot start: invalid configuration, or a database that is unreachable at boot (startup is retried on the next request). A database outage after boot keeps it at 200, so platforms do not restart instances that are still serving cached data.
+- `/healthz` returns 503 only when the app cannot start: invalid configuration, or a database that is unreachable at boot (startup is retried on the next request). A database outage after boot keeps it at 200, so platforms do not restart instances that are still serving cached data.
 - Never run more than one instance on the in-memory store.
 - Each instance keeps its own database connection pool; size the instance count against your database's connection limit.
 

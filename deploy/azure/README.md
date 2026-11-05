@@ -94,7 +94,7 @@ Open `https://$FQDN/manage/setup` and create the admin. Set `SETUP_TOKEN` first.
 ## Verify
 
 ```bash
-curl https://$FQDN/api/health
+curl https://$FQDN/healthz
 # {"status":"ok","store":{...}}   ("degraded" while the database is down; 503 if the app cannot start)
 curl https://$FQDN/api/v1/status
 az containerapp logs show --name incident-command --resource-group $RG --follow
@@ -105,4 +105,4 @@ az containerapp logs show --name incident-command --resource-group $RG --follow
 - Container Apps scales to zero by default. `--min-replicas 1` avoids cold starts and keeps a warm in-process cache, which also keeps serving the last known data if the database goes offline.
 - Each replica has its own cache, so with several replicas public reads can be up to `CACHE_TTL` (default `30s`) stale. Sessions and API tokens are not cached.
 - Each replica keeps its own Postgres connection pool; size `--max-replicas` against the server's connection limit.
-- Default probes are TCP. An HTTP probe on `/api/health` is safe to add: it reports `degraded` with a 200 during a database outage, and 503 only when the app cannot start.
+- Default probes are TCP. An HTTP probe on `/healthz` is safe to add: it reports `degraded` with a 200 during a database outage, and 503 only when the app cannot start.

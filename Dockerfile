@@ -61,10 +61,10 @@ USER node
 
 EXPOSE 3000
 
-# Alpine has no curl; use Node's built-in fetch. /api/health returns 503 only
+# Alpine has no curl; use Node's built-in fetch. /healthz returns 503 only
 # when the app cannot start; a database outage after boot reports "degraded"
 # with a 200 while cached data keeps being served.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-  CMD ["node", "-e", "fetch('http://127.0.0.1:' + (process.env.PORT || 3000) + '/api/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+  CMD ["node", "-e", "fetch('http://127.0.0.1:' + (process.env.PORT || 3000) + '/healthz').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
 
 CMD ["node", "server.js"]

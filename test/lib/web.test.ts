@@ -1,7 +1,7 @@
-import { GET as health } from "@/app/api/health/route";
 import { POST as mcp } from "@/app/api/mcp/route";
 import { GET as status } from "@/app/api/v1/status/route";
 import { GET as feed } from "@/app/feed.xml/route";
+import { GET as health } from "@/app/healthz/route";
 import { createApp, setApp } from "@/lib/app";
 import { loadConfig } from "@/lib/config";
 import { buildRssFeed, escapeXml } from "@/lib/feed";
