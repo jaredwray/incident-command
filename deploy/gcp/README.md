@@ -25,7 +25,7 @@ gcloud sql databases create incident_command --instance=incident-command-db
 gcloud sql users create incident --instance=incident-command-db --password='CHOOSE_A_DB_PASSWORD'
 
 export INSTANCE=$PROJECT_ID:$REGION:incident-command-db
-export DATABASE_URL="postgresql://incident:CHOOSE_A_DB_PASSWORD@/incident_command?host=/cloudsql/$INSTANCE"
+export DATABASE_URI="postgresql://incident:CHOOSE_A_DB_PASSWORD@/incident_command?host=/cloudsql/$INSTANCE"
 ```
 
 Cloud Run connects through the Cloud SQL Unix socket (`--add-cloudsql-instances` below), so no TLS settings or IP allow-lists are needed. Tables are created on first boot.
@@ -33,7 +33,7 @@ Cloud Run connects through the Cloud SQL Unix socket (`--add-cloudsql-instances`
 ### Option B: MongoDB Atlas
 
 ```bash
-export DATABASE_URL='mongodb+srv://USER:PASSWORD@cluster0.xxxxx.mongodb.net/incident_command?retryWrites=true&w=majority'
+export DATABASE_URI='mongodb+srv://USER:PASSWORD@cluster0.xxxxx.mongodb.net/incident_command?retryWrites=true&w=majority'
 ```
 
 Cloud Run has no fixed outbound IP. Either allow `0.0.0.0/0` in the Atlas IP access list (with a strong password), or send egress through a VPC with Cloud NAT and a static IP. Leave out `--add-cloudsql-instances` when deploying.
@@ -41,7 +41,7 @@ Cloud Run has no fixed outbound IP. Either allow `0.0.0.0/0` in the Atlas IP acc
 ## 2. Secrets and service account
 
 ```bash
-printf '%s' "$DATABASE_URL" | gcloud secrets create incident-command-database-url --data-file=-
+printf '%s' "$DATABASE_URI" | gcloud secrets create incident-command-database-url --data-file=-
 printf '%s' 'CHOOSE_A_LONG_TOKEN' | gcloud secrets create incident-command-setup-token --data-file=-
 
 gcloud iam service-accounts create incident-command
@@ -66,7 +66,7 @@ gcloud run deploy incident-command \
   --port=3000 \
   --service-account=$SA \
   --add-cloudsql-instances=$INSTANCE \
-  --set-secrets=DATABASE_URL=incident-command-database-url:latest,SETUP_TOKEN=incident-command-setup-token:latest \
+  --set-secrets=DATABASE_URI=incident-command-database-url:latest,SETUP_TOKEN=incident-command-setup-token:latest \
   --min-instances=1 \
   --max-instances=2
 ```
@@ -94,7 +94,7 @@ The Cloud Build service account needs `roles/run.admin` and `roles/iam.serviceAc
 
 | Variable       | How                                         |
 | -------------- | ------------------------------------------- |
-| `DATABASE_URL` | Secret Manager (`--set-secrets`)            |
+| `DATABASE_URI` | Secret Manager (`--set-secrets`)            |
 | `SITE_URL`     | `--update-env-vars`, after the first deploy |
 | `SETUP_TOKEN`  | First admin at `/manage/setup`              |
 

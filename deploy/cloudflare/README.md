@@ -12,7 +12,7 @@ Runs the Next.js app on Workers through [OpenNext](https://opennext.js.org/cloud
 | Store                                                                    | Supported         | Notes                                                                          |
 | ------------------------------------------------------------------------ | ----------------- | ------------------------------------------------------------------------------ |
 | Postgres via [Hyperdrive](https://developers.cloudflare.com/hyperdrive/) | Yes (recommended) | Pools connections close to your database.                                      |
-| Postgres, direct                                                         | Yes               | `DATABASE_URL` secret; the database must accept connections from the internet. |
+| Postgres, direct                                                         | Yes               | `DATABASE_URI` secret; the database must accept connections from the internet. |
 | MongoDB                                                                  | **No**            | The MongoDB driver does not run on Workers. Use a container host instead.      |
 | Memory                                                                   | Previews only     | Each isolate has its own copy; data disappears when the isolate is recycled.   |
 
@@ -43,28 +43,28 @@ npx wrangler hyperdrive create incident-command \
 
 Uncomment the `hyperdrive` block in `wrangler.jsonc` and paste the returned `id`.
 
-The app reads its connection string from `DATABASE_URL`, but Hyperdrive exposes its connection string on the binding (`env.HYPERDRIVE.connectionString`), and OpenNext only copies string variables into `process.env`. Bridge the two with a small entry file at the repo root, `cloudflare-worker.js`:
+The app reads its connection string from `DATABASE_URI`, but Hyperdrive exposes its connection string on the binding (`env.HYPERDRIVE.connectionString`), and OpenNext only copies string variables into `process.env`. Bridge the two with a small entry file at the repo root, `cloudflare-worker.js`:
 
 ```js
-// Passes the Hyperdrive connection string to the app as DATABASE_URL.
+// Passes the Hyperdrive connection string to the app as DATABASE_URI.
 import handler from "./.open-next/worker.js";
 
 export default {
 	fetch(request, env, ctx) {
 		if (env.HYPERDRIVE) {
-			process.env.DATABASE_URL = env.HYPERDRIVE.connectionString;
+			process.env.DATABASE_URI = env.HYPERDRIVE.connectionString;
 		}
 		return handler.fetch(request, env, ctx);
 	},
 };
 ```
 
-Then set `"main": "cloudflare-worker.js"` in `wrangler.jsonc`. Do not also set a `DATABASE_URL` secret.
+Then set `"main": "cloudflare-worker.js"` in `wrangler.jsonc`. Do not also set a `DATABASE_URI` secret.
 
 **Option B: direct connection**
 
 ```bash
-npx wrangler secret put DATABASE_URL   # postgres://USER:PASSWORD@HOST:5432/incident_command
+npx wrangler secret put DATABASE_URI   # postgres://USER:PASSWORD@HOST:5432/incident_command
 ```
 
 See [TLS for Postgres](../../docs/deployment.md#tls-for-postgres) for `sslmode` settings.
@@ -105,7 +105,7 @@ Runs the production build in workerd locally. Put local secrets in `.dev.vars` (
 | Variable       | Where                        | Notes                                                  |
 | -------------- | ---------------------------- | ------------------------------------------------------ |
 | `SITE_URL`     | `vars`                       | Public URL, used in notification links.                |
-| `DATABASE_URL` | secret, or Hyperdrive bridge | Without it the per-isolate memory store is used.       |
+| `DATABASE_URI` | secret, or Hyperdrive bridge | Without it the per-isolate memory store is used.       |
 | `SETUP_TOKEN`  | secret                       | Required to create the first admin at `/manage/setup`. |
 
 Full list: [docs/deployment.md](../../docs/deployment.md#environment-variables).
@@ -121,6 +121,63 @@ curl https://incident-command.<your-subdomain>.workers.dev/api/health
 # {"status":"ok","store":{...}}   ("degraded" while the database is down; 503 if the app cannot start)
 curl https://incident-command.<your-subdomain>.workers.dev/api/v1/status
 ```
+
+## Development Worker (GitHub Actions)
+
+The [`deploy-development`](../../.github/workflows/deploy-development.yml) workflow deploys the `incident-command-development` Worker to <https://dev.incident-command.org>. It runs on each push to `main`. You can also start it manually from the Actions tab. The job uses the `development` GitHub environment. The Worker settings are in the `env.development` block of [`wrangler.jsonc`](../../wrangler.jsonc).
+
+The workflow does these steps:
+
+1. It installs the dependencies through Socket Firewall.
+2. It runs `opennextjs-cloudflare build --env development`.
+3. It runs `wrangler deploy --env development`. Wrangler finds the OpenNext project and runs `opennextjs-cloudflare deploy`, which then runs `wrangler deploy`.
+
+The `development` environment in `wrangler.jsonc` sets these items:
+
+- The Worker name is `incident-command-development`.
+- The Worker has the custom domain `dev.incident-command.org`. The `workers.dev` URL and preview URLs are off.
+- Workers Logs keeps all `console` output and all invocation logs (`head_sampling_rate: 1`).
+- `SITE_URL` is `https://dev.incident-command.org`.
+
+An environment does not inherit `vars` or bindings such as `hyperdrive`. To use Hyperdrive for this Worker, add a `hyperdrive` block inside `env.development`.
+
+### One-time setup
+
+1. Add the `incident-command.org` zone to the Cloudflare account that hosts the Worker. Wrangler creates the DNS record and the certificate for `dev.incident-command.org`. If a CNAME record for that hostname exists, delete it first.
+2. Create a Cloudflare API token. Use the "Edit Cloudflare Workers" template, and limit it to the account and the `incident-command.org` zone. The token must have these permissions:
+   - Account > Workers Scripts > Edit
+   - Zone > Workers Routes > Edit, for `incident-command.org`
+3. In the GitHub repository, open **Settings > Environments** and create the `development` environment. You can add a deployment branch rule that allows only `main`.
+4. Add these environment secrets to `development`:
+
+   | Secret                  | Value                                     |
+   | ----------------------- | ----------------------------------------- |
+   | `CLOUDFLARE_API_TOKEN`  | The API token from step 2.                |
+   | `CLOUDFLARE_ACCOUNT_ID` | The account ID of the Cloudflare account. |
+
+5. Set the Worker secrets (see the next section) before the first deploy.
+
+### Worker secrets
+
+The workflow does not set Worker secrets. Wrangler keeps them between deploys, so set each secret one time:
+
+```bash
+npx wrangler secret put DATABASE_URI --env development
+```
+
+```bash
+npx wrangler secret put SETUP_TOKEN --env development
+```
+
+If the Worker does not exist yet, wrangler asks to create it.
+
+| Secret           | Needed | Notes                                                                                                                                        |
+| ---------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URI`   | Yes    | Postgres connection string. Without it, each isolate uses its own memory store and loses its data. Do not set it with the Hyperdrive bridge. |
+| `SETUP_TOKEN`    | Yes    | Protects `/manage/setup`. Without it, the first visitor becomes admin.                                                                       |
+| `WEBHOOK_SECRET` | No     | Signs webhook payloads. Workers do not send notifications now, so this secret has no effect.                                                 |
+
+Do not set the email secrets. Workers do not send subscriber notifications.
 
 ## Notes and scaling
 

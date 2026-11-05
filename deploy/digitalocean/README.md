@@ -29,11 +29,11 @@ Builds the repo's `Dockerfile` on App Platform and attaches a managed Postgres d
 
 | Variable       | Value in `app.yaml`                                                    |
 | -------------- | ---------------------------------------------------------------------- |
-| `DATABASE_URL` | `${db.DATABASE_URL}&uselibpqcompat=true` (bound to the `db` component) |
+| `DATABASE_URI` | `${db.DATABASE_URL}&uselibpqcompat=true` (bound to the `db` component) |
 | `SITE_URL`     | `${APP_URL}`; set it to your custom domain once you add one            |
 | `SETUP_TOKEN`  | First admin at `/manage/setup`                                         |
 
-The `uselibpqcompat=true` suffix is needed because node-postgres treats `sslmode=require` as full certificate verification, and DigitalOcean databases use DigitalOcean's own CA. With it, the connection stays encrypted but the certificate chain is not verified. If the app logs a certificate or connection error at boot, set `DATABASE_URL` by hand to the database's connection string (Databases → your database → Connection details) with `sslmode=no-verify` in place of `sslmode=require`.
+The `uselibpqcompat=true` suffix is needed because node-postgres treats `sslmode=require` as full certificate verification, and DigitalOcean databases use DigitalOcean's own CA. With it, the connection stays encrypted but the certificate chain is not verified. If the app logs a certificate or connection error at boot, set `DATABASE_URI` by hand to the database's connection string (Databases → your database → Connection details) with `sslmode=no-verify` in place of `sslmode=require`.
 
 Email, webhooks and the rest: [docs/deployment.md](../../docs/deployment.md#environment-variables).
 

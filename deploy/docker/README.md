@@ -17,9 +17,9 @@ docker compose up -d --build
 docker compose logs -f app
 ```
 
-[`docker-compose.yml`](../../docker-compose.yml) starts the app and `postgres:17-alpine` with a named volume. Inside Compose, use service names (`postgres`, `mongo`) in `DATABASE_URL`, not `localhost`.
+[`docker-compose.yml`](../../docker-compose.yml) starts the app and `postgres:17-alpine` with a named volume. Inside Compose, use service names (`postgres`, `mongo`) in `DATABASE_URI`, not `localhost`.
 
-MongoDB instead: set `DATABASE_URL=mongodb://mongo:27017/incident_command` in `.env`, then `docker compose --profile mongo up -d --build`.
+MongoDB instead: set `DATABASE_URI=mongodb://mongo:27017/incident_command` in `.env`, then `docker compose --profile mongo up -d --build`.
 
 Upgrade: `git pull && docker compose up -d --build`. Back up the database volume (for example `docker compose exec postgres pg_dump -U incident incident_command > backup.sql`).
 
@@ -28,7 +28,7 @@ Upgrade: `git pull && docker compose up -d --build`. Back up the database volume
 ```bash
 docker build -t incident-command .
 docker run -d --name incident-command --restart unless-stopped -p 3000:3000 \
-  -e DATABASE_URL='postgres://USER:PASSWORD@DB_HOST:5432/incident_command' \
+  -e DATABASE_URI='postgres://USER:PASSWORD@DB_HOST:5432/incident_command' \
   -e SITE_URL=https://status.example.com \
   -e SETUP_TOKEN='CHOOSE_A_LONG_TOKEN' \
   incident-command
@@ -52,7 +52,7 @@ These platforms build the `Dockerfile` straight from the repo. Point their healt
 
 ```bash
 fly launch --no-deploy        # detects the Dockerfile; internal_port = 3000
-fly secrets set DATABASE_URL='postgres://...' SITE_URL=https://<app>.fly.dev \
+fly secrets set DATABASE_URI='postgres://...' SITE_URL=https://<app>.fly.dev \
   SETUP_TOKEN='CHOOSE_A_LONG_TOKEN'
 fly deploy
 ```
@@ -61,11 +61,11 @@ Create or attach a Postgres database first, and add an `[[http_service.checks]]`
 
 ### Render
 
-New **Web Service** from the repo with runtime **Docker**. Create a Render Postgres and set `DATABASE_URL` to its Internal Database URL. Health Check Path: `/api/health`.
+New **Web Service** from the repo with runtime **Docker**. Create a Render Postgres and set `DATABASE_URI` to its Internal Database URL. Health Check Path: `/api/health`.
 
 ### Railway
 
-New project from the GitHub repo (the Dockerfile is detected). Add a **PostgreSQL** service, set `DATABASE_URL=${{Postgres.DATABASE_URL}}` on the app, and set the healthcheck path to `/api/health`.
+New project from the GitHub repo (the Dockerfile is detected). Add a **PostgreSQL** service, set `DATABASE_URI=${{Postgres.DATABASE_URL}}` on the app, and set the healthcheck path to `/api/health`.
 
 ### Notes
 
@@ -75,7 +75,7 @@ These hosts set `PORT` themselves; the server listens on whatever `PORT` says. I
 
 | Variable       | Notes                                                                                      |
 | -------------- | ------------------------------------------------------------------------------------------ |
-| `DATABASE_URL` | `postgres://…` or `mongodb://…`. Unset means the in-memory store: data is lost on restart. |
+| `DATABASE_URI` | `postgres://…` or `mongodb://…`. Unset means the in-memory store: data is lost on restart. |
 | `SITE_URL`     | Public URL, used in notification links.                                                    |
 | `SETUP_TOKEN`  | Required to create the first admin at `/manage/setup`.                                     |
 

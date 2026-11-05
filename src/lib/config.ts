@@ -84,7 +84,7 @@ const duration = (fallback: string) =>
 		});
 
 const envSchema = z.object({
-	DATABASE_URL: optional,
+	DATABASE_URI: optional,
 	STORE: z.enum(["memory", "postgres", "mongo"]).optional(),
 	DATABASE_NAME: optional,
 	DATABASE_TABLE_PREFIX: optional,
@@ -124,7 +124,7 @@ export function detectStoreKind(url: string | undefined): StoreKind {
 		return "mongo";
 	}
 	throw new Error(
-		`Unsupported DATABASE_URL scheme. Use postgres://, mongodb:// or memory://`,
+		`Unsupported DATABASE_URI scheme. Use postgres://, mongodb:// or memory://`,
 	);
 }
 
@@ -157,8 +157,8 @@ export function loadConfig(
 	const awsRegion = env.AWS_SES_REGION ?? env.AWS_REGION;
 	return {
 		store: {
-			kind: env.STORE ?? detectStoreKind(env.DATABASE_URL),
-			url: env.DATABASE_URL,
+			kind: env.STORE ?? detectStoreKind(env.DATABASE_URI),
+			url: env.DATABASE_URI,
 			databaseName: env.DATABASE_NAME,
 			tablePrefix: env.DATABASE_TABLE_PREFIX ?? "ic_",
 			pool: env.DATABASE_POOL

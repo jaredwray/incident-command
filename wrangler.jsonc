@@ -19,7 +19,7 @@
 	//   npx wrangler hyperdrive create incident-command --connection-string="postgres://USER:PASSWORD@HOST:5432/DB"
 	// then uncomment and paste the returned id. `localConnectionString` is used
 	// by `pnpm cf:preview`. See deploy/cloudflare/README.md for wiring it to
-	// DATABASE_URL.
+	// DATABASE_URI.
 	// "hyperdrive": [
 	// 	{
 	// 		"binding": "HYPERDRIVE",
@@ -28,12 +28,49 @@
 	// 	}
 	// ],
 	// Non-secret configuration. Set secrets with `npx wrangler secret put NAME`
-	// (DATABASE_URL, SETUP_TOKEN, WEBHOOK_SECRET,
+	// (DATABASE_URI, SETUP_TOKEN, WEBHOOK_SECRET,
 	// email provider keys).
 	"vars": {
 		"SITE_URL": "https://status.example.com",
 		"SITE_NAME": "Status",
 		"CACHE_TTL": "30s",
 		"SESSION_TTL": "7d"
+	},
+	"env": {
+		// Development Worker at https://dev.incident-command.org.
+		// .github/workflows/deploy-development.yml deploys it on each push to main.
+		// Manual deploy:
+		//   pnpm exec opennextjs-cloudflare build --env development
+		//   pnpm exec wrangler deploy --env development
+		// Set its secrets with `npx wrangler secret put NAME --env development`.
+		// An environment does not inherit "vars" or bindings such as "hyperdrive".
+		"development": {
+			"name": "incident-command-development",
+			// The Worker gets only the custom domain. The incident-command.org
+			// zone must be in the same Cloudflare account.
+			"routes": [
+				{
+					"pattern": "dev.incident-command.org",
+					"custom_domain": true
+				}
+			],
+			"workers_dev": false,
+			"preview_urls": false,
+			// Workers Logs: keep all console output and invocation logs.
+			"observability": {
+				"enabled": true,
+				"logs": {
+					"enabled": true,
+					"invocation_logs": true,
+					"head_sampling_rate": 1
+				}
+			},
+			"vars": {
+				"SITE_URL": "https://dev.incident-command.org",
+				"SITE_NAME": "Incident Command (development)",
+				"CACHE_TTL": "30s",
+				"SESSION_TTL": "7d"
+			}
+		}
 	}
 }

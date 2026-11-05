@@ -32,7 +32,7 @@ describe("loadConfig", () => {
 
 	it("parses a full configuration", () => {
 		const config = loadConfig({
-			DATABASE_URL: "postgres://u:p@db:5432/status",
+			DATABASE_URI: "postgres://u:p@db:5432/status",
 			DATABASE_TABLE_PREFIX: "sp_",
 			CACHE_TTL: "1m",
 			CACHE_MAX_ENTRIES: "100",
@@ -93,7 +93,7 @@ describe("loadConfig", () => {
 	it("honors explicit store and email provider overrides", () => {
 		const config = loadConfig({
 			STORE: "mongo",
-			DATABASE_URL: "memory://",
+			DATABASE_URI: "memory://",
 			EMAIL_FROM: "x@y.co",
 			EMAIL_PROVIDER: "ses",
 		});
@@ -145,7 +145,7 @@ describe("detectStoreKind", () => {
 		expect(detectStoreKind("mongodb://x")).toBe("mongo");
 		expect(detectStoreKind("mongodb+srv://x")).toBe("mongo");
 		expect(() => detectStoreKind("mysql://x")).toThrow(
-			/Unsupported DATABASE_URL/,
+			/Unsupported DATABASE_URI/,
 		);
 	});
 });

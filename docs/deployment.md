@@ -31,9 +31,9 @@ curl http://localhost:3000/api/health
 
 ## Databases
 
-The adapter is picked from `DATABASE_URL` (or forced with `STORE`):
+The adapter is picked from `DATABASE_URI` (or forced with `STORE`):
 
-| `DATABASE_URL`                     | Store                                                                                 | Use for                                                                               |
+| `DATABASE_URI`                     | Store                                                                                 | Use for                                                                               |
 | ---------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
 | `postgres://…` or `postgresql://…` | Postgres. Tables (prefix `DATABASE_TABLE_PREFIX`, default `ic_`) are created on boot. | Production (recommended)                                                              |
 | `mongodb://…` or `mongodb+srv://…` | MongoDB. Database from the URL, or `DATABASE_NAME`.                                   | Production                                                                            |
@@ -45,7 +45,7 @@ The Postgres user must be able to create tables. On Postgres 15+ that means owni
 
 node-postgres currently treats `sslmode=require` as full certificate verification (`verify-full`). Pick the mode by how the database's certificate is issued:
 
-| Database                                                                            | Add to `DATABASE_URL`                                                  |
+| Database                                                                            | Add to `DATABASE_URI`                                                  |
 | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
 | Certificate chains to a public root (for example Azure Flexible Server)             | `?sslmode=verify-full`                                                 |
 | Provider's own CA, not in Node's trust store (for example DigitalOcean, Amazon RDS) | `?uselibpqcompat=true&sslmode=require` (encrypted, chain not verified) |
@@ -84,8 +84,8 @@ All are optional, and empty values are treated as unset. Durations accept `ms`, 
 | `SITE_URL`              | unset                       | Public URL of the status page, used in notification links. A trailing slash is removed.                    |
 | `SITE_NAME`             | `Status`                    | Initial site name; editable in the portal.                                                                 |
 | **Storage**             |                             |                                                                                                            |
-| `DATABASE_URL`          | unset (memory)              | `postgres://`, `postgresql://`, `mongodb://`, `mongodb+srv://` or `memory://`.                             |
-| `STORE`                 | from `DATABASE_URL`         | Force the adapter: `memory`, `postgres` or `mongo`.                                                        |
+| `DATABASE_URI`          | unset (memory)              | `postgres://`, `postgresql://`, `mongodb://`, `mongodb+srv://` or `memory://`.                             |
+| `STORE`                 | from `DATABASE_URI`         | Force the adapter: `memory`, `postgres` or `mongo`.                                                        |
 | `DATABASE_NAME`         | database in the URL         | MongoDB database name.                                                                                     |
 | `DATABASE_TABLE_PREFIX` | `ic_`                       | Postgres table name prefix.                                                                                |
 | `DATABASE_POOL`         | `true` (`false` on Workers) | Keep a Postgres connection pool. `false` opens a connection per query (Workers + Hyperdrive).              |
