@@ -16,7 +16,8 @@ export interface Config {
 		tablePrefix: string;
 		/**
 		 * Keep a connection pool (default). Disabled on Cloudflare Workers, where
-		 * connections cannot be shared between requests (use Hyperdrive).
+		 * a socket cannot outlive the request that opened it. Postgres and
+		 * MongoDB then connect for each operation.
 		 */
 		pool: boolean;
 	};

@@ -4,7 +4,7 @@ Runs the Next.js app on Workers through [OpenNext](https://opennext.js.org/cloud
 
 > **Verified locally in workerd** (`pnpm cf:preview`): the status page, portal, JSON API and MCP server all work. Two things differ from container hosts:
 >
-> - **Database connections are opened per query.** Workers cannot share a socket between requests, so the app detects Workers and disables the `pg` pool automatically (override with `DATABASE_POOL`). Put [Hyperdrive](https://developers.cloudflare.com/hyperdrive/) in front of Postgres so those connections are cheap.
+> - **Database connections are opened per operation.** Workers cannot share a socket between requests, so the app detects Workers and disables connection pooling automatically (override with `DATABASE_POOL`). Put [Hyperdrive](https://developers.cloudflare.com/hyperdrive/) in front of Postgres so those connections are cheap. MongoDB opens a TLS connection to the database for each operation, because Hyperdrive does not support MongoDB.
 > - **Subscriber notifications are not sent.** airhorn renders templates with `ejs` (through `ecto`), which needs `new Function()`, and Workers forbid code generation from strings. airhorn is loaded lazily, so this only affects notifications: incidents are still created and the failure is logged. Use a container host if you need email or webhook notifications.
 
 ## What works on Workers
@@ -13,14 +13,14 @@ Runs the Next.js app on Workers through [OpenNext](https://opennext.js.org/cloud
 | ------------------------------------------------------------------------ | ----------------- | ------------------------------------------------------------------------------ |
 | Postgres via [Hyperdrive](https://developers.cloudflare.com/hyperdrive/) | Yes (recommended) | Pools connections close to your database.                                      |
 | Postgres, direct                                                         | Yes               | `DATABASE_URI` secret; the database must accept connections from the internet. |
-| MongoDB                                                                  | **No**            | The MongoDB driver does not run on Workers. Use a container host instead.      |
+| MongoDB (Atlas or self-hosted)                                           | Yes               | `DATABASE_URI` secret; one connection per operation, so each page is slower.   |
 | Memory                                                                   | Previews only     | Each isolate has its own copy; data disappears when the isolate is recycled.   |
 
 ## Prerequisites
 
 - A Cloudflare account on the Workers Paid plan: the built Worker is about 4.8 MiB gzipped, over the Free plan's 3 MiB limit (Paid allows 10 MiB).
 - Node 24 and pnpm (`corepack enable`), dependencies installed: `pnpm install`.
-- A Postgres database reachable from the internet (Neon, Supabase, RDS, Cloud SQL, and so on).
+- A Postgres database reachable from the internet (Neon, Supabase, RDS, Cloud SQL, and so on), or a MongoDB database such as Atlas.
 
 ## Steps
 
@@ -68,6 +68,14 @@ npx wrangler secret put DATABASE_URI   # postgres://USER:PASSWORD@HOST:5432/inci
 ```
 
 See [TLS for Postgres](../../docs/deployment.md#tls-for-postgres) for `sslmode` settings.
+
+**Option C: MongoDB**
+
+```bash
+npx wrangler secret put DATABASE_URI   # mongodb+srv://USER:PASSWORD@cluster.mongodb.net/incident_command
+```
+
+The Worker opens a new connection for each database operation and closes it after. Workers do not let a socket outlive the request that opened it, so the driver cannot keep a pool. Allow connections from the internet in the Atlas network access list.
 
 ### 3. Set secrets
 
@@ -171,11 +179,11 @@ npx wrangler secret put SETUP_TOKEN --env development
 
 If the Worker does not exist yet, wrangler asks to create it.
 
-| Secret           | Needed | Notes                                                                                                                                        |
-| ---------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URI`   | Yes    | Postgres connection string. Without it, each isolate uses its own memory store and loses its data. Do not set it with the Hyperdrive bridge. |
-| `SETUP_TOKEN`    | Yes    | Protects `/manage/setup`. Without it, the first visitor becomes admin.                                                                       |
-| `WEBHOOK_SECRET` | No     | Signs webhook payloads. Workers do not send notifications now, so this secret has no effect.                                                 |
+| Secret           | Needed | Notes                                                                                                                                                   |
+| ---------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URI`   | Yes    | Postgres or MongoDB connection string. Without it, each isolate uses its own memory store and loses its data. Do not set it with the Hyperdrive bridge. |
+| `SETUP_TOKEN`    | Yes    | Protects `/manage/setup`. Without it, the first visitor becomes admin.                                                                                  |
+| `WEBHOOK_SECRET` | No     | Signs webhook payloads. Workers do not send notifications now, so this secret has no effect.                                                            |
 
 Do not set the email secrets. Workers do not send subscriber notifications.
 
