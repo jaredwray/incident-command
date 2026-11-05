@@ -296,6 +296,47 @@ describe("MongoStore", () => {
 		await client.db(ownedDb).dropDatabase();
 	});
 
+	it("opens and closes a client for each operation when pool is false", async () => {
+		const perOpDb = `${dbName}_per_op`;
+		const connect = vi.spyOn(MongoClient.prototype, "connect");
+		const close = vi.spyOn(MongoClient.prototype, "close");
+		try {
+			const store = new MongoStore({
+				url: server.getUri(perOpDb),
+				pool: false,
+			});
+			await store.connect();
+			await store.ping();
+			await store.insert("components", component("one"));
+			await store.insert("components", component("two"));
+			await store.update("components", component("one", { order: 1 }));
+			await expect(store.get("components", "one")).resolves.toEqual(
+				component("one", { order: 1 }),
+			);
+			await expect(store.find("components")).resolves.toHaveLength(2);
+			await expect(store.count("components")).resolves.toBe(2);
+			await expect(store.delete("components", "two")).resolves.toBe(true);
+			await expect(store.deleteMany("components", { limit: 1 })).resolves.toBe(
+				1,
+			);
+			// Ten operations, ten clients: each one is closed before the call returns.
+			expect(connect).toHaveBeenCalledTimes(10);
+			expect(close).toHaveBeenCalledTimes(10);
+			await store.disconnect();
+			expect(close).toHaveBeenCalledTimes(10);
+		} finally {
+			connect.mockRestore();
+			close.mockRestore();
+		}
+		const indexes = await client
+			.db(perOpDb)
+			.collection("subscribers")
+			.listIndexes()
+			.toArray();
+		expect(indexes.some((index) => index.key.token === 1)).toBe(true);
+		await client.db(perOpDb).dropDatabase();
+	});
+
 	it("requires a url or a client", () => {
 		expect(() => new MongoStore()).toThrow(
 			"MongoStore requires a url or a client",

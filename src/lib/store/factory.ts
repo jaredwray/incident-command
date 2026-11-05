@@ -18,7 +18,11 @@ export async function createBaseStore(
 		}
 		case "mongo": {
 			const { MongoStore } = await import("./mongo");
-			return new MongoStore({ url: config.url, dbName: config.databaseName });
+			return new MongoStore({
+				url: config.url,
+				dbName: config.databaseName,
+				pool: config.pool,
+			});
 		}
 		default:
 			return new MemoryStore();
