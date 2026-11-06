@@ -7,6 +7,7 @@ import {
 	EmptyState,
 	Field,
 	inputClass,
+	Select,
 } from "@/components/manage/ui";
 import { LocalTime } from "@/components/time";
 import { requireMember } from "@/lib/auth";
@@ -51,15 +52,10 @@ export default async function SubscribersPage({
 					className="grid gap-4 sm:grid-cols-[160px_1fr_auto] sm:items-end"
 				>
 					<Field label="Type" htmlFor="sub-type">
-						<select
-							id="sub-type"
-							name="type"
-							defaultValue="webhook"
-							className={inputClass}
-						>
+						<Select id="sub-type" name="type" defaultValue="webhook">
 							<option value="webhook">Webhook</option>
 							<option value="email">Email</option>
-						</select>
+						</Select>
 					</Field>
 					<Field label="URL or email" htmlFor="sub-target">
 						<input
