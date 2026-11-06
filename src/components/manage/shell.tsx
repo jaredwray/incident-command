@@ -5,6 +5,7 @@ import { WatchtowerLogo } from "@/components/watchtower-logo";
 import { hasRole, ROLE_LABELS } from "@/lib/domain/status";
 import type { PublicMember, Role } from "@/lib/domain/types";
 import type { StoreHealth } from "@/lib/store/cached";
+import { SubmitButton } from "../submit-button";
 import { Flash } from "./ui";
 
 export type NavKey =
@@ -118,9 +119,9 @@ export function ManageShell({
 							View status page
 						</Link>
 						<form action={logoutAction}>
-							<button type="submit" className="text-muted hover:text-fg">
+							<SubmitButton className="inline-flex items-center gap-1 text-muted hover:text-fg disabled:opacity-50">
 								Sign out
-							</button>
+							</SubmitButton>
 						</form>
 					</div>
 				</div>

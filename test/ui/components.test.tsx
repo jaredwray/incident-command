@@ -12,6 +12,7 @@ import { statusesFor } from "@/components/manage/incident-fields";
 import { eventColorStatus, StatusBadge } from "@/components/status/badges";
 import { IncidentList } from "@/components/status/recent-incidents";
 import { UptimeBars } from "@/components/status/uptime-bars";
+import { SubmitButton } from "@/components/submit-button";
 import { LocalTime } from "@/components/time";
 
 describe("LocalTime", () => {
@@ -40,6 +41,37 @@ describe("ConfirmButton", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 		expect(onSubmit).toHaveBeenCalledTimes(1);
 		expect(confirm).toHaveBeenCalledWith("Sure?");
+	});
+});
+
+describe("SubmitButton", () => {
+	it("is disabled and busy while the action of its form runs", async () => {
+		let finish = () => {};
+		const action = vi.fn(
+			() =>
+				new Promise<void>((resolve) => {
+					finish = resolve;
+				}),
+		);
+		render(
+			<form action={action}>
+				<SubmitButton className="button">Add service</SubmitButton>
+			</form>,
+		);
+		const button = screen.getByRole("button", { name: "Add service" });
+		expect(button).toBeEnabled();
+		expect(button.querySelector('[aria-hidden="true"]')).toBeNull();
+
+		fireEvent.click(button);
+		await waitFor(() => expect(button).toBeDisabled());
+		expect(button).toHaveAttribute("aria-busy", "true");
+		expect(button.querySelector('[aria-hidden="true"]')).not.toBeNull();
+		expect(action).toHaveBeenCalledTimes(1);
+
+		await act(async () => finish());
+		await waitFor(() => expect(button).toBeEnabled());
+		expect(button).toHaveAttribute("aria-busy", "false");
+		expect(button.querySelector('[aria-hidden="true"]')).toBeNull();
 	});
 });
 

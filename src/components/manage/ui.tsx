@@ -8,9 +8,9 @@ export const buttonClass = {
 	primary:
 		"inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-brand-fg hover:opacity-90 disabled:opacity-50",
 	secondary:
-		"inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium hover:bg-surface-muted",
+		"inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium hover:bg-surface-muted disabled:opacity-50",
 	danger:
-		"inline-flex items-center justify-center gap-2 rounded-lg border border-major/40 px-3 py-1.5 text-sm font-medium text-major hover:bg-major/10",
+		"inline-flex items-center justify-center gap-2 rounded-lg border border-major/40 px-3 py-1.5 text-sm font-medium text-major hover:bg-major/10 disabled:opacity-50",
 	ghost:
 		"inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm text-muted hover:bg-surface-muted hover:text-fg",
 } as const;

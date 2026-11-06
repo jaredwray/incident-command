@@ -8,6 +8,7 @@ import {
 	Field,
 	inputClass,
 } from "@/components/manage/ui";
+import { SubmitButton } from "@/components/submit-button";
 import { LocalTime } from "@/components/time";
 import { requireMember } from "@/lib/auth";
 import { addSubscriberAction, deleteSubscriberAction } from "../actions";
@@ -70,9 +71,7 @@ export default async function SubscribersPage({
 							className={inputClass}
 						/>
 					</Field>
-					<button type="submit" className={buttonClass.primary}>
-						Add
-					</button>
+					<SubmitButton className={buttonClass.primary}>Add</SubmitButton>
 				</form>
 			</Card>
 			<Card title={`Subscribers (${subscribers.length})`}>

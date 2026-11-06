@@ -10,6 +10,7 @@ import {
 	inputClass,
 } from "@/components/manage/ui";
 import { StatusBadge } from "@/components/status/badges";
+import { SubmitButton } from "@/components/submit-button";
 import { requireMember } from "@/lib/auth";
 import { hasRole, SERVICE_STATUS_LABELS } from "@/lib/domain/status";
 import { SERVICE_STATUSES } from "@/lib/domain/types";
@@ -95,9 +96,9 @@ export default async function ServicesPage({
 													</option>
 												))}
 											</select>
-											<button type="submit" className={buttonClass.secondary}>
+											<SubmitButton className={buttonClass.secondary}>
 												Set
-											</button>
+											</SubmitButton>
 										</form>
 									) : (
 										<StatusBadge status={service.status} />
@@ -157,9 +158,9 @@ export default async function ServicesPage({
 														defaultChecked={service.hidden}
 													/>
 												</div>
-												<button type="submit" className={buttonClass.secondary}>
+												<SubmitButton className={buttonClass.secondary}>
 													Save
-												</button>
+												</SubmitButton>
 											</form>
 											<form action={deleteServiceAction}>
 												<input type="hidden" name="id" value={service.id} />
@@ -206,9 +207,9 @@ export default async function ServicesPage({
 							/>
 						</Field>
 						<Checkbox name="hidden" label="Hide from status page" />
-						<button type="submit" className={buttonClass.primary}>
+						<SubmitButton className={buttonClass.primary}>
 							Add service
-						</button>
+						</SubmitButton>
 					</form>
 				</Card>
 			)}

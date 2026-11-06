@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { NoticeCard } from "@/components/status/notice";
 import { PublicPage } from "@/components/status/page-shell";
+import { SubmitButton } from "@/components/submit-button";
 import { getApp } from "@/lib/app";
 import { unsubscribeAction } from "../actions";
 
@@ -30,12 +31,9 @@ export default async function UnsubscribePage({
 					</p>
 					<form action={unsubscribeAction}>
 						<input type="hidden" name="token" value={token ?? ""} />
-						<button
-							type="submit"
-							className="rounded-full bg-brand px-5 py-2 font-medium text-brand-fg hover:opacity-90"
-						>
+						<SubmitButton className="inline-flex items-center justify-center gap-2 rounded-full bg-brand px-5 py-2 font-medium text-brand-fg hover:opacity-90 disabled:opacity-50">
 							Unsubscribe
-						</button>
+						</SubmitButton>
 					</form>
 				</NoticeCard>
 			)}
