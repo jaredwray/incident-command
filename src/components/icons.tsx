@@ -49,6 +49,14 @@ export function WrenchIcon({ className }: IconProps) {
 	);
 }
 
+export function ChevronDownIcon({ className }: IconProps) {
+	return (
+		<svg {...base} className={className} aria-hidden="true">
+			<path d="m6 9 6 6 6-6" />
+		</svg>
+	);
+}
+
 export function StatusIcon({
 	status,
 	className,
