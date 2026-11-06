@@ -67,7 +67,7 @@
 			},
 			"vars": {
 				"SITE_URL": "https://dev.incident-command.org",
-				"SITE_NAME": "Incident Command (development)",
+				"SITE_NAME": "Incident Command",
 				"CACHE_TTL": "30s",
 				"SESSION_TTL": "7d"
 			}
