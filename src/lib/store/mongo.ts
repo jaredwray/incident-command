@@ -6,6 +6,7 @@ import {
 	MongoClient,
 } from "mongodb";
 import { ConflictError } from "../errors";
+import { currentRequestScope } from "./request-scope";
 import {
 	COLLECTIONS,
 	type CollectionName,
@@ -29,7 +30,8 @@ export interface MongoStoreOptions {
 	collectionPrefix?: string;
 	/**
 	 * Keep one connected client (default `true`). Set to `false` to open a
-	 * client for each operation and close it after. Cloudflare Workers need
+	 * client for each request scope (see `runInRequestScope`), or for each
+	 * operation outside a scope, and close it after. Cloudflare Workers need
 	 * this because a socket cannot outlive the request that opened it. Ignored
 	 * when a `client` is given.
 	 */
@@ -127,20 +129,35 @@ export class MongoStore implements DocumentStore {
 	}
 
 	/**
-	 * Runs `fn` against the database. With a shared client this is direct;
-	 * without one, a client is opened for this call and closed after it.
+	 * Runs `fn` against the database. With a shared client this is direct.
+	 * Without one, the request scope gives one client for each request. Outside
+	 * a request scope, a client is opened for this call and closed after it.
 	 */
 	private async run<T>(fn: (db: Db) => Promise<T>): Promise<T> {
 		if (this.client) {
 			return fn(this.client.db(this.dbName));
 		}
-		const client = new MongoClient(this.url as string);
+		const scoped = currentRequestScope()?.connection(
+			this,
+			() => this.open(),
+			(client) => client.close(),
+		);
+		if (scoped) {
+			return fn((await scoped).db(this.dbName));
+		}
+		const client = await this.open();
 		try {
-			await client.connect();
 			return await fn(client.db(this.dbName));
 		} finally {
 			await client.close();
 		}
+	}
+
+	/** Opens a client. If the connection fails, the driver closes the client. */
+	private async open(): Promise<MongoClient> {
+		const client = new MongoClient(this.url as string);
+		await client.connect();
+		return client;
 	}
 
 	private collection(db: Db, name: CollectionName): Collection<StoredDoc> {
