@@ -53,4 +53,85 @@
 		outline: 2px solid var(--ic-brand);
 		outline-offset: 2px;
 	}
+
+	/*
+	 * Dropdowns. The `Select` component draws its own chevron, so the browser
+	 * chrome is removed everywhere. Browsers with customizable selects also
+	 * get a themed picker. Other browsers keep their native picker, which
+	 * follows `color-scheme`.
+	 */
+	select {
+		appearance: none;
+	}
+
+	option {
+		background: var(--ic-surface);
+		color: var(--ic-fg);
+	}
+
+	@supports (appearance: base-select) {
+		select,
+		::picker(select) {
+			appearance: base-select;
+		}
+
+		select::picker-icon {
+			display: none;
+		}
+
+		::picker(select) {
+			margin-block-start: 0.375rem;
+			padding: 0.25rem;
+			border: 1px solid var(--ic-border);
+			border-radius: 0.75rem;
+			background: var(--ic-surface);
+			color: var(--ic-fg);
+			box-shadow:
+				0 1px 2px rgb(0 0 0 / 0.08),
+				0 16px 40px -16px rgb(0 0 0 / 0.35);
+		}
+
+		/* The picker fades in. It closes at once. */
+		@starting-style {
+			::picker(select) {
+				opacity: 0;
+				translate: 0 -0.25rem;
+			}
+		}
+
+		@media (prefers-reduced-motion: no-preference) {
+			::picker(select) {
+				transition:
+					opacity 120ms ease,
+					translate 120ms ease;
+			}
+		}
+
+		option {
+			gap: 0.5rem;
+			padding: 0.5rem 0.75rem;
+			border-radius: 0.5rem;
+			font-size: 0.875rem;
+			line-height: 1.25rem;
+		}
+
+		option:hover,
+		option:focus-visible {
+			background: var(--ic-surface-muted);
+		}
+
+		option:focus-visible {
+			outline-offset: -2px;
+		}
+
+		option:checked {
+			font-weight: 500;
+		}
+
+		option::checkmark {
+			order: 1;
+			margin-inline-start: auto;
+			color: var(--ic-brand);
+		}
+	}
 }

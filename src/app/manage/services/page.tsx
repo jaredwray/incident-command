@@ -8,6 +8,7 @@ import {
 	EmptyState,
 	Field,
 	inputClass,
+	Select,
 } from "@/components/manage/ui";
 import { StatusBadge } from "@/components/status/badges";
 import { SubmitButton } from "@/components/submit-button";
@@ -84,18 +85,17 @@ export default async function ServicesPage({
 											>
 												Status of {service.name}
 											</label>
-											<select
+											<Select
 												id={`status-${service.id}`}
 												name="status"
 												defaultValue={service.status}
-												className={`${inputClass} w-auto`}
 											>
 												{SERVICE_STATUSES.map((status) => (
 													<option key={status} value={status}>
 														{SERVICE_STATUS_LABELS[status]}
 													</option>
 												))}
-											</select>
+											</Select>
 											<SubmitButton className={buttonClass.secondary}>
 												Set
 											</SubmitButton>

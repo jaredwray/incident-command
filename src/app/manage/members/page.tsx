@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
 import { ConfirmButton } from "@/components/manage/confirm-button";
 import { type FlashParams, ManageShell } from "@/components/manage/shell";
-import { buttonClass, Card, Field, inputClass } from "@/components/manage/ui";
+import {
+	buttonClass,
+	Card,
+	Field,
+	inputClass,
+	Select,
+} from "@/components/manage/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { LocalTime } from "@/components/time";
 import { requireMember } from "@/lib/auth";
@@ -73,18 +79,17 @@ export default async function MembersPage({
 									<label htmlFor={`role-${person.id}`} className="sr-only">
 										Role for {person.name}
 									</label>
-									<select
+									<Select
 										id={`role-${person.id}`}
 										name="role"
 										defaultValue={person.role}
-										className={`${inputClass} w-auto`}
 									>
 										{ROLES.map((role) => (
 											<option key={role} value={role}>
 												{ROLE_LABELS[role]}
 											</option>
 										))}
-									</select>
+									</Select>
 									<SubmitButton className={buttonClass.secondary}>
 										Save
 									</SubmitButton>
@@ -124,18 +129,13 @@ export default async function MembersPage({
 							/>
 						</Field>
 						<Field label="Role" htmlFor="member-role">
-							<select
-								id="member-role"
-								name="role"
-								defaultValue="editor"
-								className={inputClass}
-							>
+							<Select id="member-role" name="role" defaultValue="editor">
 								{ROLES.map((role) => (
 									<option key={role} value={role}>
 										{ROLE_LABELS[role]}
 									</option>
 								))}
-							</select>
+							</Select>
 						</Field>
 						<Field
 							label="Temporary password"
