@@ -1,4 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
+import { UnrecognizedActionError } from "next/dist/client/components/unrecognized-action-error";
 import { renderToStaticMarkup } from "react-dom/server";
 import ErrorPage from "@/app/error";
 import HistoryPage from "@/app/history/page";
@@ -350,7 +351,37 @@ describe("error pages", () => {
 		unmount();
 		const reset = vi.fn();
 		render(<ErrorPage error={new Error("x")} reset={reset} />);
+		expect(screen.getByText("Something went wrong")).toBeInTheDocument();
 		screen.getByRole("button", { name: "Try again" }).click();
 		expect(reset).toHaveBeenCalled();
+	});
+
+	it("asks for a reload when the server does not know the action", () => {
+		// A deploy changed the server action ids after the page loaded. `reset`
+		// keeps the stale ids, so the page must reload instead.
+		const location = window.location;
+		const reload = vi.fn();
+		Object.defineProperty(window, "location", {
+			configurable: true,
+			value: { ...location, reload },
+		});
+		try {
+			const reset = vi.fn();
+			render(
+				<ErrorPage error={new UnrecognizedActionError("gone")} reset={reset} />,
+			);
+			expect(screen.getByText("This page is out of date")).toBeInTheDocument();
+			expect(
+				screen.queryByRole("button", { name: "Try again" }),
+			).not.toBeInTheDocument();
+			screen.getByRole("button", { name: "Reload" }).click();
+			expect(reload).toHaveBeenCalledOnce();
+			expect(reset).not.toHaveBeenCalled();
+		} finally {
+			Object.defineProperty(window, "location", {
+				configurable: true,
+				value: location,
+			});
+		}
 	});
 });

@@ -9,9 +9,12 @@ vi.mock("next/headers", async () => {
 	};
 });
 
-vi.mock("next/navigation", async () => {
+vi.mock("next/navigation", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("next/navigation")>();
 	const state = await import("./next-state");
 	return {
+		unstable_isUnrecognizedActionError:
+			actual.unstable_isUnrecognizedActionError,
 		redirect: (url: string) => {
 			throw new state.Redirect(url);
 		},

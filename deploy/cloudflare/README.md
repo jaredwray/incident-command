@@ -130,6 +130,22 @@ curl https://incident-command.<your-subdomain>.workers.dev/healthz
 curl https://incident-command.<your-subdomain>.workers.dev/api/v1/status
 ```
 
+## Keep the server action ids between deploys
+
+Next.js salts the id of each server action with `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY`. Without that variable, `next build` makes a new key, and each deploy changes every id. A portal page that a browser loaded before the deploy then sends ids that the new Worker does not know. Next.js logs `Failed to find Server Action`, answers 409, and the portal shows "This page is out of date" until the user reloads the page.
+
+Make one key and set it for each build:
+
+```bash
+openssl rand -base64 32
+```
+
+```bash
+NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=<key> pnpm cf:deploy
+```
+
+Keep the key secret. Next.js also encrypts the closure variables of server actions with it.
+
 ## Development Worker (GitHub Actions)
 
 The [`deploy-development`](../../.github/workflows/deploy-development.yml) workflow deploys the `incident-command-development` Worker to <https://dev.incident-command.org>. It runs on each push to `main`. You can also start it manually from the Actions tab. The job uses the `development` GitHub environment. The Worker settings are in the `env.development` block of [`wrangler.jsonc`](../../wrangler.jsonc).
@@ -137,7 +153,7 @@ The [`deploy-development`](../../.github/workflows/deploy-development.yml) workf
 The workflow does these steps:
 
 1. It installs the dependencies through Socket Firewall.
-2. It runs `opennextjs-cloudflare build --env development`.
+2. It runs `opennextjs-cloudflare build --env development` with the `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` secret in the environment.
 3. It runs `wrangler deploy --env development`. Wrangler finds the OpenNext project and runs `opennextjs-cloudflare deploy`, which then runs `wrangler deploy`.
 
 The `development` environment in `wrangler.jsonc` sets these items:
@@ -158,10 +174,11 @@ An environment does not inherit `vars` or bindings such as `hyperdrive`. To use 
 3. In the GitHub repository, open **Settings > Environments** and create the `development` environment. You can add a deployment branch rule that allows only `main`.
 4. Add these environment secrets to `development`:
 
-   | Secret                  | Value                                     |
-   | ----------------------- | ----------------------------------------- |
-   | `CLOUDFLARE_API_TOKEN`  | The API token from step 2.                |
-   | `CLOUDFLARE_ACCOUNT_ID` | The account ID of the Cloudflare account. |
+   | Secret                               | Value                                                                                                                                |
+   | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+   | `CLOUDFLARE_API_TOKEN`               | The API token from step 2.                                                                                                           |
+   | `CLOUDFLARE_ACCOUNT_ID`              | The account ID of the Cloudflare account.                                                                                            |
+   | `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` | A key from `openssl rand -base64 32`. See [Keep the server action ids between deploys](#keep-the-server-action-ids-between-deploys). |
 
 5. Set the Worker secrets (see the next section) before the first deploy.
 
