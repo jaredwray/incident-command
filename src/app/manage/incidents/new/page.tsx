@@ -14,6 +14,7 @@ import {
 	Field,
 	inputClass,
 } from "@/components/manage/ui";
+import { SubmitButton } from "@/components/submit-button";
 import { requireMember } from "@/lib/auth";
 import type { IncidentKind } from "@/lib/domain/types";
 import { createIncidentAction } from "../../actions";
@@ -83,9 +84,9 @@ export default async function NewIncidentPage({
 						<ServiceStatusSelect hint="Automatic derives the status from the impact." />
 					)}
 					<Checkbox name="notify" label="Notify subscribers" defaultChecked />
-					<button type="submit" className={buttonClass.primary}>
+					<SubmitButton className={buttonClass.primary}>
 						{isIncident ? "Declare incident" : "Schedule maintenance"}
-					</button>
+					</SubmitButton>
 				</form>
 			</Card>
 		</ManageShell>

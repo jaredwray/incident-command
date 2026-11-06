@@ -8,6 +8,7 @@ import {
 	inputClass,
 	Select,
 } from "@/components/manage/ui";
+import { SubmitButton } from "@/components/submit-button";
 import { LocalTime } from "@/components/time";
 import { requireMember } from "@/lib/auth";
 import { ROLE_LABELS } from "@/lib/domain/status";
@@ -89,9 +90,9 @@ export default async function MembersPage({
 											</option>
 										))}
 									</Select>
-									<button type="submit" className={buttonClass.secondary}>
+									<SubmitButton className={buttonClass.secondary}>
 										Save
-									</button>
+									</SubmitButton>
 								</form>
 								<form action={deleteMemberAction}>
 									<input type="hidden" name="id" value={person.id} />
@@ -151,9 +152,9 @@ export default async function MembersPage({
 							/>
 						</Field>
 					</div>
-					<button type="submit" className={buttonClass.primary}>
+					<SubmitButton className={buttonClass.primary}>
 						Add member
-					</button>
+					</SubmitButton>
 				</form>
 			</Card>
 		</ManageShell>

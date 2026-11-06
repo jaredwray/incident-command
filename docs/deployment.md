@@ -90,7 +90,7 @@ All are optional, and empty values are treated as unset. Durations accept `ms`, 
 | `STORE`                 | from `DATABASE_URI`         | Force the adapter: `memory`, `postgres` or `mongo`.                                                        |
 | `DATABASE_NAME`         | database in the URL         | MongoDB database name.                                                                                     |
 | `DATABASE_TABLE_PREFIX` | `ic_`                       | Postgres table name prefix.                                                                                |
-| `DATABASE_POOL`         | `true` (`false` on Workers) | Keep a database connection pool. `false` opens a connection per operation (Workers).                       |
+| `DATABASE_POOL`         | `true` (`false` on Workers) | Keep a database connection pool. `false` opens a connection per query (Postgres) or per request (MongoDB). |
 | `SEED_DEMO`             | `false`                     | `true` or `1` seeds demo services and incidents on boot when the store has no services.                    |
 | **Cache**               |                             |                                                                                                            |
 | `CACHE_TTL`             | `30s`                       | How long cached reads stay fresh. Cached data keeps being served while the database is offline.            |
