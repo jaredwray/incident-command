@@ -453,6 +453,13 @@ describe("admin pages", () => {
 		expect(stale).toHaveTextContent("old@acme.dev");
 		expect(stale).toHaveTextContent(/Viewer · Invited by System · Expired/);
 		expect(invites.getAllByRole("button", { name: "Revoke" })).toHaveLength(2);
+		// only an open invite can get a new link
+		expect(
+			within(fresh as HTMLElement).getByRole("button", { name: "Copy link" }),
+		).toBeEnabled();
+		expect(
+			within(stale as HTMLElement).queryByRole("button", { name: "Copy link" }),
+		).not.toBeInTheDocument();
 	});
 
 	it("shows agent tokens and MCP instructions", async () => {

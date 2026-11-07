@@ -137,6 +137,36 @@ export class MemberService {
 		}
 	}
 
+	/**
+	 * Replaces the token of an open invite and returns the new plaintext token.
+	 * The previous link stops working. The email, role and expiry stay the same.
+	 */
+	async renewInvite(
+		actor: Actor,
+		id: string,
+	): Promise<{ token: string; invite: PublicInvite }> {
+		requireRole(actor, "admin");
+		const invite = await this.ctx.store.get("invites", id, {
+			consistent: true,
+		});
+		if (!invite) {
+			throw new NotFoundError("Invite", id);
+		}
+		const token = createSecret(32);
+		const renewed = await this.ctx.store.update(
+			"invites",
+			{ ...invite, tokenHash: sha256(token) },
+			{ where: [{ field: "expiresAt", op: "gt", value: iso(this.ctx.now()) }] },
+		);
+		if (!renewed) {
+			throw new AppError(
+				"not_found",
+				"This invite expired or was used. Invite the email again.",
+			);
+		}
+		return { token, invite: toPublicInvite(renewed) };
+	}
+
 	/** The open invite for a token. Resolves `undefined` for unknown or expired tokens. */
 	async findInvite(token: string): Promise<PublicInvite | undefined> {
 		const invite = await this.openInvite(token);

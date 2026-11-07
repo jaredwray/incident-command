@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getApp } from "@/lib/app";
+import { type App, getApp } from "@/lib/app";
 import { endSession, flash, requireMember, startSession } from "@/lib/auth";
 import type {
 	EventStatus,
@@ -239,11 +239,26 @@ export async function inviteMemberAction(
 			email: text(form, "email"),
 			role: text(form, "role") as Role,
 		});
-		const settings = await services.settings.get();
-		const origin = await publicOrigin(settings.siteUrl ?? app.config.siteUrl);
 		revalidatePath("/manage/members");
-		return { url: `${origin}${invitePath(token)}`, email: invite.email };
+		return { url: await inviteUrl(app, token), email: invite.email };
 	});
+}
+
+/** Makes a new link for an open invite. The previous link stops working. */
+export async function renewInviteLinkAction(
+	id: string,
+): Promise<{ url: string } | { error: string }> {
+	const { actor, services, app } = await requireMember("admin");
+	return formState(async () => {
+		const { token } = await services.members.renewInvite(actor, id);
+		return { url: await inviteUrl(app, token) };
+	});
+}
+
+async function inviteUrl(app: App, token: string): Promise<string> {
+	const settings = await app.services.settings.get();
+	const origin = await publicOrigin(settings.siteUrl ?? app.config.siteUrl);
+	return `${origin}${invitePath(token)}`;
 }
 
 export async function revokeInviteAction(form: FormData): Promise<void> {
