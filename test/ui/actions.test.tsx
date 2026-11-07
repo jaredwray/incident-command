@@ -15,6 +15,7 @@ import {
 	loginAction,
 	logoutAction,
 	postIncidentUpdateAction,
+	renewInviteLinkAction,
 	revokeAgentAction,
 	revokeInviteAction,
 	setServiceStatusAction,
@@ -356,12 +357,28 @@ describe("member actions", () => {
 		).toMatchObject({ error: expect.stringMatching(/^email/) });
 
 		const [invite] = await services.members.listInvites(actor);
+		const renewed = await renewInviteLinkAction(invite?.id ?? "");
+		expect(renewed).toEqual({
+			url: expect.stringMatching(
+				/^http:\/\/localhost:3000\/manage\/invite\?token=[\w-]{43}$/,
+			),
+		});
+		const renewedUrl = "url" in renewed ? renewed.url : "";
+		await expect(
+			services.members.findInvite(
+				new URL(renewedUrl).searchParams.get("token") as string,
+			),
+		).resolves.toMatchObject({ email: "ed@acme.dev" });
+
 		expect(
 			await redirectOf(revokeInviteAction(form({ id: invite?.id ?? "" }))),
 		).toBe("/manage/members?notice=Invite revoked");
 		expect(
 			await redirectOf(revokeInviteAction(form({ id: invite?.id ?? "" }))),
 		).toMatch(/error=Invite/);
+		expect(await renewInviteLinkAction(invite?.id ?? "")).toEqual({
+			error: expect.stringMatching(/^Invite/),
+		});
 	});
 
 	it("uses the configured site url for invite links", async () => {
