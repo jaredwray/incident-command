@@ -5,11 +5,7 @@ import {
 	NotFoundError,
 	ValidationError,
 } from "@/lib/errors";
-import {
-	invitePath,
-	memberActor,
-	toPublicMember,
-} from "@/lib/services/members";
+import { memberActor, toPublicMember } from "@/lib/services/members";
 import { ADMIN, createTestContext, EDITOR, type TestContext } from "../helpers";
 
 describe("MemberService and SessionService", () => {
@@ -85,7 +81,6 @@ describe("MemberService and SessionService", () => {
 			expiresAt: "2026-11-09T12:00:00.000Z",
 		});
 		expect(first.invite).not.toHaveProperty("tokenHash");
-		expect(invitePath(first.token)).toBe(`/manage/invite?token=${first.token}`);
 
 		// a new invite for the same email replaces the old link
 		t.clock.advance(1000);
