@@ -33,6 +33,11 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 COPY . .
+
+# Next.js salts the server action ids with this key. Pass the same key to each
+# build so the ids stay the same between deploys. See docs/deployment.md.
+ARG NEXT_SERVER_ACTIONS_ENCRYPTION_KEY
+ENV NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=${NEXT_SERVER_ACTIONS_ENCRYPTION_KEY}
 RUN pnpm build
 
 # ---------------------------------------------------------------------------
