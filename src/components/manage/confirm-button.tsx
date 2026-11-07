@@ -1,6 +1,7 @@
 "use client";
 
 import type { MouseEvent, ReactNode } from "react";
+import { SubmitButton } from "../submit-button";
 import { buttonClass } from "./ui";
 
 /** A submit button that asks for confirmation before submitting its form. */
@@ -19,8 +20,8 @@ export function ConfirmButton({
 		}
 	};
 	return (
-		<button type="submit" onClick={onClick} className={className}>
+		<SubmitButton onClick={onClick} className={className}>
 			{children}
-		</button>
+		</SubmitButton>
 	);
 }

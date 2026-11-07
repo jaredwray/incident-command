@@ -1,14 +1,18 @@
 import type { Metadata } from "next";
 import { ConfirmButton } from "@/components/manage/confirm-button";
+import { InviteMemberForm } from "@/components/manage/invite-member-form";
 import { type FlashParams, ManageShell } from "@/components/manage/shell";
-import { buttonClass, Card, Field, inputClass } from "@/components/manage/ui";
+import { buttonClass, Card, Select } from "@/components/manage/ui";
+import { SubmitButton } from "@/components/submit-button";
 import { LocalTime } from "@/components/time";
 import { requireMember } from "@/lib/auth";
 import { ROLE_LABELS } from "@/lib/domain/status";
 import { ROLES } from "@/lib/domain/types";
+import { INVITE_TTL_DAYS } from "@/lib/services/members";
 import {
-	createMemberAction,
 	deleteMemberAction,
+	inviteMemberAction,
+	revokeInviteAction,
 	updateMemberAction,
 } from "../actions";
 
@@ -25,10 +29,12 @@ export default async function MembersPage({
 }) {
 	const flash = await searchParams;
 	const { member, actor, services, app } = await requireMember("admin");
-	const [settings, members] = await Promise.all([
+	const [settings, members, invites] = await Promise.all([
 		services.settings.get(),
 		services.members.list(actor),
+		services.members.listInvites(actor),
 	]);
+	const now = new Date().toISOString();
 	return (
 		<ManageShell
 			member={member}
@@ -72,21 +78,20 @@ export default async function MembersPage({
 									<label htmlFor={`role-${person.id}`} className="sr-only">
 										Role for {person.name}
 									</label>
-									<select
+									<Select
 										id={`role-${person.id}`}
 										name="role"
 										defaultValue={person.role}
-										className={`${inputClass} w-auto`}
 									>
 										{ROLES.map((role) => (
 											<option key={role} value={role}>
 												{ROLE_LABELS[role]}
 											</option>
 										))}
-									</select>
-									<button type="submit" className={buttonClass.secondary}>
+									</Select>
+									<SubmitButton className={buttonClass.secondary}>
 										Save
-									</button>
+									</SubmitButton>
 								</form>
 								<form action={deleteMemberAction}>
 									<input type="hidden" name="id" value={person.id} />
@@ -99,62 +104,49 @@ export default async function MembersPage({
 					))}
 				</ul>
 			</Card>
-			<Card
-				title="Add a member"
-				description="Share the temporary password securely; they can change it from their account page."
-			>
-				<form action={createMemberAction} className="space-y-4">
-					<div className="grid gap-4 sm:grid-cols-2">
-						<Field label="Name" htmlFor="member-name">
-							<input
-								id="member-name"
-								name="name"
-								required
-								className={inputClass}
-							/>
-						</Field>
-						<Field label="Email" htmlFor="member-email">
-							<input
-								id="member-email"
-								name="email"
-								type="email"
-								required
-								className={inputClass}
-							/>
-						</Field>
-						<Field label="Role" htmlFor="member-role">
-							<select
-								id="member-role"
-								name="role"
-								defaultValue="editor"
-								className={inputClass}
+			{invites.length > 0 && (
+				<Card
+					title="Open invites"
+					description="To get a new link for a person, invite their email again."
+				>
+					<ul className="divide-y divide-border">
+						{invites.map((invite) => (
+							<li
+								key={invite.id}
+								className="flex flex-wrap items-center justify-between gap-3 py-3"
 							>
-								{ROLES.map((role) => (
-									<option key={role} value={role}>
-										{ROLE_LABELS[role]}
-									</option>
-								))}
-							</select>
-						</Field>
-						<Field
-							label="Temporary password"
-							htmlFor="member-password"
-							hint="At least 8 characters."
-						>
-							<input
-								id="member-password"
-								name="password"
-								type="password"
-								minLength={8}
-								required
-								className={inputClass}
-							/>
-						</Field>
-					</div>
-					<button type="submit" className={buttonClass.primary}>
-						Add member
-					</button>
-				</form>
+								<div>
+									<p className="font-medium">{invite.email}</p>
+									<p className="text-xs text-muted">
+										{ROLE_LABELS[invite.role]} · Invited by{" "}
+										{invite.invitedBy.name} ·{" "}
+										{invite.expiresAt > now ? (
+											<>
+												Expires <LocalTime iso={invite.expiresAt} />
+											</>
+										) : (
+											<span className="text-major">Expired</span>
+										)}
+									</p>
+								</div>
+								<form action={revokeInviteAction}>
+									<input type="hidden" name="id" value={invite.id} />
+									<ConfirmButton
+										message={`Revoke the invite for ${invite.email}? The link will stop working.`}
+									>
+										Revoke
+									</ConfirmButton>
+								</form>
+							</li>
+						))}
+					</ul>
+				</Card>
+			)}
+			<Card
+				title="Invite a member"
+				description={`Send the link to the new member. They use it to create their account. The link works one time and expires after ${INVITE_TTL_DAYS} days.`}
+			>
+				<InviteMemberForm action={inviteMemberAction} />
 			</Card>
 		</ManageShell>
 	);

@@ -19,6 +19,7 @@ import {
 } from "@/components/manage/ui";
 import { EventStatusBadge, ImpactBadge } from "@/components/status/badges";
 import { Timeline } from "@/components/status/timeline";
+import { SubmitButton } from "@/components/submit-button";
 import { requireMember } from "@/lib/auth";
 import { hasRole } from "@/lib/domain/status";
 import {
@@ -98,9 +99,9 @@ export default async function ManageIncidentPage({
 									label="Notify subscribers"
 									defaultChecked
 								/>
-								<button type="submit" className={buttonClass.primary}>
+								<SubmitButton className={buttonClass.primary}>
 									Post update
-								</button>
+								</SubmitButton>
 							</form>
 						</Card>
 					)}
@@ -134,9 +135,9 @@ export default async function ManageIncidentPage({
 									services={catalog}
 									selected={incident.serviceIds}
 								/>
-								<button type="submit" className={buttonClass.secondary}>
+								<SubmitButton className={buttonClass.secondary}>
 									Save details
-								</button>
+								</SubmitButton>
 							</form>
 						</Card>
 						<form action={deleteIncidentAction}>

@@ -68,7 +68,9 @@ Each token has a role. Tools the role cannot use are not listed, so agents never
 | `delete_incident`      | editor | Delete an incident or maintenance.                                                  |
 | `schedule_maintenance` | editor | Announce planned maintenance with a window.                                         |
 | `list_members`         | admin  | Portal members.                                                                     |
-| `create_member`        | admin  | Add a member with a temporary password.                                             |
+| `invite_member`        | admin  | Create a one-time `inviteUrl` (valid for 7 days). The person creates their account. |
+| `list_invites`         | admin  | Invites that nobody used yet.                                                       |
+| `revoke_invite`        | admin  | Remove an invite. Its link stops working.                                           |
 | `update_member`        | admin  | Change name, email, role or password.                                               |
 | `remove_member`        | admin  | Remove a member (the last admin cannot be removed).                                 |
 | `list_agents`          | admin  | Agent tokens.                                                                       |

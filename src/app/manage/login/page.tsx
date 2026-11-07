@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { AuthLayout } from "@/components/manage/shell";
 import { buttonClass, Field, Flash, inputClass } from "@/components/manage/ui";
+import { SubmitButton } from "@/components/submit-button";
 import { getApp } from "@/lib/app";
 import { getMemberContext } from "@/lib/auth";
 import { loginAction } from "../actions";
@@ -47,9 +48,9 @@ export default async function LoginPage({
 						className={inputClass}
 					/>
 				</Field>
-				<button type="submit" className={`${buttonClass.primary} w-full`}>
+				<SubmitButton className={`${buttonClass.primary} w-full`}>
 					Sign in
-				</button>
+				</SubmitButton>
 			</form>
 		</AuthLayout>
 	);

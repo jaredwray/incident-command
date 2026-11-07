@@ -14,7 +14,7 @@ import {
 	type Service,
 } from "@/lib/domain/types";
 import { toDateTimeInput } from "@/lib/format";
-import { Field, inputClass } from "./ui";
+import { Field, inputClass, Select } from "./ui";
 
 export function statusesFor(kind: IncidentKind): readonly EventStatus[] {
 	return kind === "incident" ? INCIDENT_STATUSES : MAINTENANCE_STATUSES;
@@ -31,13 +31,13 @@ export function StatusSelect({
 }) {
 	return (
 		<Field label="Status" htmlFor={id}>
-			<select id={id} name="status" defaultValue={value} className={inputClass}>
+			<Select id={id} name="status" defaultValue={value}>
 				{statusesFor(kind).map((status) => (
 					<option key={status} value={status}>
 						{EVENT_STATUS_LABELS[status]}
 					</option>
 				))}
-			</select>
+			</Select>
 		</Field>
 	);
 }
@@ -51,18 +51,13 @@ export function ImpactSelect({
 }) {
 	return (
 		<Field label="Impact" htmlFor={id}>
-			<select
-				id={id}
-				name="impact"
-				defaultValue={value ?? "minor"}
-				className={inputClass}
-			>
+			<Select id={id} name="impact" defaultValue={value ?? "minor"}>
 				{INCIDENT_IMPACTS.map((impact) => (
 					<option key={impact} value={impact}>
 						{IMPACT_LABELS[impact]}
 					</option>
 				))}
-			</select>
+			</Select>
 		</Field>
 	);
 }
@@ -76,19 +71,14 @@ export function ServiceStatusSelect({
 }) {
 	return (
 		<Field label="Set affected services to" htmlFor={id} hint={hint}>
-			<select
-				id={id}
-				name="serviceStatus"
-				defaultValue=""
-				className={inputClass}
-			>
+			<Select id={id} name="serviceStatus" defaultValue="">
 				<option value="">Automatic</option>
 				{SERVICE_STATUSES.map((status) => (
 					<option key={status} value={status}>
 						{SERVICE_STATUS_LABELS[status]}
 					</option>
 				))}
-			</select>
+			</Select>
 		</Field>
 	);
 }

@@ -11,9 +11,11 @@ import { AddSubscriberForm } from "@/components/manage/add-subscriber-form";
 import { ConfirmButton } from "@/components/manage/confirm-button";
 import { CreateAgentForm } from "@/components/manage/create-agent-form";
 import { statusesFor } from "@/components/manage/incident-fields";
+import { InviteMemberForm } from "@/components/manage/invite-member-form";
 import { eventColorStatus, StatusBadge } from "@/components/status/badges";
 import { IncidentList } from "@/components/status/recent-incidents";
 import { UptimeBars } from "@/components/status/uptime-bars";
+import { SubmitButton } from "@/components/submit-button";
 import { LocalTime } from "@/components/time";
 
 describe("LocalTime", () => {
@@ -42,6 +44,37 @@ describe("ConfirmButton", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 		expect(onSubmit).toHaveBeenCalledTimes(1);
 		expect(confirm).toHaveBeenCalledWith("Sure?");
+	});
+});
+
+describe("SubmitButton", () => {
+	it("is disabled and busy while the action of its form runs", async () => {
+		let finish = () => {};
+		const action = vi.fn(
+			() =>
+				new Promise<void>((resolve) => {
+					finish = resolve;
+				}),
+		);
+		render(
+			<form action={action}>
+				<SubmitButton className="button">Add service</SubmitButton>
+			</form>,
+		);
+		const button = screen.getByRole("button", { name: "Add service" });
+		expect(button).toBeEnabled();
+		expect(button.querySelector('[aria-hidden="true"]')).toBeNull();
+
+		fireEvent.click(button);
+		await waitFor(() => expect(button).toBeDisabled());
+		expect(button).toHaveAttribute("aria-busy", "true");
+		expect(button.querySelector('[aria-hidden="true"]')).not.toBeNull();
+		expect(action).toHaveBeenCalledTimes(1);
+
+		await act(async () => finish());
+		await waitFor(() => expect(button).toBeEnabled());
+		expect(button).toHaveAttribute("aria-busy", "false");
+		expect(button.querySelector('[aria-hidden="true"]')).toBeNull();
 	});
 });
 
@@ -120,6 +153,33 @@ describe("AddSubscriberForm", () => {
 		expect(screen.getByText("Not configured")).toBeInTheDocument();
 		expect(screen.getByRole("radio", { name: /Webhook/ })).toBeChecked();
 		expect(screen.getByLabelText("Webhook URL")).toHaveAttribute("type", "url");
+	});
+});
+
+describe("InviteMemberForm", () => {
+	it("shows the invite link once, or the error", async () => {
+		const url = "https://status.acme.dev/manage/invite?token=abc";
+		const action = vi
+			.fn()
+			.mockResolvedValueOnce({ url, email: "ed@acme.dev" })
+			.mockResolvedValueOnce({ error: "email: Invalid email address" });
+		render(<InviteMemberForm action={action} />);
+		const submit = async () =>
+			act(async () => {
+				fireEvent.submit(
+					screen
+						.getByRole("button", { name: "Create invite link" })
+						.closest("form") as HTMLFormElement,
+				);
+			});
+		await submit();
+		expect(await screen.findByText(url)).toBeInTheDocument();
+		expect(screen.getByText(/Invite link for ed@acme.dev/)).toBeInTheDocument();
+		await submit();
+		expect(await screen.findByRole("alert")).toHaveTextContent(
+			"email: Invalid email address",
+		);
+		expect(screen.queryByText(url)).not.toBeInTheDocument();
 	});
 });
 

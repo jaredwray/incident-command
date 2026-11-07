@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { AuthLayout } from "@/components/manage/shell";
 import { buttonClass, Field, Flash, inputClass } from "@/components/manage/ui";
+import { SubmitButton } from "@/components/submit-button";
 import { getApp } from "@/lib/app";
 import { setupAction } from "../actions";
 
@@ -68,9 +69,9 @@ export default async function SetupPage({
 						/>
 					</Field>
 				)}
-				<button type="submit" className={`${buttonClass.primary} w-full`}>
+				<SubmitButton className={`${buttonClass.primary} w-full`}>
 					Create admin
-				</button>
+				</SubmitButton>
 			</form>
 		</AuthLayout>
 	);

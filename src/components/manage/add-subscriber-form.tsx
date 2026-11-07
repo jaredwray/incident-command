@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { addSubscriberAction } from "@/app/manage/actions";
+import { SubmitButton } from "@/components/submit-button";
 import { buttonClass, Field, inputClass } from "./ui";
 
 type SubscriberType = "webhook" | "email";
@@ -110,12 +111,9 @@ export function AddSubscriberForm({ emailEnabled }: { emailEnabled: boolean }) {
 						autoComplete={target.autoComplete}
 						className={inputClass}
 					/>
-					<button
-						type="submit"
-						className={`${buttonClass.primary} sm:shrink-0`}
-					>
+					<SubmitButton className={`${buttonClass.primary} sm:shrink-0`}>
 						Add
-					</button>
+					</SubmitButton>
 				</div>
 			</Field>
 		</form>

@@ -129,6 +129,20 @@ export interface Member {
 /** A member without secrets, safe to return from APIs and render. */
 export type PublicMember = Omit<Member, "passwordHash">;
 
+/** A one-time link that lets a person create their own member account. */
+export interface Invite {
+	id: string;
+	email: string;
+	role: Role;
+	tokenHash: string;
+	invitedBy: AuthorRef;
+	expiresAt: string;
+	createdAt: string;
+}
+
+/** An invite without secrets, safe to return from APIs and render. */
+export type PublicInvite = Omit<Invite, "tokenHash">;
+
 export interface Session {
 	id: string;
 	memberId: string;

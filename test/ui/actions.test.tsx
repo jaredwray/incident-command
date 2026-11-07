@@ -1,9 +1,9 @@
 import {
+	acceptInviteAction,
 	addSubscriberAction,
 	changePasswordAction,
 	createAgentAction,
 	createIncidentAction,
-	createMemberAction,
 	createServiceAction,
 	deleteAgentAction,
 	deleteIncidentAction,
@@ -11,10 +11,12 @@ import {
 	deleteServiceAction,
 	deleteSubscriberAction,
 	editIncidentAction,
+	inviteMemberAction,
 	loginAction,
 	logoutAction,
 	postIncidentUpdateAction,
 	revokeAgentAction,
+	revokeInviteAction,
 	setServiceStatusAction,
 	setupAction,
 	updateMemberAction,
@@ -334,49 +336,110 @@ describe("service actions", () => {
 });
 
 describe("member actions", () => {
-	it("adds, updates and removes members", async () => {
+	it("creates invite links through useActionState and revokes them", async () => {
 		const { app, services } = await setupApp();
 		const { actor } = await signIn(app, "admin");
-		expect(
-			await redirectOf(
-				createMemberAction(
-					form({
-						name: "Ed",
-						email: "ed@acme.dev",
-						role: "editor",
-						password: "password123",
-					}),
-				),
-			),
-		).toBe("/manage/members?notice=Member added");
-		const ed = (await services.members.list(actor)).find(
-			(m) => m.email === "ed@acme.dev",
+		const state = await inviteMemberAction(
+			{},
+			form({ email: "Ed@Acme.dev", role: "viewer" }),
 		);
+		expect(state.email).toBe("ed@acme.dev");
+		expect(state.url).toMatch(
+			/^http:\/\/localhost:3000\/manage\/invite\?token=[\w-]{43}$/,
+		);
+		const token = new URL(state.url as string).searchParams.get("token");
+		await expect(
+			services.members.findInvite(token as string),
+		).resolves.toMatchObject({ email: "ed@acme.dev", role: "viewer" });
+		expect(
+			await inviteMemberAction({}, form({ email: "nope", role: "editor" })),
+		).toMatchObject({ error: expect.stringMatching(/^email/) });
+
+		const [invite] = await services.members.listInvites(actor);
+		expect(
+			await redirectOf(revokeInviteAction(form({ id: invite?.id ?? "" }))),
+		).toBe("/manage/members?notice=Invite revoked");
+		expect(
+			await redirectOf(revokeInviteAction(form({ id: invite?.id ?? "" }))),
+		).toMatch(/error=Invite/);
+	});
+
+	it("uses the configured site url for invite links", async () => {
+		const { app } = await setupApp({ SITE_URL: "https://status.example.com" });
+		await signIn(app, "admin");
+		const state = await inviteMemberAction(
+			{},
+			form({ email: "ed@acme.dev", role: "editor" }),
+		);
+		expect(state.url).toMatch(
+			/^https:\/\/status\.example\.com\/manage\/invite\?token=/,
+		);
+	});
+
+	it("creates the account from an invite and signs the member in", async () => {
+		const { services } = await setupApp();
+		const { token } = await services.members.invite(SYSTEM_ACTOR, {
+			email: "ed@acme.dev",
+			role: "editor",
+		});
 		expect(
 			await redirectOf(
-				updateMemberAction(
-					form({ id: ed?.id ?? "", role: "viewer", password: "" }),
+				acceptInviteAction(form({ token, name: "Ed", password: "short" })),
+			),
+		).toBe(
+			`/manage/invite?token=${token}&error=password: Too small: expected string to have >=8 characters`,
+		);
+		expect(cookieJar.get(SESSION_COOKIE)).toBeUndefined();
+		expect(
+			await redirectOf(
+				acceptInviteAction(
+					form({ token, name: "Ed", password: "password123" }),
 				),
+			),
+		).toBe("/manage?notice=Welcome! Your account is ready.");
+		const session = await services.sessions.resolve(
+			cookieJar.get(SESSION_COOKIE)?.value,
+		);
+		expect(session?.member).toMatchObject({
+			email: "ed@acme.dev",
+			name: "Ed",
+			role: "editor",
+		});
+		expect(
+			await redirectOf(
+				acceptInviteAction(
+					form({ token, name: "Ed", password: "password123" }),
+				),
+			),
+		).toBe(
+			`/manage/invite?token=${token}&error=This invite link is not valid. Ask an admin for a new invite.`,
+		);
+	});
+
+	it("updates and removes members", async () => {
+		const { app, services } = await setupApp();
+		const { actor } = await signIn(app, "admin");
+		const { token } = await services.members.invite(actor, {
+			email: "ed@acme.dev",
+		});
+		const ed = await services.members.acceptInvite(token, {
+			name: "Ed",
+			password: "password123",
+		});
+		expect(
+			await redirectOf(
+				updateMemberAction(form({ id: ed.id, role: "viewer", password: "" })),
 			),
 		).toBe("/manage/members?notice=Member updated");
-		expect((await services.members.get(ed?.id ?? ""))?.role).toBe("viewer");
+		expect((await services.members.get(ed.id))?.role).toBe("viewer");
 		expect(
 			await redirectOf(
-				updateMemberAction(
-					form({ id: ed?.id ?? "", password: "newpassword1" }),
-				),
+				updateMemberAction(form({ id: ed.id, password: "newpassword1" })),
 			),
 		).toBe("/manage/members?notice=Member updated");
-		expect(
-			await redirectOf(deleteMemberAction(form({ id: ed?.id ?? "" }))),
-		).toBe("/manage/members?notice=Member removed");
-		expect(
-			await redirectOf(
-				createMemberAction(
-					form({ name: "", email: "x", role: "editor", password: "" }),
-				),
-			),
-		).toMatch(/error=/);
+		expect(await redirectOf(deleteMemberAction(form({ id: ed.id })))).toBe(
+			"/manage/members?notice=Member removed",
+		);
 		expect(await redirectOf(updateMemberAction(form({ id: "nope" })))).toMatch(
 			/error=Member/,
 		);

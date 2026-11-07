@@ -4,6 +4,7 @@ import type { Service } from "@/lib/domain/types";
 import { ConflictError } from "@/lib/errors";
 import { MemoryStore } from "@/lib/store/memory";
 import { MongoStore } from "@/lib/store/mongo";
+import { runInRequestScope } from "@/lib/store/request-scope";
 import type { CollectionName, Query } from "@/lib/store/types";
 import { runStoreContract } from "./contract";
 
@@ -171,6 +172,7 @@ describe("MongoStore", () => {
 		expect(names).toEqual([
 			"agent_tokens",
 			"incidents",
+			"invites",
 			"members",
 			"service_status_changes",
 			"services",
@@ -448,6 +450,45 @@ describe("MongoStore", () => {
 			.toArray();
 		expect(indexes.some((index) => index.key.token === 1)).toBe(true);
 		await client.db(perOpDb).dropDatabase();
+	});
+
+	it("opens one client for each request scope when pool is false", async () => {
+		const scopedDb = `${dbName}_scoped`;
+		const store = new MongoStore({ url: server.getUri(scopedDb), pool: false });
+		await store.connect();
+		const connect = vi.spyOn(MongoClient.prototype, "connect");
+		const close = vi.spyOn(MongoClient.prototype, "close");
+		const pending: Promise<unknown>[] = [];
+		try {
+			const response = await runInRequestScope(
+				async () => {
+					await store.insert("services", service("one"));
+					const [found, all] = await Promise.all([
+						store.get("services", "one"),
+						store.find("services"),
+					]);
+					return Response.json({
+						found,
+						all,
+						count: await store.count("services"),
+					});
+				},
+				(promise) => pending.push(promise),
+			);
+			await expect(response.json()).resolves.toEqual({
+				found: service("one"),
+				all: [service("one")],
+				count: 1,
+			});
+			await Promise.all(pending);
+			// Four operations in one request, one client: closed when the request ends.
+			expect(connect).toHaveBeenCalledTimes(1);
+			expect(close).toHaveBeenCalledTimes(1);
+		} finally {
+			connect.mockRestore();
+			close.mockRestore();
+		}
+		await client.db(scopedDb).dropDatabase();
 	});
 
 	it("requires a url or a client", () => {

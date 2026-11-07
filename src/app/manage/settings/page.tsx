@@ -7,6 +7,7 @@ import {
 	Field,
 	inputClass,
 } from "@/components/manage/ui";
+import { SubmitButton } from "@/components/submit-button";
 import { requireMember } from "@/lib/auth";
 import { THEMES } from "@/lib/theme";
 import { updateSettingsAction } from "../actions";
@@ -194,9 +195,9 @@ export default async function SettingsPage({
 						</Field>
 					</div>
 				</Card>
-				<button type="submit" className={buttonClass.primary}>
+				<SubmitButton className={buttonClass.primary}>
 					Save settings
-				</button>
+				</SubmitButton>
 			</form>
 		</ManageShell>
 	);

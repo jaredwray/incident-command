@@ -139,6 +139,7 @@ describe("PostgresStore", () => {
 		expect(tables.map((row) => row.tablename)).toEqual([
 			"ic_agent_tokens",
 			"ic_incidents",
+			"ic_invites",
 			"ic_members",
 			"ic_service_status_changes",
 			"ic_services",
