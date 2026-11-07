@@ -34,7 +34,17 @@ describe("errors", () => {
 	it("detects app errors and extracts messages", () => {
 		expect(isAppError(new ConflictError("x"))).toBe(true);
 		expect(isAppError(new Error("x"))).toBe(false);
+		expect(isAppError("x")).toBe(false);
 		expect(errorMessage(new Error("boom"))).toBe("boom");
 		expect(errorMessage("plain")).toBe("plain");
+	});
+
+	it("detects app errors from a different copy of the module", async () => {
+		// Next.js bundles pages and server actions in different module layers.
+		// An error from a service can come from the copy of the other layer.
+		vi.resetModules();
+		const copy = await import("@/lib/errors");
+		expect(copy.ValidationError).not.toBe(ValidationError);
+		expect(isAppError(new copy.ValidationError("x"))).toBe(true);
 	});
 });
