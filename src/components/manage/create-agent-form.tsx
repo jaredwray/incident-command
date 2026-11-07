@@ -1,10 +1,11 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState } from "react";
 import type { CreateAgentState } from "@/app/manage/actions";
 import { ROLE_LABELS } from "@/lib/domain/status";
 import { ROLES } from "@/lib/domain/types";
-import { buttonClass, Field, inputClass, Select } from "./ui";
+import { OneTimeSecret } from "./one-time-secret";
+import { buttonClass, Field, Flash, inputClass, Select } from "./ui";
 
 type Action = (
 	state: CreateAgentState,
@@ -14,43 +15,16 @@ type Action = (
 /** Creates an agent token and shows it exactly once. */
 export function CreateAgentForm({ action }: { action: Action }) {
 	const [state, formAction, pending] = useActionState(action, {});
-	const [copied, setCopied] = useState(false);
-	const copy = async () => {
-		await navigator.clipboard.writeText(state.token as string);
-		setCopied(true);
-	};
 	return (
 		<div className="space-y-4">
 			{state.token && (
-				<div
-					role="status"
-					className="space-y-2 rounded-lg border border-operational/40 bg-operational/10 p-4"
-				>
-					<p className="text-sm font-medium">
-						Token for {state.name} — copy it now, it won't be shown again.
-					</p>
-					<div className="flex gap-2">
-						<code className="min-w-0 flex-1 overflow-x-auto rounded-md bg-surface px-3 py-2 font-mono text-xs">
-							{state.token}
-						</code>
-						<button
-							type="button"
-							onClick={copy}
-							className={buttonClass.secondary}
-						>
-							{copied ? "Copied" : "Copy"}
-						</button>
-					</div>
-				</div>
+				<OneTimeSecret
+					key={state.token}
+					label={`Token for ${state.name} — copy it now, it won't be shown again.`}
+					value={state.token}
+				/>
 			)}
-			{state.error && (
-				<p
-					role="alert"
-					className="rounded-lg border border-major/40 bg-major/10 px-4 py-3 text-sm text-major"
-				>
-					{state.error}
-				</p>
-			)}
+			<Flash error={state.error} />
 			<form action={formAction} className="space-y-4">
 				<div className="grid gap-4 sm:grid-cols-2">
 					<Field label="Name" htmlFor="agent-name">

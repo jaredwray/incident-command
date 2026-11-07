@@ -20,10 +20,12 @@ export async function setupApp(env: Record<string, string> = {}) {
 }
 
 export async function signIn(app: App, role: Role = "admin") {
-	const member = await app.services.members.create(SYSTEM_ACTOR, {
+	const invite = await app.services.members.invite(SYSTEM_ACTOR, {
 		email: `${role}-${Math.random().toString(36).slice(2)}@test.dev`,
-		name: `${role[0]?.toUpperCase()}${role.slice(1)} User`,
 		role,
+	});
+	const member = await app.services.members.acceptInvite(invite.token, {
+		name: `${role[0]?.toUpperCase()}${role.slice(1)} User`,
 		password: "password123",
 	});
 	const { token } = await app.services.sessions.create(member.id);

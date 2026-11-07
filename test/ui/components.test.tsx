@@ -9,6 +9,7 @@ import { StatusIcon } from "@/components/icons";
 import { ConfirmButton } from "@/components/manage/confirm-button";
 import { CreateAgentForm } from "@/components/manage/create-agent-form";
 import { statusesFor } from "@/components/manage/incident-fields";
+import { InviteMemberForm } from "@/components/manage/invite-member-form";
 import { eventColorStatus, StatusBadge } from "@/components/status/badges";
 import { IncidentList } from "@/components/status/recent-incidents";
 import { UptimeBars } from "@/components/status/uptime-bars";
@@ -119,6 +120,33 @@ describe("CreateAgentForm", () => {
 		expect(screen.getByRole("button", { name: "Creating…" })).toBeDisabled();
 		await act(async () => finish({ error: "name: Too small" }));
 		expect(screen.getByRole("alert")).toHaveTextContent("name: Too small");
+	});
+});
+
+describe("InviteMemberForm", () => {
+	it("shows the invite link once, or the error", async () => {
+		const url = "https://status.acme.dev/manage/invite?token=abc";
+		const action = vi
+			.fn()
+			.mockResolvedValueOnce({ url, email: "ed@acme.dev" })
+			.mockResolvedValueOnce({ error: "email: Invalid email address" });
+		render(<InviteMemberForm action={action} />);
+		const submit = async () =>
+			act(async () => {
+				fireEvent.submit(
+					screen
+						.getByRole("button", { name: "Create invite link" })
+						.closest("form") as HTMLFormElement,
+				);
+			});
+		await submit();
+		expect(await screen.findByText(url)).toBeInTheDocument();
+		expect(screen.getByText(/Invite link for ed@acme.dev/)).toBeInTheDocument();
+		await submit();
+		expect(await screen.findByRole("alert")).toHaveTextContent(
+			"email: Invalid email address",
+		);
+		expect(screen.queryByText(url)).not.toBeInTheDocument();
 	});
 });
 

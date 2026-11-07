@@ -107,10 +107,22 @@ const email = z
 export const createMemberSchema = z.object({
 	email,
 	name: z.string().trim().min(1).max(120),
-	role: roleSchema.optional(),
+	role: roleSchema,
 	password,
 });
 export type CreateMemberInput = z.input<typeof createMemberSchema>;
+
+export const createInviteSchema = z.object({
+	email,
+	role: roleSchema.optional(),
+});
+export type CreateInviteInput = z.input<typeof createInviteSchema>;
+
+export const acceptInviteSchema = z.object({
+	name: z.string().trim().min(1).max(120),
+	password,
+});
+export type AcceptInviteInput = z.input<typeof acceptInviteSchema>;
 
 export const updateMemberSchema = z.object({
 	email: email.optional(),

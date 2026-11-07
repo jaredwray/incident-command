@@ -10,8 +10,8 @@
 ## Features
 
 - **Status page:** overall status banner, active incidents, upcoming maintenance, grouped services with 90-day uptime bars, incident history, RSS feed and a public JSON API. Light and dark mode, mobile friendly.
-- **MCP server:** a Streamable HTTP endpoint at `/api/mcp` with 27 role-scoped tools, so agents can declare and update incidents, change service status, schedule maintenance and (with an admin token) manage members, tokens, subscribers and settings. See [docs/mcp.md](docs/mcp.md).
-- **Manage portal** at `/manage`: declare incidents, post updates, manage services, members (viewer/editor/admin), agent tokens, subscribers and branding.
+- **MCP server:** a Streamable HTTP endpoint at `/api/mcp` with 29 role-scoped tools, so agents can declare and update incidents, change service status, schedule maintenance and (with an admin token) manage members, tokens, subscribers and settings. See [docs/mcp.md](docs/mcp.md).
+- **Manage portal** at `/manage`: declare incidents, post updates, manage services, members (viewer/editor/admin, added with one-time invite links), agent tokens, subscribers and branding.
 - **Skinnable:** Tailwind CSS v4 on top of CSS design tokens. Pick a theme preset, set a brand color, logo and custom CSS from the portal, or add your own preset. See [docs/theming.md](docs/theming.md).
 - **Runs anywhere:** Docker image for any container host, plus guides for Cloudflare, DigitalOcean, Google Cloud, AWS and Azure. See [docs/deployment.md](docs/deployment.md).
 - **Pluggable storage:** PostgreSQL, MongoDB or in-memory, chosen from `DATABASE_URI`. Adding an adapter means implementing one small interface.

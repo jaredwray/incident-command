@@ -1,24 +1,61 @@
-import { createId, hashPassword, verifyPassword } from "../crypto";
 import {
+	createId,
+	createSecret,
+	hashPassword,
+	sha256,
+	verifyPassword,
+} from "../crypto";
+import {
+	type AcceptInviteInput,
+	acceptInviteSchema,
+	type CreateInviteInput,
 	type CreateMemberInput,
+	createInviteSchema,
 	createMemberSchema,
 	loginSchema,
 	type UpdateMemberInput,
 	updateMemberSchema,
 } from "../domain/schemas";
-import type { Actor, Member, PublicMember } from "../domain/types";
+import type {
+	Actor,
+	Invite,
+	Member,
+	PublicInvite,
+	PublicMember,
+} from "../domain/types";
 import {
+	AppError,
 	ConflictError,
 	ForbiddenError,
 	NotFoundError,
 	ValidationError,
 } from "../errors";
-import { iso, parse, requireRole, type ServiceContext } from "./context";
+import {
+	authorRef,
+	iso,
+	parse,
+	requireRole,
+	type ServiceContext,
+} from "./context";
 import type { SessionService } from "./sessions";
+
+/** The number of days that an invite link stays valid. */
+export const INVITE_TTL_DAYS = 7;
+const INVITE_TTL_MS = INVITE_TTL_DAYS * 86_400_000;
 
 export function toPublicMember(member: Member): PublicMember {
 	const { passwordHash: _passwordHash, ...rest } = member;
 	return rest;
+}
+
+export function toPublicInvite(invite: Invite): PublicInvite {
+	const { tokenHash: _tokenHash, ...rest } = invite;
+	return rest;
+}
+
+/** The portal path where a person uses an invite token to create an account. */
+export function invitePath(token: string): string {
+	return `/manage/invite?token=${token}`;
 }
 
 export function memberActor(member: Member | PublicMember): Actor {
@@ -56,9 +93,80 @@ export class MemberService {
 		return member ? toPublicMember(member) : undefined;
 	}
 
-	async create(actor: Actor, input: CreateMemberInput): Promise<PublicMember> {
+	/**
+	 * Creates a one-time invite for a new member. The plaintext token is only
+	 * returned here. A new invite replaces the open invite for the same email.
+	 */
+	async invite(
+		actor: Actor,
+		input: CreateInviteInput,
+	): Promise<{ token: string; invite: PublicInvite }> {
 		requireRole(actor, "admin");
-		return this.insert(input);
+		const data = parse(createInviteSchema, input);
+		await this.assertEmailAvailable(data.email);
+		await this.ctx.store.deleteMany("invites", {
+			where: [{ field: "email", op: "eq", value: data.email }],
+		});
+		const now = this.ctx.now();
+		const token = createSecret(32);
+		const invite: Invite = {
+			id: createId("inv"),
+			email: data.email,
+			role: data.role ?? "editor",
+			tokenHash: sha256(token),
+			invitedBy: authorRef(actor),
+			expiresAt: iso(new Date(now.getTime() + INVITE_TTL_MS)),
+			createdAt: iso(now),
+		};
+		await this.ctx.store.insert("invites", invite);
+		return { token, invite: toPublicInvite(invite) };
+	}
+
+	async listInvites(actor: Actor): Promise<PublicInvite[]> {
+		requireRole(actor, "admin");
+		const invites = await this.ctx.store.find("invites", {
+			sort: [{ field: "createdAt", direction: "desc" }],
+		});
+		return invites.map(toPublicInvite);
+	}
+
+	async revokeInvite(actor: Actor, id: string): Promise<void> {
+		requireRole(actor, "admin");
+		if (!(await this.ctx.store.delete("invites", id))) {
+			throw new NotFoundError("Invite", id);
+		}
+	}
+
+	/** The open invite for a token. Resolves `undefined` for unknown or expired tokens. */
+	async findInvite(token: string): Promise<PublicInvite | undefined> {
+		const invite = await this.openInvite(token);
+		return invite ? toPublicInvite(invite) : undefined;
+	}
+
+	/**
+	 * Creates the member account for an invite, then removes the invite. The
+	 * unique member email makes sure that each link creates one account only.
+	 */
+	async acceptInvite(
+		token: string,
+		input: AcceptInviteInput,
+	): Promise<PublicMember> {
+		const data = parse(acceptInviteSchema, input);
+		const invite = await this.openInvite(token);
+		if (!invite) {
+			throw new AppError(
+				"not_found",
+				"This invite link is not valid. Ask an admin for a new invite.",
+			);
+		}
+		const member = await this.insert({
+			email: invite.email,
+			name: data.name,
+			role: invite.role,
+			password: data.password,
+		});
+		await this.ctx.store.delete("invites", invite.id);
+		return member;
 	}
 
 	/**
@@ -170,13 +278,24 @@ export class MemberService {
 			id: createId("mem"),
 			email: data.email,
 			name: data.name,
-			role: data.role ?? "editor",
+			role: data.role,
 			passwordHash: await hashPassword(data.password),
 			createdAt: now,
 			updatedAt: now,
 		};
 		await this.ctx.store.insert("members", member);
 		return toPublicMember(member);
+	}
+
+	private async openInvite(token: string): Promise<Invite | undefined> {
+		const [invite] = await this.ctx.store.find("invites", {
+			where: [
+				{ field: "tokenHash", op: "eq", value: sha256(token) },
+				{ field: "expiresAt", op: "gt", value: iso(this.ctx.now()) },
+			],
+			limit: 1,
+		});
+		return invite;
 	}
 
 	private async load(id: string): Promise<Member> {

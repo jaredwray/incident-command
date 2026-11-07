@@ -22,6 +22,25 @@ import {
 	optionalText,
 	text,
 } from "@/lib/manage/forms";
+import { publicOrigin } from "@/lib/manage/origin";
+import { invitePath } from "@/lib/services/members";
+
+/**
+ * Runs an operation for a `useActionState` form. An expected application
+ * error becomes `{ error }`, so the form can show it.
+ */
+async function formState<T>(
+	operation: () => Promise<T>,
+): Promise<T | { error: string }> {
+	try {
+		return await operation();
+	} catch (error) {
+		if (isAppError(error)) {
+			return { error: error.message };
+		}
+		throw error;
+	}
+}
 
 // ---- session ------------------------------------------------------------------
 
@@ -57,6 +76,19 @@ export async function setupAction(form: FormData): Promise<void> {
 	);
 	await startSession(app, member.id);
 	redirect(flash("/manage", "notice", "Welcome! Your admin account is ready."));
+}
+
+export async function acceptInviteAction(form: FormData): Promise<void> {
+	const app = await getApp();
+	const token = text(form, "token");
+	const member = await attempt(invitePath(token), () =>
+		app.services.members.acceptInvite(token, {
+			name: text(form, "name"),
+			password: text(form, "password"),
+		}),
+	);
+	await startSession(app, member.id);
+	redirect(flash("/manage", "notice", "Welcome! Your account is ready."));
 }
 
 export async function changePasswordAction(form: FormData): Promise<void> {
@@ -191,17 +223,36 @@ export async function deleteServiceAction(form: FormData): Promise<void> {
 
 // ---- members ----------------------------------------------------------------------
 
-export async function createMemberAction(form: FormData): Promise<void> {
-	const { actor, services } = await requireMember("admin");
-	await attempt("/manage/members", () =>
-		services.members.create(actor, {
-			name: text(form, "name"),
+export interface InviteMemberState {
+	url?: string;
+	email?: string;
+	error?: string;
+}
+
+/** Used with `useActionState` so the invite link is shown once and never persisted. */
+export async function inviteMemberAction(
+	_previous: InviteMemberState,
+	form: FormData,
+): Promise<InviteMemberState> {
+	const { actor, services, app } = await requireMember("admin");
+	return formState(async () => {
+		const { token, invite } = await services.members.invite(actor, {
 			email: text(form, "email"),
 			role: text(form, "role") as Role,
-			password: text(form, "password"),
-		}),
+		});
+		const settings = await services.settings.get();
+		const origin = await publicOrigin(settings.siteUrl ?? app.config.siteUrl);
+		revalidatePath("/manage/members");
+		return { url: `${origin}${invitePath(token)}`, email: invite.email };
+	});
+}
+
+export async function revokeInviteAction(form: FormData): Promise<void> {
+	const { actor, services } = await requireMember("admin");
+	await attempt("/manage/members", () =>
+		services.members.revokeInvite(actor, text(form, "id")),
 	);
-	redirect(flash("/manage/members", "notice", "Member added"));
+	redirect(flash("/manage/members", "notice", "Invite revoked"));
 }
 
 export async function updateMemberAction(form: FormData): Promise<void> {
@@ -237,7 +288,7 @@ export async function createAgentAction(
 	form: FormData,
 ): Promise<CreateAgentState> {
 	const { actor, services } = await requireMember("admin");
-	try {
+	return formState(async () => {
 		const { token, agent } = await services.agents.create(actor, {
 			name: text(form, "name"),
 			description: text(form, "description"),
@@ -246,12 +297,7 @@ export async function createAgentAction(
 		});
 		revalidatePath("/manage/agents");
 		return { token, name: agent.name };
-	} catch (error) {
-		if (isAppError(error)) {
-			return { error: error.message };
-		}
-		throw error;
-	}
+	});
 }
 
 export async function revokeAgentAction(form: FormData): Promise<void> {

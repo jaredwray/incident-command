@@ -43,7 +43,7 @@ export async function handleMcpRequest(
 			"www-authenticate": 'Bearer realm="incident-command"',
 		});
 	}
-	const server = createMcpServer(services, actor);
+	const server = createMcpServer(services, actor, new URL(request.url).origin);
 	const transport = new WebStandardStreamableHTTPServerTransport({
 		sessionIdGenerator: undefined,
 		enableJsonResponse: true,
