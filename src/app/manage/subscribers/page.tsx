@@ -7,7 +7,9 @@ import {
 	EmptyState,
 	Field,
 	inputClass,
+	Select,
 } from "@/components/manage/ui";
+import { SubmitButton } from "@/components/submit-button";
 import { LocalTime } from "@/components/time";
 import { requireMember } from "@/lib/auth";
 import { addSubscriberAction, deleteSubscriberAction } from "../actions";
@@ -51,15 +53,10 @@ export default async function SubscribersPage({
 					className="grid gap-4 sm:grid-cols-[160px_1fr_auto] sm:items-end"
 				>
 					<Field label="Type" htmlFor="sub-type">
-						<select
-							id="sub-type"
-							name="type"
-							defaultValue="webhook"
-							className={inputClass}
-						>
+						<Select id="sub-type" name="type" defaultValue="webhook">
 							<option value="webhook">Webhook</option>
 							<option value="email">Email</option>
-						</select>
+						</Select>
 					</Field>
 					<Field label="URL or email" htmlFor="sub-target">
 						<input
@@ -70,9 +67,7 @@ export default async function SubscribersPage({
 							className={inputClass}
 						/>
 					</Field>
-					<button type="submit" className={buttonClass.primary}>
-						Add
-					</button>
+					<SubmitButton className={buttonClass.primary}>Add</SubmitButton>
 				</form>
 			</Card>
 			<Card title={`Subscribers (${subscribers.length})`}>

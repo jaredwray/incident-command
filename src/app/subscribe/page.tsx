@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { NoticeCard } from "@/components/status/notice";
 import { PublicPage } from "@/components/status/page-shell";
+import { SubmitButton } from "@/components/submit-button";
 import { getApp } from "@/lib/app";
 import { subscribeAction } from "./actions";
 
@@ -49,12 +50,9 @@ export default async function SubscribePage({ searchParams }: Props) {
 					placeholder="you@example.com"
 					className="min-w-0 flex-1 rounded-full border border-border bg-bg px-4 py-2 text-fg"
 				/>
-				<button
-					type="submit"
-					className="rounded-full bg-brand px-5 py-2 font-medium text-brand-fg hover:opacity-90"
-				>
+				<SubmitButton className="inline-flex items-center justify-center gap-2 rounded-full bg-brand px-5 py-2 font-medium text-brand-fg hover:opacity-90 disabled:opacity-50">
 					Subscribe
-				</button>
+				</SubmitButton>
 			</form>
 		</NoticeCard>
 	);

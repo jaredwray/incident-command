@@ -1,10 +1,10 @@
 # Deploy to Cloudflare Workers
 
-Runs the Next.js app on Workers through [OpenNext](https://opennext.js.org/cloudflare). Config files: [`wrangler.jsonc`](../../wrangler.jsonc) and [`open-next.config.ts`](../../open-next.config.ts) at the repo root.
+Runs the Next.js app on Workers through [OpenNext](https://opennext.js.org/cloudflare). Config files: [`wrangler.jsonc`](../../wrangler.jsonc) and [`open-next.config.ts`](../../open-next.config.ts) at the repo root. The Worker entry is [`cloudflare-worker.ts`](../../cloudflare-worker.ts). It wraps the Worker that OpenNext builds.
 
 > **Verified locally in workerd** (`pnpm cf:preview`): the status page, portal, JSON API and MCP server all work. Two things differ from container hosts:
 >
-> - **Database connections are opened per operation.** Workers cannot share a socket between requests, so the app detects Workers and disables connection pooling automatically (override with `DATABASE_POOL`). Put [Hyperdrive](https://developers.cloudflare.com/hyperdrive/) in front of Postgres so those connections are cheap. MongoDB opens a TLS connection to the database for each operation, because Hyperdrive does not support MongoDB.
+> - **No connection pool.** Workers cannot share a socket between requests, so the app detects Workers and disables connection pooling automatically (override with `DATABASE_POOL`). Postgres opens a connection for each query. Put [Hyperdrive](https://developers.cloudflare.com/hyperdrive/) in front of Postgres so those connections are cheap. MongoDB opens one TLS connection for each request and uses it for all of the operations of that request, because Hyperdrive does not support MongoDB.
 > - **Subscriber notifications are not sent.** airhorn renders templates with `ejs` (through `ecto`), which needs `new Function()`, and Workers forbid code generation from strings. airhorn is loaded lazily, so this only affects notifications: incidents are still created and the failure is logged. Use a container host if you need email or webhook notifications.
 
 ## What works on Workers
@@ -13,7 +13,7 @@ Runs the Next.js app on Workers through [OpenNext](https://opennext.js.org/cloud
 | ------------------------------------------------------------------------ | ----------------- | ------------------------------------------------------------------------------ |
 | Postgres via [Hyperdrive](https://developers.cloudflare.com/hyperdrive/) | Yes (recommended) | Pools connections close to your database.                                      |
 | Postgres, direct                                                         | Yes               | `DATABASE_URI` secret; the database must accept connections from the internet. |
-| MongoDB (Atlas or self-hosted)                                           | Yes               | `DATABASE_URI` secret; one connection per operation, so each page is slower.   |
+| MongoDB (Atlas or self-hosted)                                           | Yes               | `DATABASE_URI` secret; one connection per request, so each page is slower.     |
 | Memory                                                                   | Previews only     | Each isolate has its own copy; data disappears when the isolate is recycled.   |
 
 ## Prerequisites
@@ -43,23 +43,7 @@ npx wrangler hyperdrive create incident-command \
 
 Uncomment the `hyperdrive` block in `wrangler.jsonc` and paste the returned `id`.
 
-The app reads its connection string from `DATABASE_URI`, but Hyperdrive exposes its connection string on the binding (`env.HYPERDRIVE.connectionString`), and OpenNext only copies string variables into `process.env`. Bridge the two with a small entry file at the repo root, `cloudflare-worker.js`:
-
-```js
-// Passes the Hyperdrive connection string to the app as DATABASE_URI.
-import handler from "./.open-next/worker.js";
-
-export default {
-	fetch(request, env, ctx) {
-		if (env.HYPERDRIVE) {
-			process.env.DATABASE_URI = env.HYPERDRIVE.connectionString;
-		}
-		return handler.fetch(request, env, ctx);
-	},
-};
-```
-
-Then set `"main": "cloudflare-worker.js"` in `wrangler.jsonc`. Do not also set a `DATABASE_URI` secret.
+The app reads its connection string from `DATABASE_URI`. Hyperdrive gives its connection string on the binding (`env.HYPERDRIVE.connectionString`), and OpenNext copies only string variables into `process.env`. The Worker entry, `cloudflare-worker.ts`, copies the connection string of the binding into `DATABASE_URI`. Do not also set a `DATABASE_URI` secret.
 
 **Option B: direct connection**
 
@@ -75,7 +59,7 @@ See [TLS for Postgres](../../docs/deployment.md#tls-for-postgres) for `sslmode` 
 npx wrangler secret put DATABASE_URI   # mongodb+srv://USER:PASSWORD@cluster.mongodb.net/incident_command
 ```
 
-The Worker opens a new connection for each database operation and closes it after. Workers do not let a socket outlive the request that opened it, so the driver cannot keep a pool. Allow connections from the internet in the Atlas network access list.
+The Worker opens one connection for each request and closes it after the response is sent. Workers do not let a socket outlive the request that opened it, so the driver cannot keep a pool between requests. Allow connections from the internet in the Atlas network access list.
 
 ### 3. Set secrets
 
@@ -110,11 +94,11 @@ Runs the production build in workerd locally. Put local secrets in `.dev.vars` (
 
 ## Required environment variables
 
-| Variable       | Where                        | Notes                                                  |
-| -------------- | ---------------------------- | ------------------------------------------------------ |
-| `SITE_URL`     | `vars`                       | Public URL, used in notification links.                |
-| `DATABASE_URI` | secret, or Hyperdrive bridge | Without it the per-isolate memory store is used.       |
-| `SETUP_TOKEN`  | secret                       | Required to create the first admin at `/manage/setup`. |
+| Variable       | Where                         | Notes                                                  |
+| -------------- | ----------------------------- | ------------------------------------------------------ |
+| `SITE_URL`     | `vars`                        | Public URL, used in notification links.                |
+| `DATABASE_URI` | secret, or Hyperdrive binding | Without it the per-isolate memory store is used.       |
+| `SETUP_TOKEN`  | secret                        | Required to create the first admin at `/manage/setup`. |
 
 Full list: [docs/deployment.md](../../docs/deployment.md#environment-variables).
 
@@ -196,11 +180,11 @@ npx wrangler secret put SETUP_TOKEN --env development
 
 If the Worker does not exist yet, wrangler asks to create it.
 
-| Secret           | Needed | Notes                                                                                                                                                   |
-| ---------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URI`   | Yes    | Postgres or MongoDB connection string. Without it, each isolate uses its own memory store and loses its data. Do not set it with the Hyperdrive bridge. |
-| `SETUP_TOKEN`    | Yes    | Protects `/manage/setup`. Without it, the first visitor becomes admin.                                                                                  |
-| `WEBHOOK_SECRET` | No     | Signs webhook payloads. Workers do not send notifications now, so this secret has no effect.                                                            |
+| Secret           | Needed | Notes                                                                                                                                                |
+| ---------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URI`   | Yes    | Postgres or MongoDB connection string. Without it, each isolate uses its own memory store and loses its data. Do not set it when you use Hyperdrive. |
+| `SETUP_TOKEN`    | Yes    | Protects `/manage/setup`. Without it, the first visitor becomes admin.                                                                               |
+| `WEBHOOK_SECRET` | No     | Signs webhook payloads. Workers do not send notifications now, so this secret has no effect.                                                         |
 
 Do not set the email secrets. Workers do not send subscriber notifications.
 

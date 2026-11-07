@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { type FlashParams, ManageShell } from "@/components/manage/shell";
 import { buttonClass, Card, Field, inputClass } from "@/components/manage/ui";
+import { SubmitButton } from "@/components/submit-button";
 import { requireMember } from "@/lib/auth";
 import { ROLE_LABELS } from "@/lib/domain/status";
 import { changePasswordAction, logoutAction } from "../actions";
@@ -62,15 +63,13 @@ export default async function AccountPage({
 							className={inputClass}
 						/>
 					</Field>
-					<button type="submit" className={buttonClass.primary}>
+					<SubmitButton className={buttonClass.primary}>
 						Update password
-					</button>
+					</SubmitButton>
 				</form>
 			</Card>
 			<form action={logoutAction}>
-				<button type="submit" className={buttonClass.secondary}>
-					Sign out
-				</button>
+				<SubmitButton className={buttonClass.secondary}>Sign out</SubmitButton>
 			</form>
 		</ManageShell>
 	);

@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import type { CreateAgentState } from "@/app/manage/actions";
 import { ROLE_LABELS } from "@/lib/domain/status";
 import { ROLES } from "@/lib/domain/types";
-import { buttonClass, Field, inputClass } from "./ui";
+import { buttonClass, Field, inputClass, Select } from "./ui";
 
 type Action = (
 	state: CreateAgentState,
@@ -63,18 +63,13 @@ export function CreateAgentForm({ action }: { action: Action }) {
 						/>
 					</Field>
 					<Field label="Role" htmlFor="agent-role">
-						<select
-							id="agent-role"
-							name="role"
-							defaultValue="editor"
-							className={inputClass}
-						>
+						<Select id="agent-role" name="role" defaultValue="editor">
 							{ROLES.map((role) => (
 								<option key={role} value={role}>
 									{ROLE_LABELS[role]}
 								</option>
 							))}
-						</select>
+						</Select>
 					</Field>
 					<Field label="Description" htmlFor="agent-description">
 						<input
