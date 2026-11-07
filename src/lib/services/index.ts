@@ -2,6 +2,7 @@ import { seedDemo } from "../demo";
 import { AgentService } from "./agents";
 import { ServiceCatalog } from "./catalog";
 import type { ServiceContext } from "./context";
+import { DraftService } from "./drafts";
 import { IncidentService } from "./incidents";
 import { MemberService } from "./members";
 import { SessionService } from "./sessions";
@@ -13,6 +14,7 @@ export interface Services {
 	settings: SettingsService;
 	catalog: ServiceCatalog;
 	incidents: IncidentService;
+	drafts: DraftService;
 	status: StatusService;
 	members: MemberService;
 	sessions: SessionService;
@@ -27,6 +29,7 @@ export function createServices(ctx: ServiceContext): Services {
 	const catalog = new ServiceCatalog(ctx);
 	const subscribers = new SubscriberService(ctx, settings);
 	const incidents = new IncidentService(ctx, catalog, subscribers, settings);
+	const drafts = new DraftService(ctx, incidents);
 	const status = new StatusService(ctx, settings, catalog, incidents);
 	const sessions = new SessionService(ctx);
 	const members = new MemberService(ctx, sessions);
@@ -36,6 +39,7 @@ export function createServices(ctx: ServiceContext): Services {
 		settings,
 		catalog,
 		incidents,
+		drafts,
 		status,
 		members,
 		sessions,

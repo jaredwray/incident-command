@@ -79,6 +79,43 @@ describe("SubmitButton", () => {
 	});
 });
 
+describe("SubmitButton with formAction", () => {
+	it("shows the spinner only on the button that started the action", async () => {
+		let finish = () => {};
+		const save = vi.fn(async () => {});
+		const approve = vi.fn(
+			() =>
+				new Promise<void>((resolve) => {
+					finish = resolve;
+				}),
+		);
+		render(
+			<form action={save}>
+				<SubmitButton formAction={save} className="button">
+					Save
+				</SubmitButton>
+				<SubmitButton formAction={approve} className="button">
+					Approve
+				</SubmitButton>
+			</form>,
+		);
+		const saveButton = screen.getByRole("button", { name: "Save" });
+		const approveButton = screen.getByRole("button", { name: "Approve" });
+
+		fireEvent.click(approveButton);
+		await waitFor(() => expect(approveButton).toBeDisabled());
+		expect(saveButton).toBeDisabled();
+		expect(approveButton).toHaveAttribute("aria-busy", "true");
+		expect(saveButton).toHaveAttribute("aria-busy", "false");
+		expect(saveButton.querySelector('[aria-hidden="true"]')).toBeNull();
+		expect(approve).toHaveBeenCalledTimes(1);
+		expect(save).not.toHaveBeenCalled();
+
+		await act(async () => finish());
+		await waitFor(() => expect(approveButton).toBeEnabled());
+	});
+});
+
 describe("CreateAgentForm", () => {
 	it("shows the token once and copies it", async () => {
 		const action = vi.fn(async () => ({ token: "icmd_secret", name: "Bot" }));

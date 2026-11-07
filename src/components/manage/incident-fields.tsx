@@ -12,6 +12,7 @@ import {
 	MAINTENANCE_STATUSES,
 	SERVICE_STATUSES,
 	type Service,
+	type ServiceStatus,
 } from "@/lib/domain/types";
 import { toDateTimeInput } from "@/lib/format";
 import { Field, inputClass, Select } from "./ui";
@@ -65,13 +66,15 @@ export function ImpactSelect({
 export function ServiceStatusSelect({
 	id = "serviceStatus",
 	hint,
+	value,
 }: {
 	id?: string;
 	hint: string;
+	value?: ServiceStatus;
 }) {
 	return (
 		<Field label="Set affected services to" htmlFor={id} hint={hint}>
-			<Select id={id} name="serviceStatus" defaultValue="">
+			<Select id={id} name="serviceStatus" defaultValue={value ?? ""}>
 				<option value="">Automatic</option>
 				{SERVICE_STATUSES.map((status) => (
 					<option key={status} value={status}>

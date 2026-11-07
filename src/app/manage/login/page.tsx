@@ -4,7 +4,7 @@ import { AuthLayout } from "@/components/manage/shell";
 import { buttonClass, Field, Flash, inputClass } from "@/components/manage/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { getApp } from "@/lib/app";
-import { getMemberContext } from "@/lib/auth";
+import { getMemberContext, returnPath } from "@/lib/auth";
 import { loginAction } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -13,21 +13,22 @@ export const metadata: Metadata = { title: "Sign in" };
 export default async function LoginPage({
 	searchParams,
 }: {
-	searchParams: Promise<{ error?: string }>;
+	searchParams: Promise<{ error?: string; next?: string }>;
 }) {
-	const { error } = await searchParams;
+	const { error, next = "" } = await searchParams;
 	const { services } = await getApp();
 	if ((await services.members.count()) === 0) {
 		redirect("/manage/setup");
 	}
 	if (await getMemberContext()) {
-		redirect("/manage");
+		redirect(returnPath(next));
 	}
 	const settings = await services.settings.get();
 	return (
 		<AuthLayout siteName={settings.siteName} title="Sign in">
 			<form action={loginAction} className="space-y-4">
 				<Flash error={error} />
+				<input type="hidden" name="next" value={next} />
 				<Field label="Email" htmlFor="email">
 					<input
 						id="email"

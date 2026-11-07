@@ -11,6 +11,7 @@ import { Flash } from "./ui";
 export type NavKey =
 	| "dashboard"
 	| "incidents"
+	| "drafts"
 	| "services"
 	| "members"
 	| "agents"
@@ -24,6 +25,12 @@ export const NAV: { key: NavKey; label: string; href: string; role: Role }[] = [
 		key: "incidents",
 		label: "Incidents",
 		href: "/manage/incidents",
+		role: "viewer",
+	},
+	{
+		key: "drafts",
+		label: "Drafts",
+		href: "/manage/drafts",
 		role: "viewer",
 	},
 	{

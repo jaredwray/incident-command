@@ -1,4 +1,6 @@
 import type {
+	DraftAction,
+	DraftState,
 	EventStatus,
 	Incident,
 	IncidentImpact,
@@ -32,6 +34,18 @@ export const IMPACT_LABELS: Record<IncidentImpact, string> = {
 	minor: "Minor",
 	major: "Major",
 	critical: "Critical",
+};
+
+/** What a notification draft publishes, by draft action and event kind. */
+export const DRAFT_LABELS: Record<DraftAction, Record<IncidentKind, string>> = {
+	create: { incident: "New incident", maintenance: "New maintenance" },
+	update: { incident: "Incident update", maintenance: "Maintenance update" },
+};
+
+export const DRAFT_STATE_LABELS: Record<DraftState, string> = {
+	pending: "Waiting for review",
+	approved: "Approved",
+	discarded: "Discarded",
 };
 
 export const ROLE_LABELS: Record<Role, string> = {

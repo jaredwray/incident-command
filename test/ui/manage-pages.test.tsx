@@ -1,6 +1,8 @@
 import { render, screen, within } from "@testing-library/react";
 import AccountPage from "@/app/manage/account/page";
 import AgentsPage from "@/app/manage/agents/page";
+import DraftPage from "@/app/manage/drafts/[id]/page";
+import DraftsPage from "@/app/manage/drafts/page";
 import IncidentPage from "@/app/manage/incidents/[id]/page";
 import NewIncidentPage from "@/app/manage/incidents/new/page";
 import IncidentsPage from "@/app/manage/incidents/page";
@@ -12,6 +14,7 @@ import ServicesPage from "@/app/manage/services/page";
 import SettingsPage from "@/app/manage/settings/page";
 import SetupPage from "@/app/manage/setup/page";
 import SubscribersPage from "@/app/manage/subscribers/page";
+import type { Actor } from "@/lib/domain/types";
 import { SYSTEM_ACTOR } from "@/lib/services/context";
 import { expectNotFound, params, redirectOf, setupApp, signIn } from "./app";
 import { setRequestHeaders } from "./next-state";
@@ -19,6 +22,13 @@ import { setRequestHeaders } from "./next-state";
 const flash = (value: Record<string, string> = {}) => ({
 	searchParams: params(value),
 });
+
+const AGENT: Actor = {
+	type: "agent",
+	id: "agt_bot",
+	name: "Ops bot",
+	role: "editor",
+};
 
 describe("login and setup", () => {
 	it("sends visitors to setup until an admin exists", async () => {
@@ -90,6 +100,26 @@ describe("login and setup", () => {
 		page.unmount();
 		await signIn(app, "viewer");
 		expect(await redirectOf(LoginPage(flash()))).toBe("/manage");
+	});
+
+	it("keeps the return path of a portal link through sign-in", async () => {
+		const { app } = await setupApp();
+		await app.services.members.setup({
+			name: "Ada",
+			email: "ada@acme.dev",
+			password: "password123",
+		});
+		render(await LoginPage(flash({ next: "/manage/drafts/drf_1" })));
+		expect(
+			document.querySelector('input[name="next"]') as HTMLInputElement,
+		).toHaveValue("/manage/drafts/drf_1");
+		await signIn(app, "viewer");
+		expect(
+			await redirectOf(LoginPage(flash({ next: "/manage/drafts/drf_1" }))),
+		).toBe("/manage/drafts/drf_1");
+		expect(
+			await redirectOf(LoginPage(flash({ next: "https://evil.example" }))),
+		).toBe("/manage");
 	});
 
 	it("redirects anonymous visitors to login", async () => {
@@ -323,6 +353,279 @@ describe("incident pages", () => {
 				searchParams: params({}),
 			}),
 		);
+	});
+});
+
+describe("notification draft pages", () => {
+	const draftPage = (id: string) =>
+		DraftPage({ params: params({ id }), searchParams: params({}) });
+
+	it("lists drafts that wait for review and reviewed drafts", async () => {
+		const { app, services } = await setupApp();
+		const { actor } = await signIn(app, "editor");
+		const incident = await services.incidents.create(SYSTEM_ACTOR, {
+			title: "Database slow",
+			message: "x",
+			notify: false,
+		});
+		const created = await services.drafts.create(AGENT, {
+			title: "API errors",
+			message: "x",
+		});
+		const update = await services.drafts.create(AGENT, {
+			incidentId: incident.id,
+			message: "y",
+		});
+		const orphan = await services.incidents.create(SYSTEM_ACTOR, {
+			title: "Gone",
+			message: "x",
+			notify: false,
+		});
+		await services.drafts.create(AGENT, {
+			incidentId: orphan.id,
+			message: "z",
+		});
+		await services.incidents.delete(SYSTEM_ACTOR, orphan.id);
+		const discarded = await services.drafts.create(AGENT, {
+			kind: "maintenance",
+			title: "Upgrade",
+			message: "x",
+			scheduledStart: "2026-11-05T00:00:00.000Z",
+			scheduledEnd: "2026-11-05T01:00:00.000Z",
+		});
+		await services.drafts.discard(actor, discarded.id);
+
+		render(await DraftsPage(flash({ notice: "Draft discarded" })));
+		expect(screen.getByRole("status")).toHaveTextContent("Draft discarded");
+		expect(screen.getByRole("link", { name: "Drafts" })).toHaveAttribute(
+			"aria-current",
+			"page",
+		);
+		expect(screen.getByRole("link", { name: "API errors" })).toHaveAttribute(
+			"href",
+			`/manage/drafts/${created.id}`,
+		);
+		expect(screen.getByRole("link", { name: "Database slow" })).toHaveAttribute(
+			"href",
+			`/manage/drafts/${update.id}`,
+		);
+		expect(
+			screen.getByRole("link", { name: "Deleted incident" }),
+		).toBeInTheDocument();
+		expect(
+			screen.getAllByText(/New incident · Drafted by Ops bot/),
+		).toHaveLength(1);
+		expect(screen.getAllByText(/Incident update · Drafted by/)).toHaveLength(2);
+		expect(screen.getAllByText("Waiting for review")).toHaveLength(4);
+		expect(screen.getByText("Discarded by Editor User")).toBeInTheDocument();
+		expect(screen.getByText(/New maintenance/)).toBeInTheDocument();
+	});
+
+	it("shows empty states", async () => {
+		const { app } = await setupApp();
+		await signIn(app, "viewer");
+		render(await DraftsPage(flash()));
+		expect(screen.getByText("No drafts wait for review.")).toBeInTheDocument();
+		expect(screen.getByText("No reviewed drafts yet.")).toBeInTheDocument();
+	});
+
+	it("sends a visitor to sign-in and back to the draft", async () => {
+		await setupApp();
+		expect(await redirectOf(draftPage("drf_1"))).toBe(
+			"/manage/login?next=/manage/drafts/drf_1",
+		);
+	});
+
+	it("lets editors review a new incident", async () => {
+		const { app, services } = await setupApp();
+		await signIn(app, "editor");
+		const api = await services.catalog.create(SYSTEM_ACTOR, { name: "API" });
+		await services.catalog.create(SYSTEM_ACTOR, { name: "Web" });
+		const draft = await services.drafts.create(AGENT, {
+			title: "API errors",
+			message: "We are looking into errors.",
+			impact: "critical",
+			serviceIds: [api.id],
+			serviceStatus: "partial_outage",
+		});
+		render(await draftPage(draft.id));
+		expect(
+			screen.getByRole("heading", { level: 1, name: "API errors" }),
+		).toBeInTheDocument();
+		expect(screen.getByText(/This draft waits for review/)).toBeInTheDocument();
+		expect(screen.getByLabelText("Title")).toHaveValue("API errors");
+		expect(screen.getByLabelText("Status")).toHaveValue("investigating");
+		expect(screen.getByLabelText("Impact")).toHaveValue("critical");
+		expect(screen.getByLabelText("Message")).toHaveValue(
+			"We are looking into errors.",
+		);
+		expect(screen.getByRole("checkbox", { name: /API/ })).toBeChecked();
+		expect(screen.getByRole("checkbox", { name: /Web/ })).not.toBeChecked();
+		expect(screen.getByLabelText("Set affected services to")).toHaveValue(
+			"partial_outage",
+		);
+		const buttons = screen
+			.getAllByRole("button")
+			.map((button) => button.textContent);
+		expect(buttons).toEqual(
+			expect.arrayContaining(["Save draft", "Approve and send"]),
+		);
+		// Enter in a field submits the first button, so Save must come first.
+		expect(buttons.indexOf("Save draft")).toBeLessThan(
+			buttons.indexOf("Approve and send"),
+		);
+		expect(
+			screen.getByRole("button", { name: "Discard draft" }),
+		).toBeInTheDocument();
+		expect(
+			screen.queryByRole("link", { name: "View incident" }),
+		).not.toBeInTheDocument();
+	});
+
+	it("lets editors review new maintenance and an update", async () => {
+		const { app, services } = await setupApp();
+		await signIn(app, "editor");
+		const maintenance = await services.drafts.create(AGENT, {
+			kind: "maintenance",
+			title: "Upgrade",
+			message: "x",
+			scheduledStart: "2026-11-05T00:00:00.000Z",
+			scheduledEnd: "2026-11-05T01:00:00.000Z",
+		});
+		const page = render(await draftPage(maintenance.id));
+		expect(screen.getByLabelText("Starts (UTC)")).toHaveValue(
+			"2026-11-05T00:00",
+		);
+		expect(screen.getByLabelText("Status")).toHaveValue("scheduled");
+		expect(screen.queryByLabelText("Impact")).not.toBeInTheDocument();
+		page.unmount();
+
+		const incident = await services.incidents.create(SYSTEM_ACTOR, {
+			title: "API errors",
+			message: "x",
+			status: "identified",
+			notify: false,
+		});
+		const update = await services.drafts.create(AGENT, {
+			incidentId: incident.id,
+			message: "A fix is ready.",
+		});
+		render(await draftPage(update.id));
+		expect(
+			screen.getByRole("heading", { level: 1, name: "API errors" }),
+		).toBeInTheDocument();
+		expect(
+			screen.getByText(/Incident update · Drafted by Ops bot/),
+		).toBeInTheDocument();
+		expect(screen.getByLabelText("Status")).toHaveValue("identified");
+		expect(screen.queryByLabelText("Title")).not.toBeInTheDocument();
+		expect(screen.queryByText("Affected services")).not.toBeInTheDocument();
+		expect(screen.getByRole("link", { name: "View incident" })).toHaveAttribute(
+			"href",
+			`/manage/incidents/${incident.id}`,
+		);
+	});
+
+	it("shows a read-only draft to viewers and after review", async () => {
+		const { app, services } = await setupApp();
+		const api = await services.catalog.create(SYSTEM_ACTOR, { name: "API" });
+		const draft = await services.drafts.create(AGENT, {
+			kind: "maintenance",
+			title: "Upgrade",
+			message: "We upgrade the database.",
+			status: "scheduled",
+			impact: "minor",
+			serviceIds: [api.id],
+			serviceStatus: "under_maintenance",
+			scheduledStart: "2026-11-05T00:00:00.000Z",
+			scheduledEnd: "2026-11-05T01:00:00.000Z",
+		});
+		await signIn(app, "viewer");
+		const viewer = render(await draftPage(draft.id));
+		for (const text of [
+			"Scheduled",
+			"Minor",
+			"API",
+			"Under maintenance",
+			"We upgrade the database.",
+		]) {
+			expect(screen.getByText(text)).toBeInTheDocument();
+		}
+		expect(screen.getByText("Window", { selector: "dt" })).toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: "Approve and send" }),
+		).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: "Discard draft" }),
+		).not.toBeInTheDocument();
+		viewer.unmount();
+
+		const { actor } = await signIn(app, "editor");
+		const { incident } = await services.drafts.approve(
+			actor,
+			draft.id,
+			draft.content,
+		);
+		const approved = render(await draftPage(draft.id));
+		expect(screen.getByText(/Approved by Editor User/)).toBeInTheDocument();
+		expect(screen.getByRole("link", { name: "View incident" })).toHaveAttribute(
+			"href",
+			`/manage/incidents/${incident.id}`,
+		);
+		expect(
+			screen.queryByRole("button", { name: "Discard draft" }),
+		).not.toBeInTheDocument();
+		approved.unmount();
+
+		const update = await services.drafts.create(AGENT, {
+			incidentId: incident.id,
+			message: "Nothing to add.",
+		});
+		await services.drafts.discard(actor, update.id);
+		render(await draftPage(update.id));
+		expect(
+			screen.getByText(
+				/Discarded by Editor User .*Nothing was published or sent/,
+			),
+		).toBeInTheDocument();
+		expect(screen.getByText("Nothing to add.")).toBeInTheDocument();
+		expect(
+			screen.queryByText("Status", { selector: "dt" }),
+		).not.toBeInTheDocument();
+	});
+
+	it("only offers to discard a draft whose incident was deleted", async () => {
+		const { app, services } = await setupApp();
+		await signIn(app, "editor");
+		const incident = await services.incidents.create(SYSTEM_ACTOR, {
+			title: "Gone",
+			message: "x",
+			notify: false,
+		});
+		const draft = await services.drafts.create(AGENT, {
+			incidentId: incident.id,
+			message: "y",
+		});
+		await services.incidents.delete(SYSTEM_ACTOR, incident.id);
+		render(await draftPage(draft.id));
+		expect(
+			screen.getByRole("heading", { level: 1, name: "Deleted incident" }),
+		).toBeInTheDocument();
+		expect(
+			screen.getByText(/Somebody deleted the incident of this draft/),
+		).toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: "Approve and send" }),
+		).not.toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: "Discard draft" }),
+		).toBeInTheDocument();
+	});
+
+	it("404s for unknown drafts", async () => {
+		const { app } = await setupApp();
+		await signIn(app, "viewer");
+		await expectNotFound(draftPage("drf_missing"));
 	});
 });
 

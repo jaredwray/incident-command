@@ -3,6 +3,7 @@ import {
 	INCIDENT_IMPACTS,
 	INCIDENT_KINDS,
 	INCIDENT_STATUSES,
+	type IncidentKind,
 	MAINTENANCE_STATUSES,
 	ROLES,
 	SERVICE_STATUSES,
@@ -97,6 +98,21 @@ export const editIncidentSchema = z.object({
 	scheduledEnd: isoDate.optional(),
 });
 export type EditIncidentInput = z.input<typeof editIncidentSchema>;
+
+/**
+ * The content of a notification draft. The incident schemas check it each
+ * time the draft is saved, so a saved draft can always be published.
+ */
+export type DraftContentInput = Omit<
+	CreateIncidentInput,
+	"kind" | "title" | "notify"
+> & { title?: string };
+
+/** A new notification draft. With `incidentId`, the draft is an update to that incident. */
+export type NotificationDraftInput = DraftContentInput & {
+	incidentId?: string;
+	kind?: IncidentKind;
+};
 
 const password = z.string().min(8).max(200);
 const email = z

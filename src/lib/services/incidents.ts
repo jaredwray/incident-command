@@ -147,12 +147,14 @@ export class IncidentService {
 		);
 	}
 
-	async create(actor: Actor, input: CreateIncidentInput): Promise<Incident> {
-		requireRole(actor, "editor");
+	/**
+	 * Checks a new incident or maintenance as `create` does, but saves
+	 * nothing. Returns the parsed input without duplicate service ids.
+	 */
+	async check(input: CreateIncidentInput) {
 		const data = parse(createIncidentSchema, input);
 		const kind = data.kind ?? "incident";
-		const status = data.status ?? initialStatus(kind);
-		assertStatusForKind(kind, status);
+		assertStatusForKind(kind, data.status ?? initialStatus(kind));
 		if (
 			kind === "maintenance" &&
 			(!data.scheduledStart || !data.scheduledEnd)
@@ -163,6 +165,28 @@ export class IncidentService {
 		}
 		assertWindow(data.scheduledStart, data.scheduledEnd);
 		const serviceIds = await this.validateServices(data.serviceIds ?? []);
+		return { ...data, serviceIds };
+	}
+
+	/**
+	 * Checks an update for an incident as `postUpdate` does, but saves
+	 * nothing. Returns the incident and the parsed input.
+	 */
+	async checkUpdate(id: string, input: IncidentUpdateInput) {
+		const data = parse(incidentUpdateSchema, input);
+		const incident = await this.get(id);
+		if (data.status) {
+			assertStatusForKind(incident.kind, data.status);
+		}
+		return { incident, data };
+	}
+
+	async create(actor: Actor, input: CreateIncidentInput): Promise<Incident> {
+		requireRole(actor, "editor");
+		const data = await this.check(input);
+		const kind = data.kind ?? "incident";
+		const status = data.status ?? initialStatus(kind);
+		const serviceIds = data.serviceIds;
 		const now = iso(this.ctx.now());
 		const author = authorRef(actor);
 		const update: IncidentUpdate = {
