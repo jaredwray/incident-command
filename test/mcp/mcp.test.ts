@@ -108,7 +108,7 @@ describe("MCP handler", () => {
 		expect(editor).not.toContain("create_agent_token");
 		const admin = await names("admin");
 		expect(admin).toContain("create_agent_token");
-		expect(admin).toHaveLength(27);
+		expect(admin).toHaveLength(29);
 	});
 
 	it("lets an editor agent run an incident end to end", async () => {
@@ -256,14 +256,28 @@ describe("MCP handler", () => {
 
 	it("lets an admin agent manage members, agents, settings and subscribers", async () => {
 		const { call } = await connect(t, await tokenFor(t, "admin"));
-		const member = (
-			await call("create_member", {
-				email: "new@acme.dev",
-				name: "New",
-				password: "password123",
-			})
-		).data;
+		const invited = (await call("invite_member", { email: "new@acme.dev" }))
+			.data;
+		expect(invited.invite).toMatchObject({
+			email: "new@acme.dev",
+			role: "editor",
+			invitedBy: { type: "agent", name: "admin bot" },
+		});
+		expect(invited.inviteUrl).toMatch(
+			/^http:\/\/localhost\/manage\/invite\?token=/,
+		);
+		expect((await call("list_invites")).data).toEqual([invited.invite]);
+		const member = await t.services.members.acceptInvite(
+			new URL(invited.inviteUrl).searchParams.get("token") as string,
+			{ name: "New", password: "password123" },
+		);
 		expect(member).toMatchObject({ email: "new@acme.dev", role: "editor" });
+		const spare = (await call("invite_member", { email: "spare@acme.dev" }))
+			.data;
+		expect((await call("revoke_invite", { id: spare.invite.id })).data).toEqual(
+			{ revoked: spare.invite.id },
+		);
+		expect((await call("list_invites")).data).toEqual([]);
 		expect(
 			(await call("update_member", { id: member.id, role: "viewer" })).data
 				.role,
@@ -295,6 +309,10 @@ describe("MCP handler", () => {
 			brandColor: "#123456",
 		});
 		expect((await call("get_settings")).data.siteName).toBe("Acme Status");
+		await call("update_settings", { siteUrl: "https://status.acme.dev" });
+		expect(
+			(await call("invite_member", { email: "later@acme.dev" })).data.inviteUrl,
+		).toMatch(/^https:\/\/status\.acme\.dev\/manage\/invite\?token=/);
 
 		const hook = (
 			await call("add_subscriber", {

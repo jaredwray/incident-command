@@ -1,6 +1,7 @@
 import type {
 	AgentToken,
 	Incident,
+	Invite,
 	Member,
 	Service,
 	ServiceStatusChange,
@@ -16,6 +17,7 @@ export interface CollectionMap {
 	service_status_changes: ServiceStatusChange;
 	incidents: Incident;
 	members: Member;
+	invites: Invite;
 	sessions: Session;
 	agent_tokens: AgentToken;
 	subscribers: Subscriber;
@@ -30,6 +32,7 @@ export const COLLECTIONS: readonly CollectionName[] = [
 	"service_status_changes",
 	"incidents",
 	"members",
+	"invites",
 	"sessions",
 	"agent_tokens",
 	"subscribers",
@@ -50,6 +53,10 @@ export const INDEXES: Record<CollectionName, readonly IndexDefinition[]> = {
 	service_status_changes: [{ field: "serviceId" }, { field: "createdAt" }],
 	incidents: [{ field: "status" }, { field: "createdAt" }],
 	members: [{ field: "email", unique: true }],
+	invites: [
+		{ field: "tokenHash", unique: true },
+		{ field: "email", unique: true },
+	],
 	sessions: [{ field: "memberId" }, { field: "expiresAt" }],
 	agent_tokens: [{ field: "tokenHash", unique: true }],
 	subscribers: [

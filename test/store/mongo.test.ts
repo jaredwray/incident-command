@@ -172,6 +172,7 @@ describe("MongoStore", () => {
 		expect(names).toEqual([
 			"agent_tokens",
 			"incidents",
+			"invites",
 			"members",
 			"service_status_changes",
 			"services",

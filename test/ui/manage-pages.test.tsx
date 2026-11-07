@@ -4,6 +4,7 @@ import AgentsPage from "@/app/manage/agents/page";
 import IncidentPage from "@/app/manage/incidents/[id]/page";
 import NewIncidentPage from "@/app/manage/incidents/new/page";
 import IncidentsPage from "@/app/manage/incidents/page";
+import InvitePage from "@/app/manage/invite/page";
 import LoginPage from "@/app/manage/login/page";
 import MembersPage from "@/app/manage/members/page";
 import DashboardPage from "@/app/manage/page";
@@ -35,6 +36,38 @@ describe("login and setup", () => {
 		await setupApp({ SETUP_TOKEN: "s3t" });
 		render(await SetupPage(flash()));
 		expect(screen.getByLabelText("Setup token")).toBeInTheDocument();
+	});
+
+	it("shows the invite form for an open invite link", async () => {
+		const { services } = await setupApp();
+		const { token } = await services.members.invite(SYSTEM_ACTOR, {
+			email: "ed@acme.dev",
+			role: "viewer",
+		});
+		render(await InvitePage(flash({ token, error: "Bad input" })));
+		expect(
+			screen.getByRole("heading", { name: "Create your account" }),
+		).toBeInTheDocument();
+		expect(screen.getByText(/with the Viewer role/)).toBeInTheDocument();
+		expect(screen.getByLabelText("Email")).toHaveValue("ed@acme.dev");
+		expect(screen.getByRole("alert")).toHaveTextContent("Bad input");
+		expect(
+			document.querySelector('input[name="token"]') as HTMLInputElement,
+		).toHaveValue(token);
+	});
+
+	it("explains when an invite link is not valid", async () => {
+		await setupApp();
+		for (const query of [{}, { token: "bogus" }] as Record<string, string>[]) {
+			const page = render(await InvitePage(flash(query)));
+			expect(
+				screen.getByRole("heading", { name: "Invite not valid" }),
+			).toBeInTheDocument();
+			expect(
+				screen.getByRole("link", { name: "Go to sign in" }),
+			).toHaveAttribute("href", "/manage/login");
+			page.unmount();
+		}
 	});
 
 	it("shows the login form and redirects signed-in members", async () => {
@@ -343,16 +376,51 @@ describe("admin pages", () => {
 			email: member.email,
 			password: "password123",
 		});
-		await app.services.members.create(SYSTEM_ACTOR, {
-			name: "Ed",
+		const { token } = await app.services.members.invite(SYSTEM_ACTOR, {
 			email: "ed@acme.dev",
+		});
+		await app.services.members.acceptInvite(token, {
+			name: "Ed",
 			password: "password123",
 		});
-		render(await MembersPage(flash()));
+		const page = render(await MembersPage(flash()));
 		expect(screen.getByText("(you)")).toBeInTheDocument();
 		expect(screen.getByText(/Last sign-in/)).toBeInTheDocument();
 		expect(screen.getByText(/Never signed in/)).toBeInTheDocument();
 		expect(screen.getByLabelText("Role for Ed")).toHaveValue("editor");
+		expect(
+			screen.queryByRole("heading", { name: "Open invites" }),
+		).not.toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: "Create invite link" }),
+		).toBeInTheDocument();
+		page.unmount();
+	});
+
+	it("lists open and expired invites", async () => {
+		const { app, services, clock } = await setupApp();
+		await services.members.invite(SYSTEM_ACTOR, {
+			email: "old@acme.dev",
+			role: "viewer",
+		});
+		clock.advance(6 * 86_400_000);
+		const { actor } = await signIn(app, "admin");
+		await services.members.invite(actor, { email: "new@acme.dev" });
+		clock.advance(2 * 86_400_000);
+		vi.useFakeTimers({ now: clock.current, toFake: ["Date"] });
+		render(await MembersPage(flash()));
+		vi.useRealTimers();
+		const invites = within(
+			screen
+				.getByRole("heading", { name: "Open invites" })
+				.closest("section") as HTMLElement,
+		);
+		const [fresh, stale] = invites.getAllByRole("listitem");
+		expect(fresh).toHaveTextContent("new@acme.dev");
+		expect(fresh).toHaveTextContent(/Editor · Invited by Admin User · Expires/);
+		expect(stale).toHaveTextContent("old@acme.dev");
+		expect(stale).toHaveTextContent(/Viewer · Invited by System · Expired/);
+		expect(invites.getAllByRole("button", { name: "Revoke" })).toHaveLength(2);
 	});
 
 	it("shows agent tokens and MCP instructions", async () => {

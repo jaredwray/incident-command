@@ -1,3 +1,4 @@
+import type { Actor, Role } from "@/lib/domain/types";
 import {
 	ConflictError,
 	ForbiddenError,
@@ -12,6 +13,15 @@ describe("MemberService and SessionService", () => {
 	beforeEach(() => {
 		t = createTestContext();
 	});
+
+	/** Invites a person and accepts the invite for them. */
+	async function join(actor: Actor, email: string, name: string, role?: Role) {
+		const { token } = await t.services.members.invite(actor, { email, role });
+		return t.services.members.acceptInvite(token, {
+			name,
+			password: "password123",
+		});
+	}
 
 	it("sets up the first admin exactly once", async () => {
 		const admin = await t.services.members.setup({
@@ -44,26 +54,116 @@ describe("MemberService and SessionService", () => {
 		).resolves.toMatchObject({ role: "admin" });
 	});
 
-	it("creates, lists, updates and deletes members", async () => {
+	it("invites members with one-time links", async () => {
 		const admin = await t.services.members.setup({
 			email: "admin@acme.dev",
 			name: "Admin",
 			password: "password123",
 		});
 		const actor = memberActor(admin);
-		const ed = await t.services.members.create(actor, {
+		await expect(
+			t.services.members.invite(EDITOR, { email: "ed@acme.dev" }),
+		).rejects.toBeInstanceOf(ForbiddenError);
+		await expect(t.services.members.listInvites(EDITOR)).rejects.toBeInstanceOf(
+			ForbiddenError,
+		);
+		await expect(
+			t.services.members.invite(actor, { email: "Admin@acme.dev" }),
+		).rejects.toBeInstanceOf(ConflictError);
+
+		const first = await t.services.members.invite(actor, {
+			email: "Ed@Acme.dev",
+		});
+		expect(first.invite).toMatchObject({
 			email: "ed@acme.dev",
-			name: "Ed",
+			role: "editor",
+			invitedBy: { type: "member", id: admin.id, name: "Admin" },
+			expiresAt: "2026-11-09T12:00:00.000Z",
+		});
+		expect(first.invite).not.toHaveProperty("tokenHash");
+
+		// a new invite for the same email replaces the old link
+		t.clock.advance(1000);
+		const second = await t.services.members.invite(actor, {
+			email: "ed@acme.dev",
+			role: "viewer",
+		});
+		await expect(
+			t.services.members.findInvite(first.token),
+		).resolves.toBeUndefined();
+		await expect(
+			t.services.members.findInvite(second.token),
+		).resolves.toMatchObject({ id: second.invite.id, role: "viewer" });
+		t.clock.advance(1000);
+		const other = await t.services.members.invite(actor, {
+			email: "vi@acme.dev",
+		});
+		expect(
+			(await t.services.members.listInvites(actor)).map((i) => i.email),
+		).toEqual(["vi@acme.dev", "ed@acme.dev"]);
+
+		// bad input does not use up the link
+		await expect(
+			t.services.members.acceptInvite(second.token, {
+				name: "",
+				password: "short",
+			}),
+		).rejects.toBeInstanceOf(ValidationError);
+		const ed = await t.services.members.acceptInvite(second.token, {
+			name: " Ed ",
 			password: "password123",
 		});
-		expect(ed.role).toBe("editor");
+		expect(ed).toMatchObject({
+			email: "ed@acme.dev",
+			name: "Ed",
+			role: "viewer",
+		});
 		await expect(
-			t.services.members.create(actor, {
+			t.services.members.authenticate({
 				email: "ed@acme.dev",
-				name: "Ed2",
 				password: "password123",
 			}),
-		).rejects.toBeInstanceOf(ConflictError);
+		).resolves.toMatchObject({ id: ed.id });
+		await expect(
+			t.services.members.acceptInvite(second.token, {
+				name: "Ed again",
+				password: "password123",
+			}),
+		).rejects.toMatchObject({ code: "not_found" });
+
+		await t.services.members.revokeInvite(actor, other.invite.id);
+		await expect(
+			t.services.members.revokeInvite(actor, other.invite.id),
+		).rejects.toBeInstanceOf(NotFoundError);
+		await expect(
+			t.services.members.findInvite(other.token),
+		).resolves.toBeUndefined();
+		await expect(t.services.members.listInvites(actor)).resolves.toEqual([]);
+	});
+
+	it("rejects expired invite links", async () => {
+		const { token } = await t.services.members.invite(ADMIN, {
+			email: "late@acme.dev",
+		});
+		t.clock.advance(7 * 86_400_000);
+		await expect(t.services.members.findInvite(token)).resolves.toBeUndefined();
+		await expect(
+			t.services.members.acceptInvite(token, {
+				name: "Late",
+				password: "password123",
+			}),
+		).rejects.toMatchObject({ code: "not_found" });
+		await expect(t.services.members.count()).resolves.toBe(0);
+	});
+
+	it("lists, updates and deletes members", async () => {
+		const admin = await t.services.members.setup({
+			email: "admin@acme.dev",
+			name: "Admin",
+			password: "password123",
+		});
+		const actor = memberActor(admin);
+		const ed = await join(actor, "ed@acme.dev", "Ed");
 		expect((await t.services.members.list(actor)).map((m) => m.email)).toEqual([
 			"admin@acme.dev",
 			"ed@acme.dev",
@@ -115,12 +215,7 @@ describe("MemberService and SessionService", () => {
 		await expect(t.services.members.delete(actor, admin.id)).rejects.toThrow(
 			/last admin/,
 		);
-		const second = await t.services.members.create(actor, {
-			email: "b@acme.dev",
-			name: "B",
-			password: "password123",
-			role: "admin",
-		});
+		const second = await join(actor, "b@acme.dev", "B", "admin");
 		await t.services.members.delete(actor, second.id);
 	});
 

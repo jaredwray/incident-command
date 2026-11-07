@@ -13,6 +13,7 @@ import type { Actor, Incident, Role } from "../domain/types";
 import { formatUptime } from "../domain/uptime";
 import { isAppError } from "../errors";
 import type { Services } from "../services";
+import { invitePath } from "../services/members";
 
 export const MCP_SERVER_NAME = "incident-command";
 export const MCP_SERVER_VERSION = "0.1.0";
@@ -86,9 +87,14 @@ function incidentSummary(incident: Incident) {
 /**
  * Builds an MCP server exposing tools for the given actor. Tools are only
  * registered when the actor's role allows them, so agents never see tools
- * they cannot call.
+ * they cannot call. `origin` is the request origin. Invite links use it when
+ * no site URL is set.
  */
-export function createMcpServer(services: Services, actor: Actor): McpServer {
+export function createMcpServer(
+	services: Services,
+	actor: Actor,
+	origin: string,
+): McpServer {
 	const server = new McpServer(
 		{ name: MCP_SERVER_NAME, version: MCP_SERVER_VERSION },
 		{ instructions: INSTRUCTIONS },
@@ -431,19 +437,50 @@ export function createMcpServer(services: Services, actor: Actor): McpServer {
 
 	tool(
 		"admin",
-		"create_member",
+		"invite_member",
 		{
-			title: "Create member",
+			title: "Invite member",
 			description:
-				"Adds a portal member. Share the initial password with them securely.",
+				"Creates a one-time link that a person uses to create their own portal account. Give the inviteUrl to that person. The link expires after 7 days. A new invite for the same email replaces the old link.",
 			inputSchema: {
 				email: z.string(),
-				name: z.string(),
 				role: roleSchema.optional(),
-				password: z.string(),
 			},
 		},
-		async (args) => services.members.create(actor, args),
+		async (args) => {
+			const { token, invite } = await services.members.invite(actor, args);
+			const { siteUrl } = await services.settings.get();
+			return {
+				inviteUrl: `${siteUrl ?? origin}${invitePath(token)}`,
+				invite,
+			};
+		},
+	);
+
+	tool(
+		"admin",
+		"list_invites",
+		{
+			title: "List invites",
+			description: "Invites that nobody used yet, with their expiry times.",
+			inputSchema: {},
+			readOnly: true,
+		},
+		async () => services.members.listInvites(actor),
+	);
+
+	tool(
+		"admin",
+		"revoke_invite",
+		{
+			title: "Revoke invite",
+			description: "Removes an invite. Its link stops working immediately.",
+			inputSchema: { id },
+		},
+		async (args) => {
+			await services.members.revokeInvite(actor, args.id);
+			return { revoked: args.id };
+		},
 	);
 
 	tool(
