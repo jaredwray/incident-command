@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { getApp } from "@/lib/app";
 import { isAppError } from "@/lib/errors";
-import { flash } from "@/lib/flash";
+import { flash, flashCodeForError } from "@/lib/flash";
 
 export async function subscribeAction(formData: FormData): Promise<void> {
 	const { services } = await getApp();
@@ -16,7 +16,7 @@ export async function subscribeAction(formData: FormData): Promise<void> {
 		if (!isAppError(error)) {
 			throw error;
 		}
-		redirect(flash("/subscribe", "error", error.message));
+		redirect(flash("/subscribe", flashCodeForError(error)));
 	}
 	redirect(`/subscribe?status=${outcome}`);
 }

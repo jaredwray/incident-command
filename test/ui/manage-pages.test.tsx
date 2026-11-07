@@ -16,16 +16,16 @@ import { SYSTEM_ACTOR } from "@/lib/services/context";
 import {
 	expectFlashRedirect,
 	expectNotFound,
+	flashQueryParams,
 	params,
 	redirectOf,
-	sealedFlashParams,
 	setupApp,
 	signIn,
 } from "./app";
 import { setRequestHeaders } from "./next-state";
 
 const flash = (value: Record<string, string> = {}) => ({
-	searchParams: params(sealedFlashParams(value)),
+	searchParams: params(flashQueryParams(value)),
 });
 
 const rawFlash = (value: Record<string, string> = {}) => ({
@@ -36,11 +36,13 @@ describe("login and setup", () => {
 	it("sends visitors to setup until an admin exists", async () => {
 		await setupApp();
 		expect(await redirectOf(LoginPage(flash()))).toBe("/manage/setup");
-		render(await SetupPage(flash({ error: "Bad input" })));
+		render(await SetupPage(flash({ error: "validation_failed" })));
 		expect(
 			screen.getByRole("heading", { name: "Create the first admin" }),
 		).toBeInTheDocument();
-		expect(screen.getByRole("alert")).toHaveTextContent("Bad input");
+		expect(screen.getByRole("alert")).toHaveTextContent(
+			"Check the form and try again.",
+		);
 		expect(screen.queryByLabelText("Setup token")).not.toBeInTheDocument();
 	});
 
@@ -56,13 +58,15 @@ describe("login and setup", () => {
 			email: "ed@acme.dev",
 			role: "viewer",
 		});
-		render(await InvitePage(flash({ token, error: "Bad input" })));
+		render(await InvitePage(flash({ token, error: "validation_failed" })));
 		expect(
 			screen.getByRole("heading", { name: "Create your account" }),
 		).toBeInTheDocument();
 		expect(screen.getByText(/with the Viewer role/)).toBeInTheDocument();
 		expect(screen.getByLabelText("Email")).toHaveValue("ed@acme.dev");
-		expect(screen.getByRole("alert")).toHaveTextContent("Bad input");
+		expect(screen.getByRole("alert")).toHaveTextContent(
+			"Check the form and try again.",
+		);
 		expect(
 			document.querySelector('input[name="token"]') as HTMLInputElement,
 		).toHaveValue(token);
@@ -91,7 +95,7 @@ describe("login and setup", () => {
 		});
 		expect(await redirectOf(SetupPage(flash()))).toBe("/manage/login");
 		const page = render(
-			await LoginPage(flash({ error: "Invalid email or password" })),
+			await LoginPage(flash({ error: "invalid_credentials" })),
 		);
 		expect(
 			screen.getByRole("heading", { name: "Sign in" }),
@@ -121,8 +125,10 @@ describe("dashboard", () => {
 			impact: "critical",
 			serviceIds: [api.id],
 		});
-		render(await DashboardPage(flash({ notice: "Welcome" })));
-		expect(screen.getByRole("status")).toHaveTextContent("Welcome");
+		render(await DashboardPage(flash({ notice: "welcome_admin" })));
+		expect(screen.getByRole("status")).toHaveTextContent(
+			"Welcome! Your admin account is ready.",
+		);
 		expect(
 			screen.getByRole("link", { name: "Declare incident" }),
 		).toHaveAttribute("href", "/manage/incidents/new");
@@ -228,14 +234,16 @@ describe("incident pages", () => {
 		const { app, services } = await setupApp();
 		await signIn(app, "editor");
 		const page = render(
-			await NewIncidentPage(flash({ error: "title: Too small" })),
+			await NewIncidentPage(flash({ error: "validation_failed" })),
 		);
 		expect(
 			screen.getByRole("heading", { name: "Declare an incident" }),
 		).toBeInTheDocument();
 		expect(screen.getByLabelText("Impact")).toBeInTheDocument();
 		expect(screen.getByText("No services yet.")).toBeInTheDocument();
-		expect(screen.getByRole("alert")).toHaveTextContent("title: Too small");
+		expect(screen.getByRole("alert")).toHaveTextContent(
+			"Check the form and try again.",
+		);
 		page.unmount();
 
 		await services.catalog.create(SYSTEM_ACTOR, {
@@ -417,7 +425,7 @@ describe("admin pages", () => {
 		await signIn(app, "admin");
 		render(await MembersPage(rawFlash({ notice: "Member removed you suck" })));
 		expect(screen.queryByRole("status")).not.toBeInTheDocument();
-		render(await MembersPage(flash({ notice: "Member removed" })));
+		render(await MembersPage(flash({ notice: "member_removed" })));
 		expect(screen.getByRole("status")).toHaveTextContent("Member removed");
 	});
 

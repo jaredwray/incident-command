@@ -6,13 +6,13 @@ import {
 	secureCookies,
 	startSession,
 } from "@/lib/auth";
-import { hmacSha256 } from "@/lib/crypto";
 import { ValidationError } from "@/lib/errors";
 import {
-	flashSigningKey,
+	flashCodeForError,
+	flashEntry,
 	readFlash,
 	resolveFlash,
-	sealFlash,
+	roleFlashCode,
 } from "@/lib/flash";
 import {
 	attempt,
@@ -36,76 +36,48 @@ import {
 import { cookieJar, setRequestHeaders } from "./next-state";
 
 describe("auth helpers", () => {
-	it("builds and verifies signed flash urls", () => {
-		const url = flash("/manage", "notice", "Saved!");
-		expectFlashRedirect(url, "/manage", "notice", "Saved!");
+	it("builds flash urls from catalog codes", () => {
+		expect(flash("/manage", "settings_saved")).toBe(
+			"/manage?notice=settings_saved",
+		);
+		expectFlashRedirect(
+			flash("/manage", "settings_saved"),
+			"/manage",
+			"notice",
+			"Settings saved",
+		);
 		expect(
-			flash("/manage/incidents/new?kind=incident", "error", "a & b"),
-		).toMatch(/^\/manage\/incidents\/new\?kind=incident&error=/);
+			flash("/manage/incidents/new?kind=incident", "validation_failed"),
+		).toBe("/manage/incidents/new?kind=incident&error=validation_failed");
 		expect(
 			flashMessage(
-				flash("/manage/incidents/new?kind=incident", "error", "a & b"),
+				flash("/manage/incidents/new?kind=incident", "validation_failed"),
 				"error",
 			),
-		).toBe("a & b");
+		).toBe("Check the form and try again.");
 	});
 
-	it("rejects forged or plain flash query values", () => {
+	it("rejects unknown flash query values", () => {
 		expect(readFlash("notice", "Member removed you suck")).toBeUndefined();
 		expect(readFlash("notice", undefined)).toBeUndefined();
 		expect(readFlash("notice", "")).toBeUndefined();
-		expect(readFlash("error", "nope.notasignature")).toBeUndefined();
-		expect(readFlash("notice", ".abcdef")).toBeUndefined();
-		expect(readFlash("notice", "payload.")).toBeUndefined();
-		const sealed = sealFlash("notice", "Member removed");
-		expect(readFlash("error", sealed)).toBeUndefined();
-		expect(readFlash("notice", `${sealed}x`)).toBeUndefined();
+		expect(readFlash("error", "member_removed")).toBeUndefined();
 		expect(resolveFlash({ notice: "Member removed you suck" })).toEqual({});
-		expect(resolveFlash({ notice: sealed })).toEqual({
+		expect(resolveFlash({ notice: "member_removed" })).toEqual({
 			notice: "Member removed",
 		});
-		expect(resolveFlash({ error: sealFlash("error", "Nope") })).toEqual({
-			error: "Nope",
+		expect(resolveFlash({ error: "invalid_credentials" })).toEqual({
+			error: "Invalid email or password",
 		});
-		const long = "x".repeat(501);
-		const payload = Buffer.from(long, "utf8").toString("base64url");
-		const key = flashSigningKey();
-		expect(key).toBeDefined();
-		const sig = hmacSha256(key as string, `notice.${payload}`);
-		expect(readFlash("notice", `${payload}.${sig}`)).toBeUndefined();
-		expect(readFlash("notice", sealFlash("notice", long))).toBe(
-			"x".repeat(500),
-		);
-		expect(sealFlash("notice", "")).toMatch(/^\./);
-		expect(readFlash("notice", sealFlash("notice", ""))).toBeUndefined();
-	});
-
-	it("picks a flash signing key from the environment", () => {
-		expect(flashSigningKey({})).toBe("incident-command-dev-flash");
-		expect(flashSigningKey({ NODE_ENV: "test" })).toBe(
-			"incident-command-dev-flash",
-		);
-		expect(flashSigningKey({ FLASH_SECRET: " flash " })).toBe("flash");
-		expect(flashSigningKey({ SETUP_TOKEN: "setup" })).toBe("setup");
-		expect(flashSigningKey({ WEBHOOK_SECRET: "hook", NODE_ENV: "test" })).toBe(
-			"incident-command-dev-flash",
+		expect(flashEntry("member_removed")?.id).toMatch(/^fls_/);
+		expect(flashEntry("nope")).toBeUndefined();
+		expect(roleFlashCode("admin")).toBe("role_required_admin");
+		expect(flashCodeForError(new ValidationError("title: Too small"))).toBe(
+			"validation_failed",
 		);
 		expect(
-			flashSigningKey({
-				FLASH_SECRET: "a",
-				SETUP_TOKEN: "b",
-			}),
-		).toBe("a");
-		expect(flashSigningKey({ NODE_ENV: "production" })).toBeUndefined();
-		expect(flash("/manage", "notice", "x")).toMatch(/\?notice=/);
-		vi.stubEnv("NODE_ENV", "production");
-		vi.stubEnv("FLASH_SECRET", "");
-		vi.stubEnv("SETUP_TOKEN", "");
-		expect(flashSigningKey()).toBeUndefined();
-		expect(sealFlash("notice", "Saved")).toBeUndefined();
-		expect(readFlash("notice", "a.b")).toBeUndefined();
-		expect(flash("/manage", "notice", "Saved")).toBe("/manage");
-		vi.unstubAllEnvs();
+			flashCodeForError(new ValidationError("Current password is incorrect")),
+		).toBe("current_password_incorrect");
 	});
 
 	it("decides when cookies are secure", () => {
@@ -181,7 +153,7 @@ describe("form helpers", () => {
 			),
 			"/x",
 			"error",
-			"nope",
+			"Check the form and try again.",
 		);
 		await expect(
 			attempt("/x", async () => {

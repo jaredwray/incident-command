@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { isAppError } from "../errors";
-import { flash } from "../flash";
+import { flash, flashCodeForError } from "../flash";
 import { fromDateTimeInput } from "../format";
 
 /** A form value as a string (`""` when missing). */
@@ -52,7 +52,7 @@ export async function attempt<T>(
 		return await operation();
 	} catch (error) {
 		if (isAppError(error)) {
-			redirect(flash(failurePath, "error", error.message));
+			redirect(flash(failurePath, flashCodeForError(error)));
 		}
 		throw error;
 	}

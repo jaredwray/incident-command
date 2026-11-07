@@ -239,7 +239,9 @@ describe("incident actions", () => {
 		expect(new URL(deletedAgain, "http://localhost").pathname).toBe(
 			"/manage/incidents",
 		);
-		expect(flashMessage(deletedAgain, "error")).toMatch(/^Incident/);
+		expect(flashMessage(deletedAgain, "error")).toBe(
+			"That item was not found.",
+		);
 	});
 
 	it("schedules maintenance from datetime-local inputs", async () => {
@@ -282,7 +284,9 @@ describe("incident actions", () => {
 		expect(
 			new URL(titleError, "http://localhost").searchParams.get("kind"),
 		).toBe("incident");
-		expect(flashMessage(titleError, "error")).toMatch(/^title/);
+		expect(flashMessage(titleError, "error")).toBe(
+			"Check the form and try again.",
+		);
 		const missingUpdate = await redirectOf(
 			postIncidentUpdateAction(form({ id: "nope", message: "x" })),
 		);
@@ -376,7 +380,7 @@ describe("service actions", () => {
 				await redirectOf(deleteServiceAction(form({ id: api?.id ?? "" }))),
 				"error",
 			),
-		).toMatch(/^Service/);
+		).toBe("That item was not found.");
 	});
 });
 
@@ -410,7 +414,7 @@ describe("member actions", () => {
 				await redirectOf(revokeInviteAction(form({ id: invite?.id ?? "" }))),
 				"error",
 			),
-		).toMatch(/^Invite/);
+		).toBe("That item was not found.");
 	});
 
 	it("uses the configured site url for invite links", async () => {
@@ -435,7 +439,7 @@ describe("member actions", () => {
 			await redirectOf(
 				acceptInviteAction(form({ token, name: "Ed", password: "short" })),
 			),
-			`/manage/invite?token=${token}&error=password: Too small: expected string to have >=8 characters`,
+			`/manage/invite?token=${token}&error=validation_failed`,
 		);
 		expect(cookieJar.get(SESSION_COOKIE)).toBeUndefined();
 		expectSameFlash(
@@ -460,7 +464,7 @@ describe("member actions", () => {
 					form({ token, name: "Ed", password: "password123" }),
 				),
 			),
-			`/manage/invite?token=${token}&error=This invite link is not valid. Ask an admin for a new invite.`,
+			`/manage/invite?token=${token}&error=invite_invalid`,
 		);
 	});
 
@@ -496,7 +500,7 @@ describe("member actions", () => {
 				await redirectOf(updateMemberAction(form({ id: "nope" }))),
 				"error",
 			),
-		).toMatch(/^Member/);
+		).toBe("That item was not found.");
 		expectSameFlash(
 			await redirectOf(deleteMemberAction(form({ id: actor.id }))),
 			"/manage/members?error=You cannot remove the last admin",
@@ -545,13 +549,13 @@ describe("agent actions", () => {
 				await redirectOf(deleteAgentAction(form({ id: agent?.id ?? "" }))),
 				"error",
 			),
-		).toMatch(/^Agent/);
+		).toBe("That item was not found.");
 		expect(
 			flashMessage(
 				await redirectOf(revokeAgentAction(form({ id: "nope" }))),
 				"error",
 			),
-		).toMatch(/^Agent/);
+		).toBe("That item was not found.");
 	});
 });
 
@@ -580,7 +584,7 @@ describe("subscriber and settings actions", () => {
 				),
 				"error",
 			),
-		).toMatch(/^url/);
+		).toBe("Check the form and try again.");
 		const [first] = await services.subscribers.list(actor);
 		expectSameFlash(
 			await redirectOf(deleteSubscriberAction(form({ id: first?.id ?? "" }))),
@@ -591,7 +595,7 @@ describe("subscriber and settings actions", () => {
 				await redirectOf(deleteSubscriberAction(form({ id: first?.id ?? "" }))),
 				"error",
 			),
-		).toMatch(/^Subscriber/);
+		).toBe("That item was not found.");
 	});
 
 	it("saves settings", async () => {
@@ -630,7 +634,7 @@ describe("subscriber and settings actions", () => {
 				),
 				"error",
 			),
-		).toMatch(/^brandColor/);
+		).toBe("Check the form and try again.");
 	});
 });
 
@@ -642,7 +646,9 @@ describe("public subscribe actions", () => {
 		).toBe("/subscribe?status=confirmation_sent");
 		const badEmail = await redirectOf(subscribeAction(form({ email: "bad" })));
 		expect(new URL(badEmail, "http://localhost").pathname).toBe("/subscribe");
-		expect(flashMessage(badEmail, "error")).toMatch(/^email/);
+		expect(flashMessage(badEmail, "error")).toBe(
+			"Check the form and try again.",
+		);
 		const emptyEmail = await redirectOf(subscribeAction(new FormData()));
 		expect(new URL(emptyEmail, "http://localhost").pathname).toBe("/subscribe");
 		expect(flashMessage(emptyEmail, "error")).toBeTruthy();

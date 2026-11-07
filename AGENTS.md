@@ -20,7 +20,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   - `src/lib/notifications`: airhorn notifier, templates and the signed webhook provider. airhorn is loaded lazily (it cannot load on Cloudflare Workers).
   - `src/app`: thin pages and route handlers. `src/app/manage/actions.ts` holds every portal server action.
   - `src/components`: presentational components. Colors come only from theme tokens (`bg-surface`, `text-muted`, `bg-operational`, …), never raw palette classes.
-- **Conventions:** timestamps are ISO strings; ids are prefixed (`inc_`, `cmp_`, …); expected failures throw `AppError` subclasses from `src/lib/errors.ts`; portal actions redirect with signed `?notice=` / `?error=` flash tokens (`src/lib/flash.ts`).
+- **Conventions:** timestamps are ISO strings; ids are prefixed (`inc_`, `cmp_`, …); expected failures throw `AppError` subclasses from `src/lib/errors.ts`; portal actions redirect with flash codes from `src/lib/flash-messages.json` (`?notice=` / `?error=`).
 - **Tests:** `test/**/*.test.ts` run in Node, `test/**/*.test.tsx` in jsdom with `next/headers` and `next/navigation` mocked (`test/ui/setup.ts`). Use `createTestContext()` (services) or `setupApp()` + `signIn()` (pages and actions).
 
 ## Simplified Technical English

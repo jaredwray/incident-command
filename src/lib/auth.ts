@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { type App, getApp } from "./app";
 import { hasRole } from "./domain/status";
 import type { Actor, PublicMember, Role } from "./domain/types";
-import { flash } from "./flash";
+import { flash, roleFlashCode } from "./flash";
 import { memberActor, toPublicMember } from "./services/members";
 
 export { flash } from "./flash";
@@ -45,7 +45,7 @@ export async function requireMember(
 		redirect("/manage/login");
 	}
 	if (!hasRole(context.member.role, role)) {
-		redirect(flash("/manage", "error", `That page requires the ${role} role`));
+		redirect(flash("/manage", roleFlashCode(role)));
 	}
 	return context;
 }

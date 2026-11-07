@@ -1,82 +1,90 @@
-import { hmacSha256, safeEqual } from "./crypto";
+import type { Role } from "./domain/types";
+import type { AppError, ErrorCode } from "./errors";
+import catalog from "./flash-messages.json";
 
 export type FlashKind = "notice" | "error";
 
-const MAX_MESSAGE_LENGTH = 500;
-/** Used only outside production when no FLASH_SECRET or SETUP_TOKEN is set. */
-const DEV_FLASH_KEY = "incident-command-dev-flash";
+export type FlashCode = keyof typeof catalog;
 
-/**
- * Secret that signs flash query values.
- * Prefer `FLASH_SECRET`, then `SETUP_TOKEN`.
- * Outside production, falls back to a fixed local key.
- * In production with no secret, returns `undefined` (flashes stay off).
- */
-export function flashSigningKey(
-	env: Record<string, string | undefined> = process.env,
-): string | undefined {
-	const key = env.FLASH_SECRET?.trim() || env.SETUP_TOKEN?.trim();
-	if (key) {
-		return key;
-	}
-	if ((env.NODE_ENV ?? "development") !== "production") {
-		return DEV_FLASH_KEY;
-	}
-	return undefined;
+export interface FlashEntry {
+	id: string;
+	kind: FlashKind;
+	text: string;
 }
 
-/** Signs a flash message for a query parameter. */
-export function sealFlash(
-	kind: FlashKind,
-	message: string,
-	secret: string | undefined = flashSigningKey(),
-): string | undefined {
-	if (!secret) {
+const MESSAGES = catalog as Record<FlashCode, FlashEntry>;
+
+/** Exact AppError messages that map to a catalog code. */
+const MESSAGE_CODES: Record<string, FlashCode> = {
+	"Invalid setup token": "invalid_setup_token",
+	"Setup has already been completed": "setup_completed",
+	"Current password is incorrect": "current_password_incorrect",
+	"Maintenance requires scheduledStart and scheduledEnd":
+		"maintenance_window_required",
+	"This invite link is not valid. Ask an admin for a new invite.":
+		"invite_invalid",
+	"You cannot remove the last admin": "last_admin",
+	"A member with that email already exists": "member_email_exists",
+	"scheduledEnd must be after scheduledStart": "scheduled_end_before_start",
+	"Subscriptions are not enabled": "subscriptions_disabled",
+	"You do not have permission to do that": "forbidden",
+	"Authentication required": "unauthorized",
+	"The data store is unavailable": "unavailable",
+};
+
+const ERROR_CODE_FLASH: Record<ErrorCode, FlashCode> = {
+	bad_request: "validation_failed",
+	unauthorized: "unauthorized",
+	forbidden: "forbidden",
+	not_found: "not_found",
+	conflict: "conflict",
+	unavailable: "unavailable",
+};
+
+const ROLE_FLASH: Record<Role, FlashCode> = {
+	viewer: "role_required_viewer",
+	editor: "role_required_editor",
+	admin: "role_required_admin",
+};
+
+/** Returns a catalog entry for a flash code, if it exists. */
+export function flashEntry(code: string | undefined): FlashEntry | undefined {
+	if (!code || !(code in MESSAGES)) {
 		return undefined;
 	}
-	const text = message.slice(0, MAX_MESSAGE_LENGTH);
-	const payload = Buffer.from(text, "utf8").toString("base64url");
-	const sig = hmacSha256(secret, `${kind}.${payload}`);
-	return `${payload}.${sig}`;
+	return MESSAGES[code as FlashCode];
 }
 
-/** Returns the message when the flash token is valid; otherwise `undefined`. */
+/** Flash code for a missing-role redirect. */
+export function roleFlashCode(role: Role): FlashCode {
+	return ROLE_FLASH[role];
+}
+
+/** Flash code for an expected application error. */
+export function flashCodeForError(error: AppError): FlashCode {
+	return MESSAGE_CODES[error.message] ?? ERROR_CODE_FLASH[error.code];
+}
+
+/** Returns the display text when the query value is a known flash code. */
 export function readFlash(
 	kind: FlashKind,
-	token: string | undefined,
-	secret: string | undefined = flashSigningKey(),
+	code: string | undefined,
 ): string | undefined {
-	if (!secret || !token) {
+	const entry = flashEntry(code);
+	if (!entry || entry.kind !== kind) {
 		return undefined;
 	}
-	const dot = token.lastIndexOf(".");
-	if (dot <= 0 || dot === token.length - 1) {
-		return undefined;
-	}
-	const payload = token.slice(0, dot);
-	const sig = token.slice(dot + 1);
-	const expected = hmacSha256(secret, `${kind}.${payload}`);
-	if (!safeEqual(sig, expected)) {
-		return undefined;
-	}
-	const message = Buffer.from(payload, "base64url").toString("utf8");
-	if (!message || message.length > MAX_MESSAGE_LENGTH) {
-		return undefined;
-	}
-	return message;
+	return entry.text;
 }
 
-/** Appends a signed flash message (`notice` or `error`) to a path. */
-export function flash(path: string, kind: FlashKind, message: string): string {
-	const sealed = sealFlash(kind, message);
-	if (!sealed) {
-		return path;
-	}
+/** Appends a flash code (`notice` or `error`) to a path. */
+export function flash(path: string, code: FlashCode): string {
+	const entry = MESSAGES[code];
 	const separator = path.includes("?") ? "&" : "?";
-	return `${path}${separator}${kind}=${encodeURIComponent(sealed)}`;
+	return `${path}${separator}${entry.kind}=${encodeURIComponent(code)}`;
 }
 
-/** Resolves signed flash query values into display text. */
+/** Resolves flash query codes into display text. */
 export function resolveFlash(params: { notice?: string; error?: string }): {
 	notice?: string;
 	error?: string;
