@@ -56,8 +56,17 @@ jobs:
         env:
           MONGOMS_DISABLE_POSTINSTALL: "1"
 
+      # Next.js salts the server action ids with this key. Without a stable
+      # key, each deploy changes the ids. A portal page that a browser loaded
+      # before the deploy then fails on its next form submit until a reload.
       - name: Build the Worker
-        run: pnpm exec opennextjs-cloudflare build --env development
+        env:
+          NEXT_SERVER_ACTIONS_ENCRYPTION_KEY: ${{ secrets.NEXT_SERVER_ACTIONS_ENCRYPTION_KEY }}
+        run: |
+          if [ -z "$NEXT_SERVER_ACTIONS_ENCRYPTION_KEY" ]; then
+            echo "::warning::Set the NEXT_SERVER_ACTIONS_ENCRYPTION_KEY secret. Without it, this deploy changes the server action ids. See deploy/cloudflare/README.md."
+          fi
+          pnpm exec opennextjs-cloudflare build --env development
 
       # wrangler finds the OpenNext project and runs `opennextjs-cloudflare deploy`,
       # which then runs `wrangler deploy --env development`.
