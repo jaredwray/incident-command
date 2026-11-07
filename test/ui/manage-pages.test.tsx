@@ -517,7 +517,11 @@ describe("notification draft pages", () => {
 		expect(
 			screen.getByText(/Incident update · Drafted by Ops bot/),
 		).toBeInTheDocument();
-		expect(screen.getByLabelText("Status")).toHaveValue("identified");
+		// An update without a status keeps the status that the incident has at approval.
+		expect(screen.getByLabelText("Status")).toHaveValue("");
+		expect(
+			screen.getByRole("option", { name: "Keep current status (Identified)" }),
+		).toHaveValue("");
 		expect(screen.queryByLabelText("Title")).not.toBeInTheDocument();
 		expect(screen.queryByText("Affected services")).not.toBeInTheDocument();
 		expect(screen.getByRole("link", { name: "View incident" })).toHaveAttribute(

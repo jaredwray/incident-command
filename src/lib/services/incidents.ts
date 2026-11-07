@@ -25,7 +25,7 @@ import {
 } from "../domain/types";
 import { ConflictError, NotFoundError, ValidationError } from "../errors";
 import type { NotificationEvent } from "../notifications/templates";
-import type { Condition } from "../store/types";
+import type { Condition, ReadOptions } from "../store/types";
 import type { ServiceCatalog } from "./catalog";
 import {
 	authorRef,
@@ -51,6 +51,19 @@ export const CLOSED_STATUSES: readonly EventStatus[] = [
 ];
 
 const MAX_WRITE_ATTEMPTS = 5;
+
+/** A new id for an incident (`inc_`) or maintenance (`mnt_`). */
+export function newIncidentId(kind: IncidentKind): string {
+	return createId(kind === "incident" ? "inc" : "mnt");
+}
+
+export interface PublishOptions {
+	/**
+	 * The id of the new incident or update. A caller that sets it can find
+	 * the record when a later step of the publication fails.
+	 */
+	id?: string;
+}
 
 export interface IncidentListOptions {
 	kind?: IncidentKind;
@@ -127,8 +140,8 @@ export class IncidentService {
 		});
 	}
 
-	async find(id: string): Promise<Incident | undefined> {
-		return this.ctx.store.get("incidents", id);
+	async find(id: string, options?: ReadOptions): Promise<Incident | undefined> {
+		return this.ctx.store.get("incidents", id, options);
 	}
 
 	async get(id: string): Promise<Incident> {
@@ -181,7 +194,11 @@ export class IncidentService {
 		return { incident, data };
 	}
 
-	async create(actor: Actor, input: CreateIncidentInput): Promise<Incident> {
+	async create(
+		actor: Actor,
+		input: CreateIncidentInput,
+		options: PublishOptions = {},
+	): Promise<Incident> {
 		requireRole(actor, "editor");
 		const data = await this.check(input);
 		const kind = data.kind ?? "incident";
@@ -197,7 +214,7 @@ export class IncidentService {
 			createdAt: now,
 		};
 		const incident: Incident = {
-			id: createId(kind === "incident" ? "inc" : "mnt"),
+			id: options.id ?? newIncidentId(kind),
 			kind,
 			title: data.title,
 			status,
@@ -236,10 +253,12 @@ export class IncidentService {
 		actor: Actor,
 		id: string,
 		input: IncidentUpdateInput,
+		options: PublishOptions = {},
 	): Promise<Incident> {
 		requireRole(actor, "editor");
 		const data = parse(incidentUpdateSchema, input);
 		const author = authorRef(actor);
+		const updateId = options.id ?? createId("upd");
 		const { current, next } = await this.mutate(id, (current) => {
 			const status = data.status ?? current.status;
 			assertStatusForKind(current.kind, status);
@@ -250,7 +269,7 @@ export class IncidentService {
 				updates: [
 					...current.updates,
 					{
-						id: createId("upd"),
+						id: updateId,
 						status,
 						message: data.message,
 						author,

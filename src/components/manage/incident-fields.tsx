@@ -25,14 +25,22 @@ export function StatusSelect({
 	kind,
 	value,
 	id = "status",
+	keepLabel,
 }: {
 	kind: IncidentKind;
 	value?: EventStatus;
 	id?: string;
+	/** Adds a first option with an empty value. It keeps the current status. */
+	keepLabel?: string;
 }) {
 	return (
 		<Field label="Status" htmlFor={id}>
-			<Select id={id} name="status" defaultValue={value}>
+			<Select
+				id={id}
+				name="status"
+				defaultValue={value ?? (keepLabel ? "" : undefined)}
+			>
+				{keepLabel && <option value="">{keepLabel}</option>}
 				{statusesFor(kind).map((status) => (
 					<option key={status} value={status}>
 						{EVENT_STATUS_LABELS[status]}

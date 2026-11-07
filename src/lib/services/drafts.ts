@@ -13,7 +13,7 @@ import type {
 import { ConflictError, NotFoundError, ValidationError } from "../errors";
 import type { Condition } from "../store/types";
 import { authorRef, iso, requireRole, type ServiceContext } from "./context";
-import type { IncidentService } from "./incidents";
+import { type IncidentService, newIncidentId } from "./incidents";
 
 /** The portal path where a person reviews a notification draft. */
 export function draftPath(id: string): string {
@@ -146,16 +146,25 @@ export class DraftService {
 			reviewedAt: now,
 			updatedAt: now,
 		});
+		// The id is set before publication, so a failure can tell if the record was saved.
+		const recordId =
+			reviewed.action === "update"
+				? createId("upd")
+				: newIncidentId(reviewed.kind);
 		let incident: Incident;
 		try {
-			incident = await this.publish(actor, reviewed);
+			incident = await this.publish(actor, reviewed, recordId);
 		} catch (error) {
-			// Nothing was published. The draft waits for review again, with the edits.
-			await this.ctx.store.update("notification_drafts", {
-				...current,
-				content,
-				updatedAt: now,
-			});
+			// When the record was saved, a later step failed. The draft stays
+			// approved, so a second approval cannot publish it again. When
+			// nothing was saved, the draft waits for review again, with the edits.
+			const saved = await this.published(reviewed, recordId);
+			await this.ctx.store.update(
+				"notification_drafts",
+				saved
+					? { ...reviewed, incidentId: reviewed.incidentId ?? recordId }
+					: { ...current, content, updatedAt: now },
+			);
 			throw error;
 		}
 		const draft: NotificationDraft = { ...reviewed, incidentId: incident.id };
@@ -236,20 +245,40 @@ export class DraftService {
 	private async publish(
 		actor: Actor,
 		draft: NotificationDraft,
+		id: string,
 	): Promise<Incident> {
 		const { content } = draft;
 		if (draft.action === "update") {
-			return this.incidents.postUpdate(actor, draft.incidentId as string, {
-				status: content.status,
-				message: content.message,
-				serviceStatus: content.serviceStatus,
-			});
+			return this.incidents.postUpdate(
+				actor,
+				draft.incidentId as string,
+				{
+					status: content.status,
+					message: content.message,
+					serviceStatus: content.serviceStatus,
+				},
+				{ id },
+			);
 		}
-		return this.incidents.create(actor, {
-			...content,
-			kind: draft.kind,
-			title: content.title as string,
-		});
+		return this.incidents.create(
+			actor,
+			{ ...content, kind: draft.kind, title: content.title as string },
+			{ id },
+		);
+	}
+
+	/** Whether the publication of a draft saved the record with this id. */
+	private async published(
+		draft: NotificationDraft,
+		id: string,
+	): Promise<boolean> {
+		const incident = await this.incidents.find(
+			draft.action === "update" ? (draft.incidentId as string) : id,
+			{ consistent: true },
+		);
+		return draft.action === "update"
+			? Boolean(incident?.updates.some((update) => update.id === id))
+			: incident !== undefined;
 	}
 
 	/** The draft, read from the store, when it still waits for review. */

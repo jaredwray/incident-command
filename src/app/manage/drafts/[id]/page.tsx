@@ -100,7 +100,12 @@ function ReviewForm({
 				<div className="grid gap-4 sm:grid-cols-2">
 					<StatusSelect
 						kind={draft.kind}
-						value={content.status ?? incident?.status}
+						value={content.status}
+						keepLabel={
+							isCreate
+								? undefined
+								: `Keep current status (${EVENT_STATUS_LABELS[(incident as Incident).status]})`
+						}
 					/>
 					{isCreate && isIncident && <ImpactSelect value={content.impact} />}
 				</div>

@@ -342,6 +342,70 @@ describe("DraftService", () => {
 		expect(t.notifier.incidents).toHaveLength(published.length);
 	});
 
+	it("keeps a draft approved when a step after the publication write fails", async () => {
+		const draft = await t.services.drafts.create(AGENT, {
+			title: "Errors",
+			message: "x",
+			serviceIds: [api],
+		});
+		vi.spyOn(t.services.catalog, "applyStatus").mockRejectedValueOnce(
+			new Error("database offline"),
+		);
+		await expect(
+			t.services.drafts.approve(EDITOR, draft.id, draft.content),
+		).rejects.toThrow("database offline");
+		const [incident] = await t.services.incidents.list();
+		expect(await t.services.drafts.get(draft.id)).toMatchObject({
+			state: "approved",
+			incidentId: incident?.id,
+		});
+		await expect(
+			t.services.drafts.approve(EDITOR, draft.id, draft.content),
+		).rejects.toThrow("This draft was already approved");
+		expect(await t.services.incidents.list()).toHaveLength(1);
+
+		const update = await t.services.drafts.create(AGENT, {
+			incidentId: incident?.id,
+			message: "Resolved",
+			status: "resolved",
+		});
+		vi.spyOn(t.services.catalog, "applyStatus").mockRejectedValueOnce(
+			new Error("database offline"),
+		);
+		await expect(
+			t.services.drafts.approve(EDITOR, update.id, update.content),
+		).rejects.toThrow("database offline");
+		expect((await t.services.drafts.get(update.id)).state).toBe("approved");
+		const updates = (await t.services.incidents.get(incident?.id as string))
+			.updates;
+		expect(updates.map((entry) => entry.message)).toEqual(["x", "Resolved"]);
+	});
+
+	it("returns an update draft to review when its incident goes away during approval", async () => {
+		const incident = await t.services.incidents.create(EDITOR, {
+			title: "Errors",
+			message: "x",
+			notify: false,
+		});
+		const draft = await t.services.drafts.create(AGENT, {
+			incidentId: incident.id,
+			message: "y",
+		});
+		const postUpdate = t.services.incidents.postUpdate.bind(
+			t.services.incidents,
+		);
+		vi.spyOn(t.services.incidents, "postUpdate").mockImplementationOnce(
+			async (...args) => {
+				await t.services.incidents.delete(EDITOR, incident.id);
+				return postUpdate(...args);
+			},
+		);
+		await expect(
+			t.services.drafts.approve(EDITOR, draft.id, draft.content),
+		).rejects.toBeInstanceOf(NotFoundError);
+		expect((await t.services.drafts.get(draft.id)).state).toBe("pending");
+	});
+
 	it("returns the draft to review with the edits when publication fails", async () => {
 		const draft = await t.services.drafts.create(AGENT, {
 			title: "Errors",
