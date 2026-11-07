@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ConfirmButton } from "@/components/manage/confirm-button";
+import { CopyInviteLinkButton } from "@/components/manage/copy-invite-link-button";
 import { InviteMemberForm } from "@/components/manage/invite-member-form";
 import { type FlashParams, ManageShell } from "@/components/manage/shell";
 import { buttonClass, Card, Select } from "@/components/manage/ui";
@@ -12,6 +13,7 @@ import { INVITE_TTL_DAYS } from "@/lib/services/members";
 import {
 	deleteMemberAction,
 	inviteMemberAction,
+	renewInviteLinkAction,
 	revokeInviteAction,
 	updateMemberAction,
 } from "../actions";
@@ -107,7 +109,7 @@ export default async function MembersPage({
 			{invites.length > 0 && (
 				<Card
 					title="Open invites"
-					description="To get a new link for a person, invite their email again."
+					description="Copy link makes a new link for the invite. The old link stops working."
 				>
 					<ul className="divide-y divide-border">
 						{invites.map((invite) => (
@@ -129,14 +131,21 @@ export default async function MembersPage({
 										)}
 									</p>
 								</div>
-								<form action={revokeInviteAction}>
-									<input type="hidden" name="id" value={invite.id} />
-									<ConfirmButton
-										message={`Revoke the invite for ${invite.email}? The link will stop working.`}
-									>
-										Revoke
-									</ConfirmButton>
-								</form>
+								<div className="flex flex-wrap items-center gap-2">
+									{invite.expiresAt > now && (
+										<CopyInviteLinkButton
+											action={renewInviteLinkAction.bind(null, invite.id)}
+										/>
+									)}
+									<form action={revokeInviteAction}>
+										<input type="hidden" name="id" value={invite.id} />
+										<ConfirmButton
+											message={`Revoke the invite for ${invite.email}? The link will stop working.`}
+										>
+											Revoke
+										</ConfirmButton>
+									</form>
+								</div>
 							</li>
 						))}
 					</ul>

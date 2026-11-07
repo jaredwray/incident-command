@@ -156,6 +156,48 @@ describe("MemberService and SessionService", () => {
 		await expect(t.services.members.count()).resolves.toBe(0);
 	});
 
+	it("renews open invite links and stops the old link", async () => {
+		const first = await t.services.members.invite(ADMIN, {
+			email: "ed@acme.dev",
+			role: "viewer",
+		});
+		t.clock.advance(86_400_000);
+		await expect(
+			t.services.members.renewInvite(EDITOR, first.invite.id),
+		).rejects.toBeInstanceOf(ForbiddenError);
+		const renewed = await t.services.members.renewInvite(
+			ADMIN,
+			first.invite.id,
+		);
+		expect(renewed.invite).toEqual(first.invite);
+		await expect(
+			t.services.members.findInvite(first.token),
+		).resolves.toBeUndefined();
+		await expect(t.services.members.findInvite(renewed.token)).resolves.toEqual(
+			first.invite,
+		);
+
+		// a used invite has no link to renew
+		await t.services.members.acceptInvite(renewed.token, {
+			name: "Ed",
+			password: "password123",
+		});
+		await expect(
+			t.services.members.renewInvite(ADMIN, first.invite.id),
+		).rejects.toBeInstanceOf(NotFoundError);
+
+		const late = await t.services.members.invite(ADMIN, {
+			email: "late@acme.dev",
+		});
+		t.clock.advance(7 * 86_400_000);
+		await expect(
+			t.services.members.renewInvite(ADMIN, late.invite.id),
+		).rejects.toMatchObject({
+			code: "not_found",
+			message: "This invite expired or was used. Invite the email again.",
+		});
+	});
+
 	it("lists, updates and deletes members", async () => {
 		const admin = await t.services.members.setup({
 			email: "admin@acme.dev",

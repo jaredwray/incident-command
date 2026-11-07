@@ -9,6 +9,7 @@ import userEvent from "@testing-library/user-event";
 import { StatusIcon } from "@/components/icons";
 import { AddSubscriberForm } from "@/components/manage/add-subscriber-form";
 import { ConfirmButton } from "@/components/manage/confirm-button";
+import { CopyInviteLinkButton } from "@/components/manage/copy-invite-link-button";
 import { CreateAgentForm } from "@/components/manage/create-agent-form";
 import { statusesFor } from "@/components/manage/incident-fields";
 import { InviteMemberForm } from "@/components/manage/invite-member-form";
@@ -180,6 +181,50 @@ describe("InviteMemberForm", () => {
 			"email: Invalid email address",
 		);
 		expect(screen.queryByText(url)).not.toBeInTheDocument();
+	});
+});
+
+describe("CopyInviteLinkButton", () => {
+	it("copies a new link, falls back to a prompt, or shows the error", async () => {
+		const url = "https://status.acme.dev/manage/invite?token=abc";
+		let finish: (value: { url: string }) => void = () => {};
+		const action = vi
+			.fn()
+			.mockReturnValueOnce(new Promise((resolve) => (finish = resolve)))
+			.mockResolvedValueOnce({ url })
+			.mockResolvedValueOnce({ error: "This invite expired or was used." });
+		const writeText = vi
+			.fn()
+			.mockResolvedValueOnce(undefined)
+			.mockRejectedValueOnce(new Error("Not allowed"));
+		Object.defineProperty(navigator, "clipboard", {
+			value: { writeText },
+			configurable: true,
+		});
+		const prompt = vi.spyOn(window, "prompt").mockReturnValue(null);
+		render(<CopyInviteLinkButton action={action} />);
+		const click = async (name: string) =>
+			act(async () => {
+				fireEvent.click(screen.getByRole("button", { name }));
+			});
+
+		// one click makes one new link, so a second click waits
+		await click("Copy link");
+		expect(screen.getByRole("button", { name: "Copy link" })).toBeDisabled();
+		await act(async () => finish({ url }));
+		expect(writeText).toHaveBeenCalledWith(url);
+		expect(screen.getByRole("button", { name: "Copied" })).toBeEnabled();
+
+		await click("Copied");
+		expect(prompt).toHaveBeenCalledWith("Copy the invite link.", url);
+		expect(screen.getByRole("button", { name: "Copy link" })).toBeEnabled();
+
+		await click("Copy link");
+		expect(screen.getByRole("alert")).toHaveTextContent(
+			"This invite expired or was used.",
+		);
+		expect(action).toHaveBeenCalledTimes(3);
+		prompt.mockRestore();
 	});
 });
 
