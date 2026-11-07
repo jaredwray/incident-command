@@ -2,6 +2,7 @@ import { type App, createApp, setApp } from "@/lib/app";
 import { SESSION_COOKIE } from "@/lib/auth";
 import { loadConfig } from "@/lib/config";
 import type { Role } from "@/lib/domain/types";
+import { type FlashKind, readFlash, sealFlash } from "@/lib/flash";
 import { SYSTEM_ACTOR } from "@/lib/services/context";
 import { memberActor } from "@/lib/services/members";
 import { Clock, FakeNotifier } from "../helpers";
@@ -61,3 +62,74 @@ export async function expectNotFound(promise: Promise<unknown>) {
 }
 
 export const params = <T>(value: T) => Promise.resolve(value);
+
+/** Seals `notice` / `error` values the way production redirects do. */
+export function sealedFlashParams(
+	value: Record<string, string> = {},
+): Record<string, string> {
+	const next = { ...value };
+	if (next.notice !== undefined) {
+		const sealed = sealFlash("notice", next.notice);
+		if (sealed) {
+			next.notice = sealed;
+		} else {
+			delete next.notice;
+		}
+	}
+	if (next.error !== undefined) {
+		const sealed = sealFlash("error", next.error);
+		if (sealed) {
+			next.error = sealed;
+		} else {
+			delete next.error;
+		}
+	}
+	return next;
+}
+
+/** Reads a signed flash message from a redirect URL. */
+export function flashMessage(url: string, kind: FlashKind): string | undefined {
+	return readFlash(
+		kind,
+		new URL(url, "http://localhost").searchParams.get(kind) ?? undefined,
+	);
+}
+
+/** Asserts a redirect path and its signed flash message. */
+export function expectFlashRedirect(
+	url: string,
+	path: string,
+	kind: FlashKind,
+	message: string,
+): void {
+	const actual = new URL(url, "http://localhost");
+	const expected = new URL(path, "http://localhost");
+	expect(actual.pathname).toBe(expected.pathname);
+	for (const [key, value] of expected.searchParams) {
+		expect(actual.searchParams.get(key)).toBe(value);
+	}
+	expect(flashMessage(url, kind)).toBe(message);
+}
+
+/**
+ * Asserts a redirect matches a plain `?notice=` / `?error=` URL from before
+ * flash tokens were signed.
+ */
+export function expectSameFlash(actual: string, plainExpected: string): void {
+	const got = new URL(actual, "http://localhost");
+	const want = new URL(plainExpected, "http://localhost");
+	expect(got.pathname).toBe(want.pathname);
+	for (const kind of ["notice", "error"] as const) {
+		const message = want.searchParams.get(kind);
+		if (message === null) {
+			expect(got.searchParams.get(kind)).toBeNull();
+			continue;
+		}
+		expect(flashMessage(actual, kind)).toBe(message);
+		want.searchParams.delete(kind);
+		got.searchParams.delete(kind);
+	}
+	expect([...got.searchParams.entries()].sort()).toEqual(
+		[...want.searchParams.entries()].sort(),
+	);
+}

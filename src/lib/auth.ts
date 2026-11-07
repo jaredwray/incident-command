@@ -3,7 +3,10 @@ import { redirect } from "next/navigation";
 import { type App, getApp } from "./app";
 import { hasRole } from "./domain/status";
 import type { Actor, PublicMember, Role } from "./domain/types";
+import { flash } from "./flash";
 import { memberActor, toPublicMember } from "./services/members";
+
+export { flash } from "./flash";
 
 export const SESSION_COOKIE = "ic_session";
 
@@ -64,14 +67,4 @@ export async function endSession(app: App): Promise<void> {
 	const jar = await cookies();
 	await app.services.sessions.destroy(jar.get(SESSION_COOKIE)?.value);
 	jar.delete(SESSION_COOKIE);
-}
-
-/** Appends a flash message (`notice` or `error`) to a path. */
-export function flash(
-	path: string,
-	kind: "notice" | "error",
-	message: string,
-): string {
-	const separator = path.includes("?") ? "&" : "?";
-	return `${path}${separator}${kind}=${encodeURIComponent(message)}`;
 }

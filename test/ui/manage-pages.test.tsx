@@ -13,10 +13,22 @@ import SettingsPage from "@/app/manage/settings/page";
 import SetupPage from "@/app/manage/setup/page";
 import SubscribersPage from "@/app/manage/subscribers/page";
 import { SYSTEM_ACTOR } from "@/lib/services/context";
-import { expectNotFound, params, redirectOf, setupApp, signIn } from "./app";
+import {
+	expectFlashRedirect,
+	expectNotFound,
+	params,
+	redirectOf,
+	sealedFlashParams,
+	setupApp,
+	signIn,
+} from "./app";
 import { setRequestHeaders } from "./next-state";
 
 const flash = (value: Record<string, string> = {}) => ({
+	searchParams: params(sealedFlashParams(value)),
+});
+
+const rawFlash = (value: Record<string, string> = {}) => ({
 	searchParams: params(value),
 });
 
@@ -155,8 +167,11 @@ describe("dashboard", () => {
 	it("rejects members without the required role", async () => {
 		const { app } = await setupApp();
 		await signIn(app, "editor");
-		expect(await redirectOf(MembersPage(flash()))).toBe(
-			"/manage?error=That page requires the admin role",
+		expectFlashRedirect(
+			await redirectOf(MembersPage(flash())),
+			"/manage",
+			"error",
+			"That page requires the admin role",
 		);
 	});
 });
@@ -395,6 +410,15 @@ describe("admin pages", () => {
 			screen.getByRole("button", { name: "Create invite link" }),
 		).toBeInTheDocument();
 		page.unmount();
+	});
+
+	it("ignores unsigned notice query values", async () => {
+		const { app } = await setupApp();
+		await signIn(app, "admin");
+		render(await MembersPage(rawFlash({ notice: "Member removed you suck" })));
+		expect(screen.queryByRole("status")).not.toBeInTheDocument();
+		render(await MembersPage(flash({ notice: "Member removed" })));
+		expect(screen.getByRole("status")).toHaveTextContent("Member removed");
 	});
 
 	it("lists open and expired invites", async () => {

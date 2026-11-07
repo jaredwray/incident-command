@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { flash } from "../auth";
 import { isAppError } from "../errors";
+import { flash } from "../flash";
 import { fromDateTimeInput } from "../format";
 
 /** A form value as a string (`""` when missing). */

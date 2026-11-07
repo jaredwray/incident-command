@@ -6,7 +6,14 @@ import {
 	secureCookies,
 	startSession,
 } from "@/lib/auth";
+import { hmacSha256 } from "@/lib/crypto";
 import { ValidationError } from "@/lib/errors";
+import {
+	flashSigningKey,
+	readFlash,
+	resolveFlash,
+	sealFlash,
+} from "@/lib/flash";
 import {
 	attempt,
 	checkbox,
@@ -18,15 +25,87 @@ import {
 	text,
 } from "@/lib/manage/forms";
 import { publicOrigin } from "@/lib/manage/origin";
-import { form, redirectOf, setupApp, signIn } from "./app";
+import {
+	expectFlashRedirect,
+	flashMessage,
+	form,
+	redirectOf,
+	setupApp,
+	signIn,
+} from "./app";
 import { cookieJar, setRequestHeaders } from "./next-state";
 
 describe("auth helpers", () => {
-	it("builds flash urls", () => {
-		expect(flash("/manage", "notice", "Saved!")).toBe("/manage?notice=Saved!");
-		expect(flash("/manage/incidents/new?kind=incident", "error", "a & b")).toBe(
-			"/manage/incidents/new?kind=incident&error=a%20%26%20b",
+	it("builds and verifies signed flash urls", () => {
+		const url = flash("/manage", "notice", "Saved!");
+		expectFlashRedirect(url, "/manage", "notice", "Saved!");
+		expect(
+			flash("/manage/incidents/new?kind=incident", "error", "a & b"),
+		).toMatch(/^\/manage\/incidents\/new\?kind=incident&error=/);
+		expect(
+			flashMessage(
+				flash("/manage/incidents/new?kind=incident", "error", "a & b"),
+				"error",
+			),
+		).toBe("a & b");
+	});
+
+	it("rejects forged or plain flash query values", () => {
+		expect(readFlash("notice", "Member removed you suck")).toBeUndefined();
+		expect(readFlash("notice", undefined)).toBeUndefined();
+		expect(readFlash("notice", "")).toBeUndefined();
+		expect(readFlash("error", "nope.notasignature")).toBeUndefined();
+		expect(readFlash("notice", ".abcdef")).toBeUndefined();
+		expect(readFlash("notice", "payload.")).toBeUndefined();
+		const sealed = sealFlash("notice", "Member removed");
+		expect(readFlash("error", sealed)).toBeUndefined();
+		expect(readFlash("notice", `${sealed}x`)).toBeUndefined();
+		expect(resolveFlash({ notice: "Member removed you suck" })).toEqual({});
+		expect(resolveFlash({ notice: sealed })).toEqual({
+			notice: "Member removed",
+		});
+		expect(resolveFlash({ error: sealFlash("error", "Nope") })).toEqual({
+			error: "Nope",
+		});
+		const long = "x".repeat(501);
+		const payload = Buffer.from(long, "utf8").toString("base64url");
+		const key = flashSigningKey();
+		expect(key).toBeDefined();
+		const sig = hmacSha256(key as string, `notice.${payload}`);
+		expect(readFlash("notice", `${payload}.${sig}`)).toBeUndefined();
+		expect(readFlash("notice", sealFlash("notice", long))).toBe(
+			"x".repeat(500),
 		);
+		expect(sealFlash("notice", "")).toMatch(/^\./);
+		expect(readFlash("notice", sealFlash("notice", ""))).toBeUndefined();
+	});
+
+	it("picks a flash signing key from the environment", () => {
+		expect(flashSigningKey({})).toBe("incident-command-dev-flash");
+		expect(flashSigningKey({ NODE_ENV: "test" })).toBe(
+			"incident-command-dev-flash",
+		);
+		expect(flashSigningKey({ FLASH_SECRET: " flash " })).toBe("flash");
+		expect(flashSigningKey({ SETUP_TOKEN: "setup" })).toBe("setup");
+		expect(flashSigningKey({ WEBHOOK_SECRET: "hook", NODE_ENV: "test" })).toBe(
+			"incident-command-dev-flash",
+		);
+		expect(
+			flashSigningKey({
+				FLASH_SECRET: "a",
+				SETUP_TOKEN: "b",
+			}),
+		).toBe("a");
+		expect(flashSigningKey({ NODE_ENV: "production" })).toBeUndefined();
+		expect(flash("/manage", "notice", "x")).toMatch(/\?notice=/);
+		vi.stubEnv("NODE_ENV", "production");
+		vi.stubEnv("FLASH_SECRET", "");
+		vi.stubEnv("SETUP_TOKEN", "");
+		expect(flashSigningKey()).toBeUndefined();
+		expect(sealFlash("notice", "Saved")).toBeUndefined();
+		expect(readFlash("notice", "a.b")).toBeUndefined();
+		expect(flash("/manage", "notice", "Saved")).toBe("/manage");
+		vi.unstubAllEnvs();
 	});
 
 	it("decides when cookies are secure", () => {
@@ -52,8 +131,11 @@ describe("auth helpers", () => {
 			role: "editor",
 		});
 		await expect(requireMember("editor")).resolves.toBeDefined();
-		expect(await redirectOf(requireMember("admin"))).toBe(
-			"/manage?error=That page requires the admin role",
+		expectFlashRedirect(
+			await redirectOf(requireMember("admin")),
+			"/manage",
+			"error",
+			"That page requires the admin role",
 		);
 
 		await startSession(app, member.id);
@@ -91,13 +173,16 @@ describe("form helpers", () => {
 
 	it("redirects on app errors and rethrows others", async () => {
 		await expect(attempt("/x", async () => 42)).resolves.toBe(42);
-		expect(
+		expectFlashRedirect(
 			await redirectOf(
 				attempt("/x", async () => {
 					throw new ValidationError("nope");
 				}),
 			),
-		).toBe("/x?error=nope");
+			"/x",
+			"error",
+			"nope",
+		);
 		await expect(
 			attempt("/x", async () => {
 				throw new Error("boom");
