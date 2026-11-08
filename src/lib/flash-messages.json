@@ -1,0 +1,202 @@
+{
+	"welcome_admin": {
+		"id": "fls_vm2qocepjectz8gu",
+		"kind": "notice",
+		"text": "Welcome! Your admin account is ready."
+	},
+	"welcome_member": {
+		"id": "fls_asn3kdnrnq4xblaa",
+		"kind": "notice",
+		"text": "Welcome! Your account is ready."
+	},
+	"password_updated": {
+		"id": "fls_0em5czdm5jb4kbik",
+		"kind": "notice",
+		"text": "Password updated"
+	},
+	"incident_declared": {
+		"id": "fls_8pojxvd9d9t07gsz",
+		"kind": "notice",
+		"text": "Incident declared"
+	},
+	"maintenance_scheduled": {
+		"id": "fls_35hhilfnk1hed7zi",
+		"kind": "notice",
+		"text": "Maintenance scheduled"
+	},
+	"update_posted": {
+		"id": "fls_72l5xtvfk1izi6pf",
+		"kind": "notice",
+		"text": "Update posted"
+	},
+	"incident_saved": {
+		"id": "fls_om32tztzj7fltst3",
+		"kind": "notice",
+		"text": "Incident saved"
+	},
+	"incident_deleted": {
+		"id": "fls_c8xsjc9f6rf91l2l",
+		"kind": "notice",
+		"text": "Incident deleted"
+	},
+	"service_created": {
+		"id": "fls_eca36jy813tf1jk7",
+		"kind": "notice",
+		"text": "Service created"
+	},
+	"service_saved": {
+		"id": "fls_ybjkjbt2qa072v8e",
+		"kind": "notice",
+		"text": "Service saved"
+	},
+	"status_updated": {
+		"id": "fls_3vhhud42vfh9kygo",
+		"kind": "notice",
+		"text": "Status updated"
+	},
+	"service_deleted": {
+		"id": "fls_261zjfjjs1d78tko",
+		"kind": "notice",
+		"text": "Service deleted"
+	},
+	"invite_revoked": {
+		"id": "fls_nfbb3lms7k97cwsd",
+		"kind": "notice",
+		"text": "Invite revoked"
+	},
+	"member_updated": {
+		"id": "fls_m9v0taxiilnx83eo",
+		"kind": "notice",
+		"text": "Member updated"
+	},
+	"member_removed": {
+		"id": "fls_3ulclfdqxyr53rfu",
+		"kind": "notice",
+		"text": "Member removed"
+	},
+	"token_revoked": {
+		"id": "fls_k3ulk3dbu4bwsfym",
+		"kind": "notice",
+		"text": "Token revoked"
+	},
+	"token_deleted": {
+		"id": "fls_2w1irzqspll2rxg7",
+		"kind": "notice",
+		"text": "Token deleted"
+	},
+	"subscriber_added": {
+		"id": "fls_ozypch0gz4rij1o3",
+		"kind": "notice",
+		"text": "Subscriber added"
+	},
+	"subscriber_removed": {
+		"id": "fls_10x6c2pqllxtdvtk",
+		"kind": "notice",
+		"text": "Subscriber removed"
+	},
+	"settings_saved": {
+		"id": "fls_6hn8bnly3mmpyovf",
+		"kind": "notice",
+		"text": "Settings saved"
+	},
+	"invalid_credentials": {
+		"id": "fls_lojtbpjo24tteg3y",
+		"kind": "error",
+		"text": "Invalid email or password"
+	},
+	"invalid_setup_token": {
+		"id": "fls_53q3fq2dmqa3u2eo",
+		"kind": "error",
+		"text": "Invalid setup token"
+	},
+	"setup_completed": {
+		"id": "fls_jt5ukcx80o7iqywn",
+		"kind": "error",
+		"text": "Setup has already been completed"
+	},
+	"current_password_incorrect": {
+		"id": "fls_eiszpt63g5fmdjf4",
+		"kind": "error",
+		"text": "Current password is incorrect"
+	},
+	"role_required_viewer": {
+		"id": "fls_jbnlvpmfnkruulfz",
+		"kind": "error",
+		"text": "That page requires the viewer role"
+	},
+	"role_required_editor": {
+		"id": "fls_z6hw2mjkifsx78s4",
+		"kind": "error",
+		"text": "That page requires the editor role"
+	},
+	"role_required_admin": {
+		"id": "fls_t29n3ynrjbr6ncly",
+		"kind": "error",
+		"text": "That page requires the admin role"
+	},
+	"maintenance_window_required": {
+		"id": "fls_y4mez4gjfs9jo9kp",
+		"kind": "error",
+		"text": "Maintenance requires scheduledStart and scheduledEnd"
+	},
+	"invite_invalid": {
+		"id": "fls_6lnk278pughk0enb",
+		"kind": "error",
+		"text": "This invite link is not valid. Ask an admin for a new invite."
+	},
+	"last_admin": {
+		"id": "fls_q2arwpz32qbnct8o",
+		"kind": "error",
+		"text": "You cannot remove the last admin"
+	},
+	"member_email_exists": {
+		"id": "fls_bi25v3kol2hzvhwe",
+		"kind": "error",
+		"text": "A member with that email already exists"
+	},
+	"scheduled_end_before_start": {
+		"id": "fls_6s50ic0bc9p9pdyn",
+		"kind": "error",
+		"text": "scheduledEnd must be after scheduledStart"
+	},
+	"validation_failed": {
+		"id": "fls_p3vxb2rlp7i2hwam",
+		"kind": "error",
+		"text": "Check the form and try again."
+	},
+	"not_found": {
+		"id": "fls_0607ok2gh292hqtc",
+		"kind": "error",
+		"text": "That item was not found."
+	},
+	"forbidden": {
+		"id": "fls_xrc9fith70nhjrcp",
+		"kind": "error",
+		"text": "You do not have permission to do that"
+	},
+	"conflict": {
+		"id": "fls_hdz45w11jq5vxotn",
+		"kind": "error",
+		"text": "That change conflicts with the current data."
+	},
+	"unauthorized": {
+		"id": "fls_6yla5719cg2zq5mt",
+		"kind": "error",
+		"text": "Authentication required"
+	},
+	"unavailable": {
+		"id": "fls_kaj36lf1eptm8dnx",
+		"kind": "error",
+		"text": "The data store is unavailable"
+	},
+	"request_failed": {
+		"id": "fls_t7fihbevvlma6l2e",
+		"kind": "error",
+		"text": "We could not complete that request."
+	},
+	"subscriptions_disabled": {
+		"id": "fls_wuv578tobr2i4q1e",
+		"kind": "error",
+		"text": "Subscriptions are not enabled"
+	}
+}

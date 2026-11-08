@@ -27,7 +27,14 @@ import {
 import { subscribeAction, unsubscribeAction } from "@/app/subscribe/actions";
 import { SESSION_COOKIE } from "@/lib/auth";
 import { SYSTEM_ACTOR } from "@/lib/services/context";
-import { form, redirectOf, setupApp, signIn } from "./app";
+import {
+	expectSameFlash,
+	flashMessage,
+	form,
+	redirectOf,
+	setupApp,
+	signIn,
+} from "./app";
 import { cookieJar } from "./next-state";
 
 describe("session actions", () => {
@@ -38,7 +45,10 @@ describe("session actions", () => {
 				form({ name: "Ada", email: "ada@acme.dev", password: "password123" }),
 			),
 		);
-		expect(url).toBe("/manage?notice=Welcome! Your admin account is ready.");
+		expectSameFlash(
+			url,
+			"/manage?notice=Welcome! Your admin account is ready.",
+		);
 		expect(cookieJar.get(SESSION_COOKIE)?.value).toBeTruthy();
 		expect(cookieJar.get(SESSION_COOKIE)).toMatchObject({
 			httpOnly: true,
@@ -46,18 +56,19 @@ describe("session actions", () => {
 			path: "/",
 		});
 		expect(await services.members.count()).toBe(1);
-		expect(
+		expectSameFlash(
 			await redirectOf(
 				setupAction(
 					form({ name: "B", email: "b@acme.dev", password: "password123" }),
 				),
 			),
-		).toBe("/manage/setup?error=Setup has already been completed");
+			"/manage/setup?error=Setup has already been completed",
+		);
 	});
 
 	it("checks the setup token", async () => {
 		await setupApp({ SETUP_TOKEN: "s3t" });
-		expect(
+		expectSameFlash(
 			await redirectOf(
 				setupAction(
 					form({
@@ -68,7 +79,8 @@ describe("session actions", () => {
 					}),
 				),
 			),
-		).toBe("/manage/setup?error=Invalid setup token");
+			"/manage/setup?error=Invalid setup token",
+		);
 	});
 
 	it("logs in and out", async () => {
@@ -78,11 +90,12 @@ describe("session actions", () => {
 			email: "ada@acme.dev",
 			password: "password123",
 		});
-		expect(
+		expectSameFlash(
 			await redirectOf(
 				loginAction(form({ email: "ada@acme.dev", password: "wrong" })),
 			),
-		).toBe("/manage/login?error=Invalid email or password");
+			"/manage/login?error=Invalid email or password",
+		);
 		expect(
 			await redirectOf(
 				loginAction(form({ email: "ADA@acme.dev", password: "password123" })),
@@ -97,7 +110,8 @@ describe("session actions", () => {
 
 	it("handles missing form fields", async () => {
 		await setupApp();
-		expect(await redirectOf(loginAction(new FormData()))).toBe(
+		expectSameFlash(
+			await redirectOf(loginAction(new FormData())),
 			"/manage/login?error=Invalid email or password",
 		);
 	});
@@ -105,20 +119,22 @@ describe("session actions", () => {
 	it("changes the signed-in member's password", async () => {
 		const { app } = await setupApp();
 		const { member } = await signIn(app, "viewer");
-		expect(
+		expectSameFlash(
 			await redirectOf(
 				changePasswordAction(
 					form({ currentPassword: "nope", newPassword: "password456" }),
 				),
 			),
-		).toBe("/manage/account?error=Current password is incorrect");
-		expect(
+			"/manage/account?error=Current password is incorrect",
+		);
+		expectSameFlash(
 			await redirectOf(
 				changePasswordAction(
 					form({ currentPassword: "password123", newPassword: "password456" }),
 				),
 			),
-		).toBe("/manage/account?notice=Password updated");
+			"/manage/account?notice=Password updated",
+		);
 		await expect(
 			app.services.members.authenticate({
 				email: member.email,
@@ -133,7 +149,8 @@ describe("session actions", () => {
 			"/manage/login",
 		);
 		await signIn(app, "viewer");
-		expect(await redirectOf(createServiceAction(form({ name: "API" })))).toBe(
+		expectSameFlash(
+			await redirectOf(createServiceAction(form({ name: "API" }))),
 			"/manage?error=That page requires the editor role",
 		);
 	});
@@ -169,7 +186,8 @@ describe("incident actions", () => {
 			),
 		);
 		const [incident] = await services.incidents.list();
-		expect(created).toBe(
+		expectSameFlash(
+			created,
 			`/manage/incidents/${incident?.id}?notice=Incident declared`,
 		);
 		expect(incident).toMatchObject({
@@ -179,7 +197,7 @@ describe("incident actions", () => {
 		});
 		expect((await services.catalog.get(api.id)).status).toBe("major_outage");
 
-		expect(
+		expectSameFlash(
 			await redirectOf(
 				postIncidentUpdateAction(
 					form({
@@ -190,12 +208,13 @@ describe("incident actions", () => {
 					}),
 				),
 			),
-		).toBe(`/manage/incidents/${incident?.id}?notice=Update posted`);
+			`/manage/incidents/${incident?.id}?notice=Update posted`,
+		);
 		expect((await services.incidents.get(incident?.id ?? "")).status).toBe(
 			"resolved",
 		);
 
-		expect(
+		expectSameFlash(
 			await redirectOf(
 				editIncidentAction(
 					form({
@@ -205,17 +224,25 @@ describe("incident actions", () => {
 					}),
 				),
 			),
-		).toBe(`/manage/incidents/${incident?.id}?notice=Incident saved`);
+			`/manage/incidents/${incident?.id}?notice=Incident saved`,
+		);
 		expect((await services.incidents.get(incident?.id ?? "")).title).toBe(
 			"API outage",
 		);
 
-		expect(
+		expectSameFlash(
 			await redirectOf(deleteIncidentAction(form({ id: incident?.id ?? "" }))),
-		).toBe("/manage/incidents?notice=Incident deleted");
-		expect(
-			await redirectOf(deleteIncidentAction(form({ id: incident?.id ?? "" }))),
-		).toMatch(/^\/manage\/incidents\?error=Incident/);
+			"/manage/incidents?notice=Incident deleted",
+		);
+		const deletedAgain = await redirectOf(
+			deleteIncidentAction(form({ id: incident?.id ?? "" })),
+		);
+		expect(new URL(deletedAgain, "http://localhost").pathname).toBe(
+			"/manage/incidents",
+		);
+		expect(flashMessage(deletedAgain, "error")).toBe(
+			"That item was not found.",
+		);
 	});
 
 	it("schedules maintenance from datetime-local inputs", async () => {
@@ -232,7 +259,7 @@ describe("incident actions", () => {
 				}),
 			),
 		);
-		expect(url).toMatch(/notice=Maintenance scheduled$/);
+		expect(flashMessage(url, "notice")).toBe("Maintenance scheduled");
 		const [maintenance] = await services.incidents.list();
 		expect(maintenance).toMatchObject({
 			kind: "maintenance",
@@ -244,26 +271,37 @@ describe("incident actions", () => {
 	it("redirects back with validation errors", async () => {
 		const { app } = await setupApp();
 		await signIn(app, "editor");
-		expect(
+		expectSameFlash(
 			await redirectOf(
 				createIncidentAction(
 					form({ kind: "maintenance", title: "x", message: "y" }),
 				),
 			),
-		).toBe(
 			"/manage/incidents/new?kind=maintenance&error=Maintenance requires scheduledStart and scheduledEnd",
 		);
+		const titleError = await redirectOf(
+			createIncidentAction(form({ title: "", message: "y" })),
+		);
 		expect(
-			await redirectOf(createIncidentAction(form({ title: "", message: "y" }))),
-		).toMatch(/^\/manage\/incidents\/new\?kind=incident&error=title/);
-		expect(
-			await redirectOf(
-				postIncidentUpdateAction(form({ id: "nope", message: "x" })),
-			),
-		).toMatch(/^\/manage\/incidents\/nope\?error=/);
-		expect(
-			await redirectOf(editIncidentAction(form({ id: "nope", title: "x" }))),
-		).toMatch(/^\/manage\/incidents\/nope\?error=/);
+			new URL(titleError, "http://localhost").searchParams.get("kind"),
+		).toBe("incident");
+		expect(flashMessage(titleError, "error")).toBe(
+			"Check the form and try again.",
+		);
+		const missingUpdate = await redirectOf(
+			postIncidentUpdateAction(form({ id: "nope", message: "x" })),
+		);
+		expect(new URL(missingUpdate, "http://localhost").pathname).toBe(
+			"/manage/incidents/nope",
+		);
+		expect(flashMessage(missingUpdate, "error")).toBeTruthy();
+		const missingEdit = await redirectOf(
+			editIncidentAction(form({ id: "nope", title: "x" })),
+		);
+		expect(new URL(missingEdit, "http://localhost").pathname).toBe(
+			"/manage/incidents/nope",
+		);
+		expect(flashMessage(missingEdit, "error")).toBeTruthy();
 	});
 });
 
@@ -271,17 +309,18 @@ describe("service actions", () => {
 	it("creates, edits, sets status and deletes services", async () => {
 		const { app, services } = await setupApp();
 		await signIn(app, "editor");
-		expect(
+		expectSameFlash(
 			await redirectOf(
 				createServiceAction(
 					form({ name: "API", group: "Core", description: "", hidden: "on" }),
 				),
 			),
-		).toBe("/manage/services?notice=Service created");
+			"/manage/services?notice=Service created",
+		);
 		const [api] = await services.catalog.list();
 		expect(api).toMatchObject({ name: "API", group: "Core", hidden: true });
 
-		expect(
+		expectSameFlash(
 			await redirectOf(
 				updateServiceAction(
 					form({
@@ -293,7 +332,8 @@ describe("service actions", () => {
 					}),
 				),
 			),
-		).toBe("/manage/services?notice=Service saved");
+			"/manage/services?notice=Service saved",
+		);
 		const updated = await services.catalog.get(api?.id ?? "");
 		expect(updated).toMatchObject({
 			name: "REST API",
@@ -303,36 +343,45 @@ describe("service actions", () => {
 		});
 		expect(updated.group).toBeUndefined();
 
-		expect(
+		expectSameFlash(
 			await redirectOf(
 				updateServiceAction(
 					form({ id: api?.id ?? "", name: "REST API", order: "" }),
 				),
 			),
-		).toBe("/manage/services?notice=Service saved");
+			"/manage/services?notice=Service saved",
+		);
 
-		expect(
+		expectSameFlash(
 			await redirectOf(
 				setServiceStatusAction(
 					form({ id: api?.id ?? "", status: "partial_outage" }),
 				),
 			),
-		).toBe("/manage/services?notice=Status updated");
+			"/manage/services?notice=Status updated",
+		);
 		expect((await services.catalog.get(api?.id ?? "")).status).toBe(
 			"partial_outage",
 		);
 		expect(
-			await redirectOf(
-				setServiceStatusAction(form({ id: api?.id ?? "", status: "bogus" })),
+			flashMessage(
+				await redirectOf(
+					setServiceStatusAction(form({ id: api?.id ?? "", status: "bogus" })),
+				),
+				"error",
 			),
-		).toMatch(/error=/);
+		).toBeTruthy();
 
-		expect(
+		expectSameFlash(
 			await redirectOf(deleteServiceAction(form({ id: api?.id ?? "" }))),
-		).toBe("/manage/services?notice=Service deleted");
+			"/manage/services?notice=Service deleted",
+		);
 		expect(
-			await redirectOf(deleteServiceAction(form({ id: api?.id ?? "" }))),
-		).toMatch(/error=Service/);
+			flashMessage(
+				await redirectOf(deleteServiceAction(form({ id: api?.id ?? "" }))),
+				"error",
+			),
+		).toBe("That item was not found.");
 	});
 });
 
@@ -370,12 +419,16 @@ describe("member actions", () => {
 			),
 		).resolves.toMatchObject({ email: "ed@acme.dev" });
 
-		expect(
+		expectSameFlash(
 			await redirectOf(revokeInviteAction(form({ id: invite?.id ?? "" }))),
-		).toBe("/manage/members?notice=Invite revoked");
+			"/manage/members?notice=Invite revoked",
+		);
 		expect(
-			await redirectOf(revokeInviteAction(form({ id: invite?.id ?? "" }))),
-		).toMatch(/error=Invite/);
+			flashMessage(
+				await redirectOf(revokeInviteAction(form({ id: invite?.id ?? "" }))),
+				"error",
+			),
+		).toBe("That item was not found.");
 		expect(await renewInviteLinkAction(invite?.id ?? "")).toEqual({
 			error: expect.stringMatching(/^Invite/),
 		});
@@ -399,21 +452,21 @@ describe("member actions", () => {
 			email: "ed@acme.dev",
 			role: "editor",
 		});
-		expect(
+		expectSameFlash(
 			await redirectOf(
 				acceptInviteAction(form({ token, name: "Ed", password: "short" })),
 			),
-		).toBe(
-			`/manage/invite?token=${token}&error=password: Too small: expected string to have >=8 characters`,
+			`/manage/invite?token=${token}&error=validation_failed`,
 		);
 		expect(cookieJar.get(SESSION_COOKIE)).toBeUndefined();
-		expect(
+		expectSameFlash(
 			await redirectOf(
 				acceptInviteAction(
 					form({ token, name: "Ed", password: "password123" }),
 				),
 			),
-		).toBe("/manage?notice=Welcome! Your account is ready.");
+			"/manage?notice=Welcome! Your account is ready.",
+		);
 		const session = await services.sessions.resolve(
 			cookieJar.get(SESSION_COOKIE)?.value,
 		);
@@ -422,14 +475,13 @@ describe("member actions", () => {
 			name: "Ed",
 			role: "editor",
 		});
-		expect(
+		expectSameFlash(
 			await redirectOf(
 				acceptInviteAction(
 					form({ token, name: "Ed", password: "password123" }),
 				),
 			),
-		).toBe(
-			`/manage/invite?token=${token}&error=This invite link is not valid. Ask an admin for a new invite.`,
+			`/manage/invite?token=${token}&error=invite_invalid`,
 		);
 	});
 
@@ -443,24 +495,31 @@ describe("member actions", () => {
 			name: "Ed",
 			password: "password123",
 		});
-		expect(
+		expectSameFlash(
 			await redirectOf(
 				updateMemberAction(form({ id: ed.id, role: "viewer", password: "" })),
 			),
-		).toBe("/manage/members?notice=Member updated");
+			"/manage/members?notice=Member updated",
+		);
 		expect((await services.members.get(ed.id))?.role).toBe("viewer");
-		expect(
+		expectSameFlash(
 			await redirectOf(
 				updateMemberAction(form({ id: ed.id, password: "newpassword1" })),
 			),
-		).toBe("/manage/members?notice=Member updated");
-		expect(await redirectOf(deleteMemberAction(form({ id: ed.id })))).toBe(
+			"/manage/members?notice=Member updated",
+		);
+		expectSameFlash(
+			await redirectOf(deleteMemberAction(form({ id: ed.id }))),
 			"/manage/members?notice=Member removed",
 		);
-		expect(await redirectOf(updateMemberAction(form({ id: "nope" })))).toMatch(
-			/error=Member/,
-		);
-		expect(await redirectOf(deleteMemberAction(form({ id: actor.id })))).toBe(
+		expect(
+			flashMessage(
+				await redirectOf(updateMemberAction(form({ id: "nope" }))),
+				"error",
+			),
+		).toBe("That item was not found.");
+		expectSameFlash(
+			await redirectOf(deleteMemberAction(form({ id: actor.id }))),
 			"/manage/members?error=You cannot remove the last admin",
 		);
 	});
@@ -494,18 +553,26 @@ describe("agent actions", () => {
 			createAgentAction({}, form({ name: "Bot", role: "editor" })),
 		).rejects.toThrow("kaput");
 
-		expect(
+		expectSameFlash(
 			await redirectOf(revokeAgentAction(form({ id: agent?.id ?? "" }))),
-		).toBe("/manage/agents?notice=Token revoked");
-		expect(
-			await redirectOf(deleteAgentAction(form({ id: agent?.id ?? "" }))),
-		).toBe("/manage/agents?notice=Token deleted");
-		expect(
-			await redirectOf(deleteAgentAction(form({ id: agent?.id ?? "" }))),
-		).toMatch(/error=Agent/);
-		expect(await redirectOf(revokeAgentAction(form({ id: "nope" })))).toMatch(
-			/error=Agent/,
+			"/manage/agents?notice=Token revoked",
 		);
+		expectSameFlash(
+			await redirectOf(deleteAgentAction(form({ id: agent?.id ?? "" }))),
+			"/manage/agents?notice=Token deleted",
+		);
+		expect(
+			flashMessage(
+				await redirectOf(deleteAgentAction(form({ id: agent?.id ?? "" }))),
+				"error",
+			),
+		).toBe("That item was not found.");
+		expect(
+			flashMessage(
+				await redirectOf(revokeAgentAction(form({ id: "nope" }))),
+				"error",
+			),
+		).toBe("That item was not found.");
 	});
 });
 
@@ -513,30 +580,39 @@ describe("subscriber and settings actions", () => {
 	it("manages subscribers", async () => {
 		const { app, services } = await setupApp();
 		const { actor } = await signIn(app, "admin");
-		expect(
+		expectSameFlash(
 			await redirectOf(
 				addSubscriberAction(
 					form({ type: "webhook", target: "https://hooks.example.com/x" }),
 				),
 			),
-		).toBe("/manage/subscribers?notice=Subscriber added");
-		expect(
+			"/manage/subscribers?notice=Subscriber added",
+		);
+		expectSameFlash(
 			await redirectOf(
 				addSubscriberAction(form({ type: "email", target: "ops@acme.dev" })),
 			),
-		).toBe("/manage/subscribers?notice=Subscriber added");
+			"/manage/subscribers?notice=Subscriber added",
+		);
 		expect(
-			await redirectOf(
-				addSubscriberAction(form({ type: "webhook", target: "nope" })),
+			flashMessage(
+				await redirectOf(
+					addSubscriberAction(form({ type: "webhook", target: "nope" })),
+				),
+				"error",
 			),
-		).toMatch(/error=url/);
+		).toBe("Check the form and try again.");
 		const [first] = await services.subscribers.list(actor);
-		expect(
+		expectSameFlash(
 			await redirectOf(deleteSubscriberAction(form({ id: first?.id ?? "" }))),
-		).toBe("/manage/subscribers?notice=Subscriber removed");
+			"/manage/subscribers?notice=Subscriber removed",
+		);
 		expect(
-			await redirectOf(deleteSubscriberAction(form({ id: first?.id ?? "" }))),
-		).toMatch(/error=Subscriber/);
+			flashMessage(
+				await redirectOf(deleteSubscriberAction(form({ id: first?.id ?? "" }))),
+				"error",
+			),
+		).toBe("That item was not found.");
 	});
 
 	it("saves settings", async () => {
@@ -559,7 +635,7 @@ describe("subscriber and settings actions", () => {
 				}),
 			),
 		);
-		expect(url).toBe("/manage/settings?notice=Settings saved");
+		expectSameFlash(url, "/manage/settings?notice=Settings saved");
 		expect(await services.settings.get()).toMatchObject({
 			siteName: "Acme Status",
 			theme: "midnight",
@@ -567,12 +643,15 @@ describe("subscriber and settings actions", () => {
 			allowSubscriptions: true,
 		});
 		expect(
-			await redirectOf(
-				updateSettingsAction(
-					form({ siteName: "Acme", theme: "default", brandColor: "pink" }),
+			flashMessage(
+				await redirectOf(
+					updateSettingsAction(
+						form({ siteName: "Acme", theme: "default", brandColor: "pink" }),
+					),
 				),
+				"error",
 			),
-		).toMatch(/error=brandColor/);
+		).toBe("Check the form and try again.");
 	});
 });
 
@@ -582,12 +661,14 @@ describe("public subscribe actions", () => {
 		expect(
 			await redirectOf(subscribeAction(form({ email: "jane@example.com" }))),
 		).toBe("/subscribe?status=confirmation_sent");
-		expect(await redirectOf(subscribeAction(form({ email: "bad" })))).toMatch(
-			/^\/subscribe\?error=email/,
+		const badEmail = await redirectOf(subscribeAction(form({ email: "bad" })));
+		expect(new URL(badEmail, "http://localhost").pathname).toBe("/subscribe");
+		expect(flashMessage(badEmail, "error")).toBe(
+			"Check the form and try again.",
 		);
-		expect(await redirectOf(subscribeAction(new FormData()))).toMatch(
-			/^\/subscribe\?error=/,
-		);
+		const emptyEmail = await redirectOf(subscribeAction(new FormData()));
+		expect(new URL(emptyEmail, "http://localhost").pathname).toBe("/subscribe");
+		expect(flashMessage(emptyEmail, "error")).toBeTruthy();
 		const token = notifier.confirmations[0]?.token ?? "";
 		expect(await redirectOf(unsubscribeAction(form({ token })))).toBe(
 			"/subscribe/unsubscribe?done=1",

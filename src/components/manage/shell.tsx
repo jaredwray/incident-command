@@ -4,6 +4,7 @@ import { logoutAction } from "@/app/manage/actions";
 import { WatchtowerLogo } from "@/components/watchtower-logo";
 import { hasRole, ROLE_LABELS } from "@/lib/domain/status";
 import type { PublicMember, Role } from "@/lib/domain/types";
+import { resolveFlash } from "@/lib/flash";
 import type { StoreHealth } from "@/lib/store/cached";
 import { SubmitButton } from "../submit-button";
 import { Flash } from "./ui";
@@ -65,7 +66,7 @@ export function ManageShell({
 	active,
 	title,
 	actions,
-	flash,
+	flash = {},
 	health,
 	children,
 }: {
@@ -140,7 +141,7 @@ export function ManageShell({
 						serving cached data and changes cannot be saved until it recovers.
 					</p>
 				)}
-				<Flash notice={flash?.notice} error={flash?.error} />
+				<Flash {...resolveFlash(flash)} />
 				{children}
 			</main>
 		</div>

@@ -5,6 +5,7 @@ import { buttonClass, Field, Flash, inputClass } from "@/components/manage/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { getApp } from "@/lib/app";
 import { ROLE_LABELS } from "@/lib/domain/status";
+import { resolveFlash } from "@/lib/flash";
 import { acceptInviteAction } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,8 @@ export default async function InvitePage({
 }: {
 	searchParams: Promise<{ token?: string; error?: string }>;
 }) {
-	const { token = "", error } = await searchParams;
+	const { token = "", error: errorToken } = await searchParams;
+	const { error } = resolveFlash({ error: errorToken });
 	const { services } = await getApp();
 	const [settings, invite] = await Promise.all([
 		services.settings.get(),

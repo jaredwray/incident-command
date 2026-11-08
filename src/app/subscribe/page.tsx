@@ -4,6 +4,7 @@ import { NoticeCard } from "@/components/status/notice";
 import { PublicPage } from "@/components/status/page-shell";
 import { SubmitButton } from "@/components/submit-button";
 import { getApp } from "@/lib/app";
+import { resolveFlash } from "@/lib/flash";
 import { subscribeAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +15,8 @@ interface Props {
 }
 
 export default async function SubscribePage({ searchParams }: Props) {
-	const { status, error } = await searchParams;
+	const { status, error: errorToken } = await searchParams;
+	const { error } = resolveFlash({ error: errorToken });
 	const { services } = await getApp();
 	const [settings, canSubscribe] = await Promise.all([
 		services.settings.get(),

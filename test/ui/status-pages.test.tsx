@@ -17,7 +17,7 @@ import SubscribePage from "@/app/subscribe/page";
 import UnsubscribePage from "@/app/subscribe/unsubscribe/page";
 import { setApp } from "@/lib/app";
 import { SYSTEM_ACTOR } from "@/lib/services/context";
-import { expectNotFound, params, setupApp } from "./app";
+import { expectNotFound, flashQueryParams, params, setupApp } from "./app";
 
 describe("root layout", () => {
 	it("applies the theme, brand color and escaped custom css", async () => {
@@ -275,13 +275,21 @@ describe("subscription pages", () => {
 
 		const errored = render(
 			await SubscribePage({
-				searchParams: params({ error: "email: Invalid email address" }),
+				searchParams: params(flashQueryParams({ error: "validation_failed" })),
 			}),
 		);
 		expect(screen.getByRole("alert")).toHaveTextContent(
-			"Invalid email address",
+			"Check the form and try again.",
 		);
 		errored.unmount();
+
+		const forged = render(
+			await SubscribePage({
+				searchParams: params({ error: "email: Invalid email address" }),
+			}),
+		);
+		expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+		forged.unmount();
 
 		const sent = render(
 			await SubscribePage({

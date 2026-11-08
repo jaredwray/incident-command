@@ -8,6 +8,13 @@ import {
 } from "@/lib/auth";
 import { ValidationError } from "@/lib/errors";
 import {
+	flashCodeForError,
+	flashEntry,
+	readFlash,
+	resolveFlash,
+	roleFlashCode,
+} from "@/lib/flash";
+import {
 	attempt,
 	checkbox,
 	dateTime,
@@ -18,15 +25,59 @@ import {
 	text,
 } from "@/lib/manage/forms";
 import { publicOrigin } from "@/lib/manage/origin";
-import { form, redirectOf, setupApp, signIn } from "./app";
+import {
+	expectFlashRedirect,
+	flashMessage,
+	form,
+	redirectOf,
+	setupApp,
+	signIn,
+} from "./app";
 import { cookieJar, setRequestHeaders } from "./next-state";
 
 describe("auth helpers", () => {
-	it("builds flash urls", () => {
-		expect(flash("/manage", "notice", "Saved!")).toBe("/manage?notice=Saved!");
-		expect(flash("/manage/incidents/new?kind=incident", "error", "a & b")).toBe(
-			"/manage/incidents/new?kind=incident&error=a%20%26%20b",
+	it("builds flash urls from catalog codes", () => {
+		expect(flash("/manage", "settings_saved")).toBe(
+			"/manage?notice=settings_saved",
 		);
+		expectFlashRedirect(
+			flash("/manage", "settings_saved"),
+			"/manage",
+			"notice",
+			"Settings saved",
+		);
+		expect(
+			flash("/manage/incidents/new?kind=incident", "validation_failed"),
+		).toBe("/manage/incidents/new?kind=incident&error=validation_failed");
+		expect(
+			flashMessage(
+				flash("/manage/incidents/new?kind=incident", "validation_failed"),
+				"error",
+			),
+		).toBe("Check the form and try again.");
+	});
+
+	it("rejects unknown flash query values", () => {
+		expect(readFlash("notice", "Member removed you suck")).toBeUndefined();
+		expect(readFlash("notice", undefined)).toBeUndefined();
+		expect(readFlash("notice", "")).toBeUndefined();
+		expect(readFlash("error", "member_removed")).toBeUndefined();
+		expect(resolveFlash({ notice: "Member removed you suck" })).toEqual({});
+		expect(resolveFlash({ notice: "member_removed" })).toEqual({
+			notice: "Member removed",
+		});
+		expect(resolveFlash({ error: "invalid_credentials" })).toEqual({
+			error: "Invalid email or password",
+		});
+		expect(flashEntry("member_removed")?.id).toMatch(/^fls_/);
+		expect(flashEntry("nope")).toBeUndefined();
+		expect(roleFlashCode("admin")).toBe("role_required_admin");
+		expect(flashCodeForError(new ValidationError("title: Too small"))).toBe(
+			"validation_failed",
+		);
+		expect(
+			flashCodeForError(new ValidationError("Current password is incorrect")),
+		).toBe("current_password_incorrect");
 	});
 
 	it("decides when cookies are secure", () => {
@@ -52,8 +103,11 @@ describe("auth helpers", () => {
 			role: "editor",
 		});
 		await expect(requireMember("editor")).resolves.toBeDefined();
-		expect(await redirectOf(requireMember("admin"))).toBe(
-			"/manage?error=That page requires the admin role",
+		expectFlashRedirect(
+			await redirectOf(requireMember("admin")),
+			"/manage",
+			"error",
+			"That page requires the admin role",
 		);
 
 		await startSession(app, member.id);
@@ -91,13 +145,16 @@ describe("form helpers", () => {
 
 	it("redirects on app errors and rethrows others", async () => {
 		await expect(attempt("/x", async () => 42)).resolves.toBe(42);
-		expect(
+		expectFlashRedirect(
 			await redirectOf(
 				attempt("/x", async () => {
 					throw new ValidationError("nope");
 				}),
 			),
-		).toBe("/x?error=nope");
+			"/x",
+			"error",
+			"Check the form and try again.",
+		);
 		await expect(
 			attempt("/x", async () => {
 				throw new Error("boom");
