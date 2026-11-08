@@ -37,6 +37,9 @@ export type Role = (typeof ROLES)[number];
 export const SUBSCRIBER_TYPES = ["email", "webhook"] as const;
 export type SubscriberType = (typeof SUBSCRIBER_TYPES)[number];
 
+export type DraftAction = "create" | "update";
+export type DraftState = "pending" | "approved" | "discarded";
+
 export type ActorType = "member" | "agent" | "system";
 
 /** Who performed an action. Stored on incidents/updates for attribution. */
@@ -175,4 +178,43 @@ export interface Subscriber {
 	token: string;
 	confirmedAt?: string;
 	createdAt: string;
+}
+
+/** The public text and fields of a notification draft. */
+export interface DraftContent {
+	/** The title of a new incident or maintenance. Not used by an update. */
+	title?: string;
+	/** The impact of a new incident. Not used by an update. */
+	impact?: IncidentImpact;
+	/** The affected services of a new incident or maintenance. Not used by an update. */
+	serviceIds?: string[];
+	/** The window of new maintenance. Not used by an update. */
+	scheduledStart?: string;
+	scheduledEnd?: string;
+	/** The status after publication. An update without a status keeps the current status. */
+	status?: EventStatus;
+	/** The public message that subscribers receive. */
+	message: string;
+	/** Sets the affected services to this status instead of the automatic status. */
+	serviceStatus?: ServiceStatus;
+}
+
+/**
+ * A notification that waits for review by a person. Approval publishes it on
+ * the status page and sends it to subscribers. A `create` draft declares a new
+ * incident or maintenance. An `update` draft posts to an existing incident.
+ */
+export interface NotificationDraft {
+	id: string;
+	action: DraftAction;
+	kind: IncidentKind;
+	/** The incident that gets the update. A `create` draft gets it at approval. */
+	incidentId?: string;
+	content: DraftContent;
+	state: DraftState;
+	createdBy: AuthorRef;
+	reviewedBy?: AuthorRef;
+	reviewedAt?: string;
+	createdAt: string;
+	updatedAt: string;
 }

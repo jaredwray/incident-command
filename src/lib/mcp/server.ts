@@ -13,6 +13,7 @@ import type { Actor, Incident, Role } from "../domain/types";
 import { formatUptime } from "../domain/uptime";
 import { isAppError } from "../errors";
 import type { Services } from "../services";
+import { draftPath } from "../services/drafts";
 import { invitePath } from "../services/members";
 
 export const MCP_SERVER_NAME = "incident-command";
@@ -25,6 +26,8 @@ const INSTRUCTIONS = `You are connected to an incident command service that powe
 - Affected services move to a status derived from the incident impact (minor=degraded_performance,
   major=partial_outage, critical=major_outage) unless serviceStatus is given; resolving restores them.
 - Schedule planned work with schedule_maintenance (statuses: scheduled -> in_progress -> verifying -> completed).
+- When a person must review a notification first, use draft_notification and give that person the reviewUrl.
+  Nothing is published or sent until the person approves the draft. Check the result with get_notification_draft.
 - Everything you post is public on the status page and may notify subscribers. Write for customers.`;
 
 const id = z.string().min(1).describe("The record id");
@@ -99,6 +102,12 @@ export function createMcpServer(
 		{ name: MCP_SERVER_NAME, version: MCP_SERVER_VERSION },
 		{ instructions: INSTRUCTIONS },
 	);
+
+	/** A full portal URL. It uses the site URL, or the request origin when no site URL is set. */
+	async function portalUrl(path: string): Promise<string> {
+		const { siteUrl } = await services.settings.get();
+		return `${siteUrl ?? origin}${path}`;
+	}
 
 	function tool<S extends z.ZodRawShape>(
 		role: Role,
@@ -421,6 +430,80 @@ export function createMcpServer(
 			services.incidents.create(actor, { ...args, kind: "maintenance" }),
 	);
 
+	// ---- notification drafts --------------------------------------------------
+
+	tool(
+		"editor",
+		"draft_notification",
+		{
+			title: "Draft notification",
+			description:
+				"Saves a notification for a person to review. Nothing is published or sent until a person approves it. Give the reviewUrl to that person. With incidentId, the draft is an update to that incident. Without incidentId, the draft declares a new incident or maintenance. On approval, the update is published on the status page and subscribers are notified.",
+			inputSchema: {
+				incidentId: z
+					.string()
+					.min(1)
+					.optional()
+					.describe(
+						"The incident that gets the update. Omit to declare a new incident or maintenance.",
+					),
+				kind: kindSchema
+					.optional()
+					.describe("New events only: incident (default) or maintenance"),
+				title: z
+					.string()
+					.optional()
+					.describe("New events only: short customer-facing title"),
+				message: z
+					.string()
+					.describe("The public message that subscribers receive"),
+				status: eventStatusSchema
+					.optional()
+					.describe(
+						"The status after approval. An update without a status keeps the current status.",
+					),
+				impact: impactSchema
+					.optional()
+					.describe(
+						"New incidents only: none | minor | major | critical (default minor)",
+					),
+				serviceIds: z
+					.array(z.string())
+					.optional()
+					.describe("New events only: affected services"),
+				serviceStatus: serviceStatusSchema
+					.optional()
+					.describe("Override the status applied to affected services"),
+				scheduledStart: isoDate
+					.optional()
+					.describe("New maintenance only: start of the window (ISO 8601)"),
+				scheduledEnd: isoDate
+					.optional()
+					.describe("New maintenance only: end of the window (ISO 8601)"),
+			},
+		},
+		async (args) => {
+			const draft = await services.drafts.create(actor, args);
+			return { reviewUrl: await portalUrl(draftPath(draft.id)), draft };
+		},
+	);
+
+	tool(
+		"viewer",
+		"get_notification_draft",
+		{
+			title: "Get notification draft",
+			description:
+				"A notification draft and its review state: pending, approved or discarded. After approval, incidentId is the incident that has the published update.",
+			inputSchema: { id },
+			readOnly: true,
+		},
+		async (args) => {
+			const draft = await services.drafts.get(args.id);
+			return { reviewUrl: await portalUrl(draftPath(draft.id)), draft };
+		},
+	);
+
 	// ---- admin ----------------------------------------------------------------
 
 	tool(
@@ -449,11 +532,7 @@ export function createMcpServer(
 		},
 		async (args) => {
 			const { token, invite } = await services.members.invite(actor, args);
-			const { siteUrl } = await services.settings.get();
-			return {
-				inviteUrl: `${siteUrl ?? origin}${invitePath(token)}`,
-				invite,
-			};
+			return { inviteUrl: await portalUrl(invitePath(token)), invite };
 		},
 	);
 

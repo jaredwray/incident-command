@@ -174,6 +174,7 @@ describe("MongoStore", () => {
 			"incidents",
 			"invites",
 			"members",
+			"notification_drafts",
 			"service_status_changes",
 			"services",
 			"sessions",

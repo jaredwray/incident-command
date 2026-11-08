@@ -12,6 +12,7 @@ import {
 	MAINTENANCE_STATUSES,
 	SERVICE_STATUSES,
 	type Service,
+	type ServiceStatus,
 } from "@/lib/domain/types";
 import { toDateTimeInput } from "@/lib/format";
 import { Field, inputClass, Select } from "./ui";
@@ -24,14 +25,22 @@ export function StatusSelect({
 	kind,
 	value,
 	id = "status",
+	keepLabel,
 }: {
 	kind: IncidentKind;
 	value?: EventStatus;
 	id?: string;
+	/** Adds a first option with an empty value. It keeps the current status. */
+	keepLabel?: string;
 }) {
 	return (
 		<Field label="Status" htmlFor={id}>
-			<Select id={id} name="status" defaultValue={value}>
+			<Select
+				id={id}
+				name="status"
+				defaultValue={value ?? (keepLabel ? "" : undefined)}
+			>
+				{keepLabel && <option value="">{keepLabel}</option>}
 				{statusesFor(kind).map((status) => (
 					<option key={status} value={status}>
 						{EVENT_STATUS_LABELS[status]}
@@ -65,13 +74,15 @@ export function ImpactSelect({
 export function ServiceStatusSelect({
 	id = "serviceStatus",
 	hint,
+	value,
 }: {
 	id?: string;
 	hint: string;
+	value?: ServiceStatus;
 }) {
 	return (
 		<Field label="Set affected services to" htmlFor={id} hint={hint}>
-			<Select id={id} name="serviceStatus" defaultValue="">
+			<Select id={id} name="serviceStatus" defaultValue={value ?? ""}>
 				<option value="">Automatic</option>
 				{SERVICE_STATUSES.map((status) => (
 					<option key={status} value={status}>

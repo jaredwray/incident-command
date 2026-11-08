@@ -30,6 +30,10 @@ const MESSAGE_CODES: Record<string, FlashCode> = {
 	"You do not have permission to do that": "forbidden",
 	"Authentication required": "unauthorized",
 	"The data store is unavailable": "unavailable",
+	"This draft was already approved": "draft_already_approved",
+	"This draft was already discarded": "draft_already_discarded",
+	"Somebody else reviewed this draft at the same time. Reload the draft.":
+		"draft_reviewed_meanwhile",
 };
 
 const ERROR_CODE_FLASH: Record<ErrorCode, FlashCode> = {

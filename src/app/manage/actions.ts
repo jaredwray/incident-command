@@ -3,7 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { type App, getApp } from "@/lib/app";
-import { endSession, flash, requireMember, startSession } from "@/lib/auth";
+import {
+	endSession,
+	flash,
+	loginPath,
+	requireMember,
+	returnPath,
+	startSession,
+} from "@/lib/auth";
 import type {
 	EventStatus,
 	IncidentImpact,
@@ -23,6 +30,7 @@ import {
 	text,
 } from "@/lib/manage/forms";
 import { publicOrigin } from "@/lib/manage/origin";
+import { draftPath } from "@/lib/services/drafts";
 import { invitePath } from "@/lib/services/members";
 
 /**
@@ -50,11 +58,12 @@ export async function loginAction(form: FormData): Promise<void> {
 		email: text(form, "email"),
 		password: text(form, "password"),
 	});
+	const next = text(form, "next");
 	if (!member) {
-		redirect(flash("/manage/login", "invalid_credentials"));
+		redirect(flash(loginPath(next), "invalid_credentials"));
 	}
 	await startSession(app, member.id);
-	redirect("/manage");
+	redirect(returnPath(next));
 }
 
 export async function logoutAction(): Promise<void> {
@@ -169,6 +178,47 @@ export async function deleteIncidentAction(form: FormData): Promise<void> {
 		services.incidents.delete(actor, text(form, "id")),
 	);
 	redirect(flash("/manage/incidents", "incident_deleted"));
+}
+
+// ---- notification drafts ------------------------------------------------------------
+
+/** The draft fields of the review form. Fields that the form does not show stay empty. */
+function draftContent(form: FormData) {
+	return {
+		title: nonEmpty(form, "title"),
+		impact: nonEmpty(form, "impact") as IncidentImpact | undefined,
+		serviceIds: list(form, "serviceIds"),
+		scheduledStart: dateTime(form, "scheduledStart"),
+		scheduledEnd: dateTime(form, "scheduledEnd"),
+		status: nonEmpty(form, "status") as EventStatus | undefined,
+		message: text(form, "message"),
+		serviceStatus: nonEmpty(form, "serviceStatus") as ServiceStatus | undefined,
+	};
+}
+
+export async function saveDraftAction(form: FormData): Promise<void> {
+	const { actor, services } = await requireMember("editor");
+	const id = text(form, "id");
+	await attempt(draftPath(id), () =>
+		services.drafts.update(actor, id, draftContent(form)),
+	);
+	redirect(flash(draftPath(id), "draft_saved"));
+}
+
+export async function approveDraftAction(form: FormData): Promise<void> {
+	const { actor, services } = await requireMember("editor");
+	const id = text(form, "id");
+	const { incident } = await attempt(draftPath(id), () =>
+		services.drafts.approve(actor, id, draftContent(form)),
+	);
+	redirect(flash(`/manage/incidents/${incident.id}`, "draft_approved"));
+}
+
+export async function discardDraftAction(form: FormData): Promise<void> {
+	const { actor, services } = await requireMember("editor");
+	const id = text(form, "id");
+	await attempt(draftPath(id), () => services.drafts.discard(actor, id));
+	redirect(flash("/manage/drafts", "draft_discarded"));
 }
 
 // ---- services -------------------------------------------------------------------

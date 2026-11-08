@@ -3,6 +3,7 @@ import type {
 	Incident,
 	Invite,
 	Member,
+	NotificationDraft,
 	Service,
 	ServiceStatusChange,
 	Session,
@@ -21,6 +22,7 @@ export interface CollectionMap {
 	sessions: Session;
 	agent_tokens: AgentToken;
 	subscribers: Subscriber;
+	notification_drafts: NotificationDraft;
 }
 
 export type CollectionName = keyof CollectionMap;
@@ -36,6 +38,7 @@ export const COLLECTIONS: readonly CollectionName[] = [
 	"sessions",
 	"agent_tokens",
 	"subscribers",
+	"notification_drafts",
 ];
 
 export interface IndexDefinition {
@@ -63,6 +66,7 @@ export const INDEXES: Record<CollectionName, readonly IndexDefinition[]> = {
 		{ field: "token", unique: true },
 		{ field: "target", unique: true },
 	],
+	notification_drafts: [{ field: "state" }, { field: "createdAt" }],
 };
 
 export type Scalar = string | number | boolean | null;

@@ -36,13 +36,35 @@ export async function getMemberContext(): Promise<MemberContext | undefined> {
 	return { member, actor: memberActor(member), services: app.services, app };
 }
 
-/** Requires a signed-in member with at least `role`, redirecting otherwise. */
+/**
+ * The path to go to after sign-in. Only portal paths of printable ASCII are
+ * permitted, so a link cannot send a person to a different site.
+ */
+export function returnPath(value: string | undefined): string {
+	return value && /^\/manage(?:[/?][\x21-\x7e]*)?$/.test(value)
+		? value
+		: "/manage";
+}
+
+/** The sign-in path. After sign-in, the member goes to `next`. */
+export function loginPath(next?: string): string {
+	const path = returnPath(next);
+	return path === "/manage"
+		? "/manage/login"
+		: `/manage/login?next=${encodeURIComponent(path)}`;
+}
+
+/**
+ * Requires a signed-in member with at least `role`, redirecting otherwise.
+ * A visitor who is not signed in comes back to `next` after sign-in.
+ */
 export async function requireMember(
 	role: Role = "viewer",
+	next?: string,
 ): Promise<MemberContext> {
 	const context = await getMemberContext();
 	if (!context) {
-		redirect("/manage/login");
+		redirect(loginPath(next));
 	}
 	if (!hasRole(context.member.role, role)) {
 		redirect(flash("/manage", roleFlashCode(role)));

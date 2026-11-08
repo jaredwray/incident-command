@@ -102,13 +102,15 @@ describe("MCP handler", () => {
 			"list_services",
 			"list_incidents",
 			"get_incident",
+			"get_notification_draft",
 		]);
 		const editor = await names("editor");
 		expect(editor).toContain("create_incident");
+		expect(editor).toContain("draft_notification");
 		expect(editor).not.toContain("create_agent_token");
 		const admin = await names("admin");
 		expect(admin).toContain("create_agent_token");
-		expect(admin).toHaveLength(29);
+		expect(admin).toHaveLength(31);
 	});
 
 	it("lets an editor agent run an incident end to end", async () => {
@@ -225,6 +227,64 @@ describe("MCP handler", () => {
 			deleted: web.id,
 		});
 		await client.close();
+	});
+
+	it("lets an agent draft a notification that a person reviews", async () => {
+		const { call } = await connect(t, await tokenFor(t, "editor"));
+		const api = await t.services.catalog.create(ADMIN, { name: "API" });
+		const drafted = (
+			await call("draft_notification", {
+				title: "API errors",
+				message: "We are looking into errors.",
+				impact: "major",
+				serviceIds: [api.id],
+			})
+		).data;
+		expect(drafted.reviewUrl).toBe(
+			`http://localhost/manage/drafts/${drafted.draft.id}`,
+		);
+		expect(drafted.draft).toMatchObject({
+			action: "create",
+			state: "pending",
+			createdBy: { type: "agent", name: "editor bot" },
+		});
+		expect((await call("list_incidents")).data).toEqual([]);
+
+		const rejected = await call("draft_notification", {
+			incidentId: "inc_missing",
+			message: "x",
+		});
+		expect(rejected).toMatchObject({
+			isError: true,
+			text: 'not_found: Incident "inc_missing" was not found',
+		});
+
+		const { incident } = await t.services.drafts.approve(
+			ADMIN,
+			drafted.draft.id,
+			drafted.draft.content,
+		);
+		const viewer = await connect(t, await tokenFor(t, "viewer"));
+		const checked = (
+			await viewer.call("get_notification_draft", { id: drafted.draft.id })
+		).data;
+		expect(checked).toMatchObject({
+			reviewUrl: drafted.reviewUrl,
+			draft: { state: "approved", incidentId: incident.id },
+		});
+
+		const update = (
+			await call("draft_notification", {
+				incidentId: incident.id,
+				message: "A fix is ready.",
+				status: "monitoring",
+			})
+		).data;
+		expect(update.draft).toMatchObject({
+			action: "update",
+			kind: "incident",
+			incidentId: incident.id,
+		});
 	});
 
 	it("returns tool errors for expected failures", async () => {

@@ -1,6 +1,7 @@
 import {
 	acceptInviteAction,
 	addSubscriberAction,
+	approveDraftAction,
 	changePasswordAction,
 	createAgentAction,
 	createIncidentAction,
@@ -10,6 +11,7 @@ import {
 	deleteMemberAction,
 	deleteServiceAction,
 	deleteSubscriberAction,
+	discardDraftAction,
 	editIncidentAction,
 	inviteMemberAction,
 	loginAction,
@@ -18,6 +20,7 @@ import {
 	renewInviteLinkAction,
 	revokeAgentAction,
 	revokeInviteAction,
+	saveDraftAction,
 	setServiceStatusAction,
 	setupAction,
 	updateMemberAction,
@@ -26,6 +29,7 @@ import {
 } from "@/app/manage/actions";
 import { subscribeAction, unsubscribeAction } from "@/app/subscribe/actions";
 import { SESSION_COOKIE } from "@/lib/auth";
+import type { Actor } from "@/lib/domain/types";
 import { SYSTEM_ACTOR } from "@/lib/services/context";
 import {
 	expectSameFlash,
@@ -106,6 +110,47 @@ describe("session actions", () => {
 		expect(await redirectOf(logoutAction())).toBe("/manage/login");
 		expect(cookieJar.get(SESSION_COOKIE)).toBeUndefined();
 		await expect(services.sessions.resolve(token)).resolves.toBeUndefined();
+	});
+
+	it("returns to the portal path of the sign-in link", async () => {
+		const { services } = await setupApp();
+		await services.members.setup({
+			name: "Ada",
+			email: "ada@acme.dev",
+			password: "password123",
+		});
+		const next = "/manage/drafts/drf_1";
+		expectSameFlash(
+			await redirectOf(
+				loginAction(form({ email: "ada@acme.dev", password: "wrong", next })),
+			),
+			"/manage/login?next=/manage/drafts/drf_1&error=Invalid email or password",
+		);
+		expect(
+			await redirectOf(
+				loginAction(
+					form({ email: "ada@acme.dev", password: "password123", next }),
+				),
+			),
+		).toBe(next);
+		for (const unsafe of [
+			"https://evil.example",
+			"//evil.example",
+			"/x",
+			"/manage/drafts\r\nSet-Cookie: a=b",
+		]) {
+			expect(
+				await redirectOf(
+					loginAction(
+						form({
+							email: "ada@acme.dev",
+							password: "password123",
+							next: unsafe,
+						}),
+					),
+				),
+			).toBe("/manage");
+		}
 	});
 
 	it("handles missing form fields", async () => {
@@ -302,6 +347,140 @@ describe("incident actions", () => {
 			"/manage/incidents/nope",
 		);
 		expect(flashMessage(missingEdit, "error")).toBeTruthy();
+	});
+});
+
+describe("notification draft actions", () => {
+	const AGENT: Actor = {
+		type: "agent",
+		id: "agt_bot",
+		name: "Ops bot",
+		role: "editor",
+	};
+
+	it("saves, approves and discards drafts", async () => {
+		const { app, services, notifier } = await setupApp();
+		await signIn(app, "editor");
+		await services.subscribers.addWebhook(SYSTEM_ACTOR, {
+			url: "https://hooks.example.com/x",
+		});
+		const api = await services.catalog.create(SYSTEM_ACTOR, { name: "API" });
+		const draft = await services.drafts.create(AGENT, {
+			title: "API errors",
+			message: "x",
+		});
+		const fields = {
+			id: draft.id,
+			title: "Elevated API errors",
+			status: "identified",
+			impact: "major",
+			message: "We found the cause.",
+			serviceIds: [api.id, ""],
+			serviceStatus: "",
+		};
+		expectSameFlash(
+			await redirectOf(saveDraftAction(form(fields))),
+			`/manage/drafts/${draft.id}?notice=Draft saved`,
+		);
+		expect((await services.drafts.get(draft.id)).content).toMatchObject({
+			title: "Elevated API errors",
+			status: "identified",
+			impact: "major",
+			message: "We found the cause.",
+			serviceIds: [api.id],
+		});
+		expect(notifier.incidents).toHaveLength(0);
+
+		const approved = await redirectOf(approveDraftAction(form(fields)));
+		const [incident] = await services.incidents.list();
+		expectSameFlash(
+			approved,
+			`/manage/incidents/${incident?.id}?notice=Draft approved. The update is published and subscribers are notified.`,
+		);
+		expect(incident).toMatchObject({
+			title: "Elevated API errors",
+			status: "identified",
+			serviceIds: [api.id],
+		});
+		expect(notifier.incidents).toHaveLength(1);
+		expectSameFlash(
+			await redirectOf(approveDraftAction(form(fields))),
+			`/manage/drafts/${draft.id}?error=This draft was already approved`,
+		);
+
+		const update = await services.drafts.create(AGENT, {
+			incidentId: incident?.id ?? "",
+			message: "y",
+		});
+		// The form of an update has no title, impact, services or window.
+		expectSameFlash(
+			await redirectOf(
+				saveDraftAction(
+					form({ id: update.id, status: "monitoring", message: "Edited" }),
+				),
+			),
+			`/manage/drafts/${update.id}?notice=Draft saved`,
+		);
+		expect((await services.drafts.get(update.id)).content).toMatchObject({
+			status: "monitoring",
+			message: "Edited",
+		});
+		expectSameFlash(
+			await redirectOf(discardDraftAction(form({ id: update.id }))),
+			"/manage/drafts?notice=Draft discarded",
+		);
+		expectSameFlash(
+			await redirectOf(discardDraftAction(form({ id: update.id }))),
+			`/manage/drafts/${update.id}?error=This draft was already discarded`,
+		);
+	});
+
+	it("saves the window of maintenance from datetime-local inputs", async () => {
+		const { app, services } = await setupApp();
+		await signIn(app, "editor");
+		const draft = await services.drafts.create(AGENT, {
+			kind: "maintenance",
+			title: "Upgrade",
+			message: "x",
+			scheduledStart: "2026-11-05T00:00:00.000Z",
+			scheduledEnd: "2026-11-05T01:00:00.000Z",
+		});
+		await redirectOf(
+			saveDraftAction(
+				form({
+					id: draft.id,
+					title: "Upgrade",
+					message: "x",
+					scheduledStart: "2026-11-05T02:00",
+					scheduledEnd: "2026-11-05T03:00",
+				}),
+			),
+		);
+		expect((await services.drafts.get(draft.id)).content).toMatchObject({
+			scheduledStart: "2026-11-05T02:00:00.000Z",
+			scheduledEnd: "2026-11-05T03:00:00.000Z",
+		});
+	});
+
+	it("redirects back with errors and requires the editor role", async () => {
+		const { app, services } = await setupApp();
+		await signIn(app, "editor");
+		const draft = await services.drafts.create(AGENT, {
+			title: "API errors",
+			message: "x",
+		});
+		expectSameFlash(
+			await redirectOf(
+				approveDraftAction(form({ id: draft.id, title: "x", message: "" })),
+			),
+			`/manage/drafts/${draft.id}?error=validation_failed`,
+		);
+		expect((await services.drafts.get(draft.id)).state).toBe("pending");
+		await signIn(app, "viewer");
+		expectSameFlash(
+			await redirectOf(discardDraftAction(form({ id: draft.id }))),
+			"/manage?error=That page requires the editor role",
+		);
 	});
 });
 

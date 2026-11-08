@@ -99,6 +99,21 @@
 		"kind": "notice",
 		"text": "Settings saved"
 	},
+	"draft_saved": {
+		"id": "fls_96qgxl029w4onuvq",
+		"kind": "notice",
+		"text": "Draft saved"
+	},
+	"draft_approved": {
+		"id": "fls_9pyonm9fwn1djr1l",
+		"kind": "notice",
+		"text": "Draft approved. The update is published and subscribers are notified."
+	},
+	"draft_discarded": {
+		"id": "fls_0pc9pl4vt2fpi5zi",
+		"kind": "notice",
+		"text": "Draft discarded"
+	},
 	"invalid_credentials": {
 		"id": "fls_lojtbpjo24tteg3y",
 		"kind": "error",
@@ -198,5 +213,20 @@
 		"id": "fls_wuv578tobr2i4q1e",
 		"kind": "error",
 		"text": "Subscriptions are not enabled"
+	},
+	"draft_already_approved": {
+		"id": "fls_x9crneg3caa5nhv1",
+		"kind": "error",
+		"text": "This draft was already approved"
+	},
+	"draft_already_discarded": {
+		"id": "fls_zmuk9z4l968buj2a",
+		"kind": "error",
+		"text": "This draft was already discarded"
+	},
+	"draft_reviewed_meanwhile": {
+		"id": "fls_mcwqanhcm3mah7x6",
+		"kind": "error",
+		"text": "Somebody else reviewed this draft at the same time. Reload the draft."
 	}
 }
