@@ -4,6 +4,7 @@ import { AuthLayout } from "@/components/manage/shell";
 import { buttonClass, Field, Flash, inputClass } from "@/components/manage/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { getApp } from "@/lib/app";
+import { resolveFlash } from "@/lib/flash";
 import { setupAction } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +15,7 @@ export default async function SetupPage({
 }: {
 	searchParams: Promise<{ error?: string }>;
 }) {
-	const { error } = await searchParams;
+	const { error } = resolveFlash(await searchParams);
 	const { services, config } = await getApp();
 	if ((await services.members.count()) > 0) {
 		redirect("/manage/login");

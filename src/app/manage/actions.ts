@@ -60,7 +60,7 @@ export async function loginAction(form: FormData): Promise<void> {
 	});
 	const next = text(form, "next");
 	if (!member) {
-		redirect(flash(loginPath(next), "error", "Invalid email or password"));
+		redirect(flash(loginPath(next), "invalid_credentials"));
 	}
 	await startSession(app, member.id);
 	redirect(returnPath(next));
@@ -84,7 +84,7 @@ export async function setupAction(form: FormData): Promise<void> {
 		),
 	);
 	await startSession(app, member.id);
-	redirect(flash("/manage", "notice", "Welcome! Your admin account is ready."));
+	redirect(flash("/manage", "welcome_admin"));
 }
 
 export async function acceptInviteAction(form: FormData): Promise<void> {
@@ -97,7 +97,7 @@ export async function acceptInviteAction(form: FormData): Promise<void> {
 		}),
 	);
 	await startSession(app, member.id);
-	redirect(flash("/manage", "notice", "Welcome! Your account is ready."));
+	redirect(flash("/manage", "welcome_member"));
 }
 
 export async function changePasswordAction(form: FormData): Promise<void> {
@@ -109,7 +109,7 @@ export async function changePasswordAction(form: FormData): Promise<void> {
 			text(form, "newPassword"),
 		),
 	);
-	redirect(flash("/manage/account", "notice", "Password updated"));
+	redirect(flash("/manage/account", "password_updated"));
 }
 
 // ---- incidents ------------------------------------------------------------------
@@ -136,8 +136,7 @@ export async function createIncidentAction(form: FormData): Promise<void> {
 	redirect(
 		flash(
 			`/manage/incidents/${incident.id}`,
-			"notice",
-			kind === "incident" ? "Incident declared" : "Maintenance scheduled",
+			kind === "incident" ? "incident_declared" : "maintenance_scheduled",
 		),
 	);
 }
@@ -155,7 +154,7 @@ export async function postIncidentUpdateAction(form: FormData): Promise<void> {
 			notify: checkbox(form, "notify"),
 		}),
 	);
-	redirect(flash(`/manage/incidents/${id}`, "notice", "Update posted"));
+	redirect(flash(`/manage/incidents/${id}`, "update_posted"));
 }
 
 export async function editIncidentAction(form: FormData): Promise<void> {
@@ -170,7 +169,7 @@ export async function editIncidentAction(form: FormData): Promise<void> {
 			scheduledEnd: dateTime(form, "scheduledEnd"),
 		}),
 	);
-	redirect(flash(`/manage/incidents/${id}`, "notice", "Incident saved"));
+	redirect(flash(`/manage/incidents/${id}`, "incident_saved"));
 }
 
 export async function deleteIncidentAction(form: FormData): Promise<void> {
@@ -178,7 +177,7 @@ export async function deleteIncidentAction(form: FormData): Promise<void> {
 	await attempt("/manage/incidents", () =>
 		services.incidents.delete(actor, text(form, "id")),
 	);
-	redirect(flash("/manage/incidents", "notice", "Incident deleted"));
+	redirect(flash("/manage/incidents", "incident_deleted"));
 }
 
 // ---- notification drafts ------------------------------------------------------------
@@ -203,7 +202,7 @@ export async function saveDraftAction(form: FormData): Promise<void> {
 	await attempt(draftPath(id), () =>
 		services.drafts.update(actor, id, draftContent(form)),
 	);
-	redirect(flash(draftPath(id), "notice", "Draft saved"));
+	redirect(flash(draftPath(id), "draft_saved"));
 }
 
 export async function approveDraftAction(form: FormData): Promise<void> {
@@ -212,20 +211,14 @@ export async function approveDraftAction(form: FormData): Promise<void> {
 	const { incident } = await attempt(draftPath(id), () =>
 		services.drafts.approve(actor, id, draftContent(form)),
 	);
-	redirect(
-		flash(
-			`/manage/incidents/${incident.id}`,
-			"notice",
-			"Draft approved. The update is published and subscribers are notified.",
-		),
-	);
+	redirect(flash(`/manage/incidents/${incident.id}`, "draft_approved"));
 }
 
 export async function discardDraftAction(form: FormData): Promise<void> {
 	const { actor, services } = await requireMember("editor");
 	const id = text(form, "id");
 	await attempt(draftPath(id), () => services.drafts.discard(actor, id));
-	redirect(flash("/manage/drafts", "notice", "Draft discarded"));
+	redirect(flash("/manage/drafts", "draft_discarded"));
 }
 
 // ---- services -------------------------------------------------------------------
@@ -240,7 +233,7 @@ export async function createServiceAction(form: FormData): Promise<void> {
 			hidden: checkbox(form, "hidden"),
 		}),
 	);
-	redirect(flash("/manage/services", "notice", "Service created"));
+	redirect(flash("/manage/services", "service_created"));
 }
 
 export async function updateServiceAction(form: FormData): Promise<void> {
@@ -254,7 +247,7 @@ export async function updateServiceAction(form: FormData): Promise<void> {
 			hidden: checkbox(form, "hidden"),
 		}),
 	);
-	redirect(flash("/manage/services", "notice", "Service saved"));
+	redirect(flash("/manage/services", "service_saved"));
 }
 
 export async function setServiceStatusAction(form: FormData): Promise<void> {
@@ -266,7 +259,7 @@ export async function setServiceStatusAction(form: FormData): Promise<void> {
 			text(form, "status") as ServiceStatus,
 		),
 	);
-	redirect(flash("/manage/services", "notice", "Status updated"));
+	redirect(flash("/manage/services", "status_updated"));
 }
 
 export async function deleteServiceAction(form: FormData): Promise<void> {
@@ -274,7 +267,7 @@ export async function deleteServiceAction(form: FormData): Promise<void> {
 	await attempt("/manage/services", () =>
 		services.catalog.delete(actor, text(form, "id")),
 	);
-	redirect(flash("/manage/services", "notice", "Service deleted"));
+	redirect(flash("/manage/services", "service_deleted"));
 }
 
 // ---- members ----------------------------------------------------------------------
@@ -323,7 +316,7 @@ export async function revokeInviteAction(form: FormData): Promise<void> {
 	await attempt("/manage/members", () =>
 		services.members.revokeInvite(actor, text(form, "id")),
 	);
-	redirect(flash("/manage/members", "notice", "Invite revoked"));
+	redirect(flash("/manage/members", "invite_revoked"));
 }
 
 export async function updateMemberAction(form: FormData): Promise<void> {
@@ -334,7 +327,7 @@ export async function updateMemberAction(form: FormData): Promise<void> {
 			password: nonEmpty(form, "password"),
 		}),
 	);
-	redirect(flash("/manage/members", "notice", "Member updated"));
+	redirect(flash("/manage/members", "member_updated"));
 }
 
 export async function deleteMemberAction(form: FormData): Promise<void> {
@@ -342,7 +335,7 @@ export async function deleteMemberAction(form: FormData): Promise<void> {
 	await attempt("/manage/members", () =>
 		services.members.delete(actor, text(form, "id")),
 	);
-	redirect(flash("/manage/members", "notice", "Member removed"));
+	redirect(flash("/manage/members", "member_removed"));
 }
 
 // ---- agents -----------------------------------------------------------------------
@@ -376,7 +369,7 @@ export async function revokeAgentAction(form: FormData): Promise<void> {
 	await attempt("/manage/agents", () =>
 		services.agents.revoke(actor, text(form, "id")),
 	);
-	redirect(flash("/manage/agents", "notice", "Token revoked"));
+	redirect(flash("/manage/agents", "token_revoked"));
 }
 
 export async function deleteAgentAction(form: FormData): Promise<void> {
@@ -384,7 +377,7 @@ export async function deleteAgentAction(form: FormData): Promise<void> {
 	await attempt("/manage/agents", () =>
 		services.agents.delete(actor, text(form, "id")),
 	);
-	redirect(flash("/manage/agents", "notice", "Token deleted"));
+	redirect(flash("/manage/agents", "token_deleted"));
 }
 
 // ---- subscribers --------------------------------------------------------------------
@@ -397,7 +390,7 @@ export async function addSubscriberAction(form: FormData): Promise<void> {
 			? services.subscribers.addEmail(actor, { email: target })
 			: services.subscribers.addWebhook(actor, { url: target }),
 	);
-	redirect(flash("/manage/subscribers", "notice", "Subscriber added"));
+	redirect(flash("/manage/subscribers", "subscriber_added"));
 }
 
 export async function deleteSubscriberAction(form: FormData): Promise<void> {
@@ -405,7 +398,7 @@ export async function deleteSubscriberAction(form: FormData): Promise<void> {
 	await attempt("/manage/subscribers", () =>
 		services.subscribers.remove(actor, text(form, "id")),
 	);
-	redirect(flash("/manage/subscribers", "notice", "Subscriber removed"));
+	redirect(flash("/manage/subscribers", "subscriber_removed"));
 }
 
 // ---- settings -----------------------------------------------------------------------
@@ -427,5 +420,5 @@ export async function updateSettingsAction(form: FormData): Promise<void> {
 			uptimeDays: integer(form, "uptimeDays"),
 		}),
 	);
-	redirect(flash("/manage/settings", "notice", "Settings saved"));
+	redirect(flash("/manage/settings", "settings_saved"));
 }

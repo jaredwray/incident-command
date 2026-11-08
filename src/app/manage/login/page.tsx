@@ -5,6 +5,7 @@ import { buttonClass, Field, Flash, inputClass } from "@/components/manage/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { getApp } from "@/lib/app";
 import { getMemberContext, returnPath } from "@/lib/auth";
+import { resolveFlash } from "@/lib/flash";
 import { loginAction } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,9 @@ export default async function LoginPage({
 }: {
 	searchParams: Promise<{ error?: string; next?: string }>;
 }) {
-	const { error, next = "" } = await searchParams;
+	const query = await searchParams;
+	const { error } = resolveFlash(query);
+	const next = query.next ?? "";
 	const { services } = await getApp();
 	if ((await services.members.count()) === 0) {
 		redirect("/manage/setup");
