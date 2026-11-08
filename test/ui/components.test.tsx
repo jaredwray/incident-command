@@ -222,45 +222,106 @@ describe("InviteMemberForm", () => {
 });
 
 describe("CopyInviteLinkButton", () => {
-	it("copies a new link, falls back to a prompt, or shows the error", async () => {
-		const url = "https://status.acme.dev/manage/invite?token=abc";
+	const url = "https://status.acme.dev/manage/invite?token=abc";
+	const click = async (name: string) =>
+		act(async () => {
+			fireEvent.click(screen.getByRole("button", { name }));
+		});
+	const mockClipboard = (clipboard: Partial<Clipboard>) =>
+		Object.defineProperty(navigator, "clipboard", {
+			value: clipboard,
+			configurable: true,
+		});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it("starts the clipboard write in the click, before the server answers", async () => {
+		class FakeClipboardItem {
+			constructor(readonly data: { "text/plain": Promise<Blob> }) {}
+		}
+		vi.stubGlobal("ClipboardItem", FakeClipboardItem);
+		const texts: string[] = [];
+		const write = vi.fn(async (items: ClipboardItems) => {
+			const [item] = items as unknown as [FakeClipboardItem];
+			texts.push(await (await item.data["text/plain"]).text());
+		});
+		mockClipboard({ write });
 		let finish: (value: { url: string }) => void = () => {};
 		const action = vi
 			.fn()
 			.mockReturnValueOnce(new Promise((resolve) => (finish = resolve)))
-			.mockResolvedValueOnce({ url })
 			.mockResolvedValueOnce({ error: "This invite expired or was used." });
-		const writeText = vi
-			.fn()
-			.mockResolvedValueOnce(undefined)
-			.mockRejectedValueOnce(new Error("Not allowed"));
-		Object.defineProperty(navigator, "clipboard", {
-			value: { writeText },
-			configurable: true,
-		});
-		const prompt = vi.spyOn(window, "prompt").mockReturnValue(null);
 		render(<CopyInviteLinkButton action={action} />);
-		const click = async (name: string) =>
-			act(async () => {
-				fireEvent.click(screen.getByRole("button", { name }));
-			});
 
-		// one click makes one new link, so a second click waits
 		await click("Copy link");
+		expect(write).toHaveBeenCalledTimes(1);
+		// one click makes one new link, so a second click waits
 		expect(screen.getByRole("button", { name: "Copy link" })).toBeDisabled();
 		await act(async () => finish({ url }));
-		expect(writeText).toHaveBeenCalledWith(url);
-		expect(screen.getByRole("button", { name: "Copied" })).toBeEnabled();
+		expect(texts).toEqual([url]);
+		await waitFor(() =>
+			expect(screen.getByRole("button", { name: "Copied" })).toBeEnabled(),
+		);
 
 		await click("Copied");
-		expect(prompt).toHaveBeenCalledWith("Copy the invite link.", url);
-		expect(screen.getByRole("button", { name: "Copy link" })).toBeEnabled();
-
-		await click("Copy link");
 		expect(screen.getByRole("alert")).toHaveTextContent(
 			"This invite expired or was used.",
 		);
-		expect(action).toHaveBeenCalledTimes(3);
+		expect(texts).toEqual([url]);
+		expect(screen.getByRole("button", { name: "Copy link" })).toBeEnabled();
+	});
+
+	it("writes the link after the server answers when the browser has no ClipboardItem", async () => {
+		const writeText = vi.fn(async () => {});
+		mockClipboard({ writeText });
+		render(<CopyInviteLinkButton action={async () => ({ url })} />);
+		await click("Copy link");
+		expect(writeText).toHaveBeenCalledWith(url);
+		await waitFor(() =>
+			expect(screen.getByRole("button", { name: "Copied" })).toBeEnabled(),
+		);
+	});
+
+	it("shows the link in the page when the browser blocks the copy", async () => {
+		const writeText = vi
+			.fn()
+			.mockRejectedValueOnce(new Error("Not allowed"))
+			.mockRejectedValueOnce(new Error("Not allowed"))
+			.mockResolvedValueOnce(undefined);
+		mockClipboard({ writeText });
+		const prompt = vi.spyOn(window, "prompt");
+		const action = vi.fn(async () => ({ url }));
+		render(<CopyInviteLinkButton action={action} />);
+		const selected = (field: HTMLInputElement) => {
+			expect(document.activeElement).toBe(field);
+			expect(field.selectionStart).toBe(0);
+			expect(field.selectionEnd).toBe(url.length);
+		};
+
+		await click("Copy link");
+		const field = screen.getByRole<HTMLInputElement>("textbox", {
+			name: "New invite link",
+		});
+		expect(field).toHaveValue(url);
+		expect(field).toHaveAttribute("readonly");
+		selected(field);
+		expect(prompt).not.toHaveBeenCalled();
+
+		// when the copy fails again, the link stays selected for a manual copy
+		field.setSelectionRange(0, 0);
+		screen.getByRole("button", { name: "Copy" }).focus();
+		await click("Copy");
+		selected(field);
+
+		await click("Copy");
+		expect(writeText).toHaveBeenLastCalledWith(url);
+		await waitFor(() =>
+			expect(screen.getByRole("button", { name: "Copied" })).toBeEnabled(),
+		);
+		// the Copy button copies the shown link and does not make a new one
+		expect(action).toHaveBeenCalledTimes(1);
 		prompt.mockRestore();
 	});
 });
