@@ -18,28 +18,3 @@ allowBuilds:
   esbuild: true # Vite and Wrangler native binary
   mongodb-memory-server: true # MongoDB binary for tests
   workerd: true # Cloudflare Workers runtime binary
-minimumReleaseAgeExclude:
-  # next 16.4.5 was published on 2026-11-03. Remove these entries after 2026-11-10.
-  - "@next/env@16.4.5"
-  - "@next/swc-darwin-arm64@16.4.5"
-  - "@next/swc-darwin-x64@16.4.5"
-  - "@next/swc-linux-arm64-gnu@16.4.5"
-  - "@next/swc-linux-arm64-musl@16.4.5"
-  - "@next/swc-linux-x64-gnu@16.4.5"
-  - "@next/swc-linux-x64-musl@16.4.5"
-  - "@next/swc-win32-arm64-msvc@16.4.5"
-  - "@next/swc-win32-x64-msvc@16.4.5"
-  - next@16.4.5
-  - "@cloudflare/workerd-darwin-64@1.20261102.1"
-  - "@cloudflare/workerd-darwin-arm64@1.20261102.1"
-  - "@cloudflare/workerd-linux-64@1.20261102.1"
-  - "@cloudflare/workerd-linux-arm64@1.20261102.1"
-  - "@cloudflare/workerd-windows-64@1.20261102.1"
-  - "@vitejs/plugin-react@6.2.1"
-  - "@vitest/coverage-v8@5.1.0"
-  - "@vitest/mocker@5.1.0"
-  - "@vitest/spy@5.1.0"
-  - miniflare@5.20261102.0-beta
-  - vitest@5.1.0
-  - workerd@1.20261102.1
-  - wrangler@4.156.2
