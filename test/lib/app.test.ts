@@ -68,7 +68,11 @@ describe("app container", () => {
 		const app = await createApp();
 		expect(app.store.kind).toBe("memory");
 		expect(await app.services.members.count()).toBe(0);
-		expect(app.notifier.emailEnabled).toBe(false);
+		expect(await app.services.notificationSettings.availability()).toEqual({
+			webhook: true,
+			email: false,
+			sms: false,
+		});
 		expect((await app.services.status.summary()).generatedAt).toMatch(
 			/^\d{4}-\d{2}-\d{2}T/,
 		);

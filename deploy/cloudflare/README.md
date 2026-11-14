@@ -67,11 +67,10 @@ Each command prompts for the value. Set only the ones you use.
 
 ```bash
 npx wrangler secret put SETUP_TOKEN      # required to create the first admin at /manage/setup
+npx wrangler secret put ENCRYPTION_KEY   # encrypts provider credentials (openssl rand -base64 32)
 npx wrangler secret put WEBHOOK_SECRET   # signs webhook payloads
 # Email (see docs/deployment.md): EMAIL_FROM plus SendGrid or SES credentials
 npx wrangler secret put SENDGRID_API_KEY
-npx wrangler secret put TWILIO_ACCOUNT_SID
-npx wrangler secret put TWILIO_AUTH_TOKEN
 ```
 
 Non-secret settings (`SITE_URL`, `SITE_NAME`, `CACHE_TTL`, `EMAIL_FROM`, …) go in `vars` in `wrangler.jsonc`.

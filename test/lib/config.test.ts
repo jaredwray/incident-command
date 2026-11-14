@@ -1,5 +1,9 @@
 import { detectStoreKind, loadConfig } from "@/lib/config";
 
+const KEY_A = "a".repeat(32);
+const KEY_B = "b".repeat(40);
+const KEY_C = "c".repeat(44);
+
 describe("loadConfig", () => {
 	it("uses sensible defaults", () => {
 		const config = loadConfig({});
@@ -16,10 +20,12 @@ describe("loadConfig", () => {
 			siteName: "Status",
 			sessionTtl: 7 * 86_400_000,
 			setupToken: undefined,
-			email: undefined,
-			twilio: undefined,
+			emailFrom: undefined,
+			emailProvider: undefined,
+			sendGridApiKey: undefined,
 			aws: undefined,
 			webhookSecret: undefined,
+			encryption: { key: undefined, previousKeys: [] },
 			seedDemo: false,
 		});
 	});
@@ -41,13 +47,13 @@ describe("loadConfig", () => {
 			SESSION_TTL: "12h",
 			SETUP_TOKEN: "setup",
 			EMAIL_FROM: "status@example.com",
-			TWILIO_ACCOUNT_SID: "AC1",
-			TWILIO_AUTH_TOKEN: "tok",
 			SENDGRID_API_KEY: "SG.1",
 			AWS_REGION: "us-east-1",
 			AWS_ACCESS_KEY_ID: "AKIA",
 			AWS_SECRET_ACCESS_KEY: "secret",
 			WEBHOOK_SECRET: "whsec",
+			ENCRYPTION_KEY: KEY_A,
+			ENCRYPTION_KEY_PREVIOUS: ` ${KEY_B} , ${KEY_C},`,
 		});
 		expect(config.store).toEqual({
 			kind: "postgres",
@@ -60,14 +66,12 @@ describe("loadConfig", () => {
 		expect(config.siteUrl).toBe("https://status.example.com");
 		expect(config.sessionTtl).toBe(12 * 3_600_000);
 		expect(config.setupToken).toBe("setup");
-		expect(config.email).toEqual({
-			provider: "sendgrid",
-			from: "status@example.com",
-		});
-		expect(config.twilio).toEqual({
-			accountSid: "AC1",
-			authToken: "tok",
-			sendGridApiKey: "SG.1",
+		expect(config.emailFrom).toBe("status@example.com");
+		expect(config.emailProvider).toBe("sendgrid");
+		expect(config.sendGridApiKey).toBe("SG.1");
+		expect(config.encryption).toEqual({
+			key: KEY_A,
+			previousKeys: [KEY_B, KEY_C],
 		});
 		expect(config.aws).toEqual({
 			region: "us-east-1",
@@ -83,10 +87,7 @@ describe("loadConfig", () => {
 			AWS_SES_REGION: "eu-west-1",
 			AWS_REGION: "us-east-1",
 		});
-		expect(config.email).toEqual({
-			provider: "ses",
-			from: "status@example.com",
-		});
+		expect(config.emailProvider).toBe("ses");
 		expect(config.aws?.region).toBe("eu-west-1");
 	});
 
@@ -98,11 +99,22 @@ describe("loadConfig", () => {
 			EMAIL_PROVIDER: "ses",
 		});
 		expect(config.store.kind).toBe("mongo");
-		expect(config.email?.provider).toBe("ses");
+		expect(config.emailProvider).toBe("ses");
 	});
 
-	it("disables email when no provider is configured", () => {
-		expect(loadConfig({ EMAIL_FROM: "x@y.co" }).email).toBeUndefined();
+	it("keeps the sender when no email provider is configured", () => {
+		const config = loadConfig({ EMAIL_FROM: "x@y.co" });
+		expect(config.emailFrom).toBe("x@y.co");
+		expect(config.emailProvider).toBeUndefined();
+	});
+
+	it("rejects encryption keys that are too short", () => {
+		expect(() => loadConfig({ ENCRYPTION_KEY: "short" })).toThrow(
+			/ENCRYPTION_KEY: Use at least 32 characters/,
+		);
+		expect(() =>
+			loadConfig({ ENCRYPTION_KEY: KEY_A, ENCRYPTION_KEY_PREVIOUS: "old" }),
+		).toThrow(/ENCRYPTION_KEY_PREVIOUS\.0: Use at least 32 characters/);
 	});
 
 	it("treats empty strings as unset", () => {

@@ -73,8 +73,10 @@ describe("root layout", () => {
 
 describe("status page", () => {
 	it("renders an empty, operational page", async () => {
-		const { notifier } = await setupApp();
-		notifier.emailEnabled = false;
+		const { services } = await setupApp();
+		await services.notificationSettings.updateChannel(SYSTEM_ACTOR, "email", {
+			enabled: false,
+		});
 		render(await StatusPage());
 		expect(
 			screen.getByRole("heading", { name: "We're fully operational" }),
@@ -307,9 +309,24 @@ describe("subscription pages", () => {
 		expect(screen.getByText("You're already subscribed")).toBeInTheDocument();
 	});
 
+	it("serves the cached status page while the database is offline", async () => {
+		const { app } = await setupApp();
+		render(await StatusPage()).unmount();
+		vi.spyOn(app.store.inner, "find").mockRejectedValue(new Error("down"));
+		vi.spyOn(app.store.inner, "get").mockRejectedValue(new Error("down"));
+		app.store.invalidate();
+		render(await StatusPage());
+		expect(
+			screen.getByRole("heading", { name: "We're fully operational" }),
+		).toBeInTheDocument();
+		expect(app.store.health.online).toBe(false);
+	});
+
 	it("explains when subscriptions are unavailable", async () => {
-		const { notifier } = await setupApp();
-		notifier.emailEnabled = false;
+		const { services } = await setupApp();
+		await services.notificationSettings.updateChannel(SYSTEM_ACTOR, "email", {
+			enabled: false,
+		});
 		render(
 			await SubscribePage({
 				searchParams: params({ status: "confirmation_sent" }),
@@ -323,7 +340,7 @@ describe("subscription pages", () => {
 	it("confirms subscriptions", async () => {
 		const { services, notifier } = await setupApp();
 		await services.subscribers.subscribe({ email: "jane@example.com" });
-		const token = notifier.confirmations[0]?.token;
+		const token = notifier.confirmations[0]?.subscriber.token;
 		const ok = render(await ConfirmPage({ searchParams: params({ token }) }));
 		expect(screen.getByText("You're subscribed")).toBeInTheDocument();
 		expect(

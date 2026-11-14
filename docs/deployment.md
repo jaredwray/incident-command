@@ -68,11 +68,50 @@ Open `/manage/setup` and create the admin there. Set `SETUP_TOKEN` so the page r
 
 ## Notifications
 
-- **Webhooks** always work. With `WEBHOOK_SECRET` set, each request carries `x-incident-command-signature: sha256=<hex>`, the HMAC-SHA256 of the raw JSON body keyed with the secret.
-- **Email** needs `EMAIL_FROM` plus one provider:
-  - SendGrid: `SENDGRID_API_KEY`, `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN` (airhorn's Twilio provider sends through SendGrid).
-  - AWS SES: `AWS_SES_REGION` (or `AWS_REGION` with `EMAIL_PROVIDER=ses`), with `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` or the platform's IAM role.
+Admins set up notifications in **Manage → Settings → Notifications**. Incident Command sends them through [airhorn](https://airhorn.org).
+
+- There are three channels: webhooks, email and text messaging. Each channel has an on/off switch.
+- Each channel can have more than one provider:
+  - Webhooks: a signed webhook provider, with an optional signing secret and a timeout.
+  - Email: SendGrid and Amazon SES.
+  - Text messaging: Twilio and Amazon SNS.
+- Each channel has a delivery strategy:
+  - **Active/passive** (airhorn fail-over): the first provider sends. When a send fails, the next provider sends. Use **Move up** and **Move down** to set the order.
+  - **Load balanced** (airhorn round-robin): each message goes through the next provider in turn. A failed send does not go to a different provider.
+- Email and text messages need a sender. Set a default sender on the channel, or a sender on each provider. A sender on a provider replaces the sender of the channel.
+- A signed webhook adds `x-incident-command-signature: sha256=<hex>` to each request. The value is the HMAC-SHA256 of the raw JSON body, keyed with the signing secret. A webhook provider without its own signing secret signs with `WEBHOOK_SECRET`, if it is set.
+- Amazon SNS takes a sender ID of up to 11 letters and digits. When the sender is a phone number, SNS sends it as the origination number. The number must be an origination number of your AWS account.
+- Admins add phone numbers in **Manage → Subscribers** or with the `add_subscriber` MCP tool. Visitors cannot subscribe by text message. Get consent before you add a number.
 - `SITE_URL` is used to build the links in notifications, so set it to the public URL.
+
+### Encrypted provider credentials
+
+The database keeps provider credentials (API keys, auth tokens, secret access keys and signing secrets) encrypted with AES-256-GCM. The key comes from the `ENCRYPTION_KEY` environment variable, so keep it in the secret store of your platform.
+
+1. Make a key: `openssl rand -base64 32`.
+2. Set it as `ENCRYPTION_KEY` (for example `npx wrangler secret put ENCRYPTION_KEY`, or a secret in Secret Manager, Secrets Manager or Key Vault).
+3. Restart the server, then add providers in the portal.
+
+Without `ENCRYPTION_KEY`, you can turn channels on and off and add providers that need no credentials, such as Amazon SES with an IAM role. You cannot save credentials.
+
+- Each value is bound to its provider and field. A value that moves to a different field does not decrypt.
+- The portal and the MCP server never show a saved credential again. Leave a credential field empty to keep the saved value.
+- If the key changes or is lost, the portal shows the providers whose credentials do not decrypt. Enter those credentials again.
+
+To change the key:
+
+1. Set the new key as `ENCRYPTION_KEY` and the old key as `ENCRYPTION_KEY_PREVIOUS`.
+2. Restart the server. The old key still decrypts the stored values.
+3. Select **Save channel** on each channel that has providers. Each save encrypts the values of that channel again with the new key.
+4. Remove `ENCRYPTION_KEY_PREVIOUS` and restart the server.
+
+### Providers from environment variables
+
+A channel without providers uses the providers from environment variables, so existing deployments continue to send. When you add a provider to a channel in the portal, that channel stops using them.
+
+- Webhooks use the built-in webhook sender. It signs each request when `WEBHOOK_SECRET` is set.
+- Email uses SendGrid when `SENDGRID_API_KEY` is set, or AWS SES when `AWS_SES_REGION` is set (or `AWS_REGION` with `EMAIL_PROVIDER=ses`). SES uses `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`, or the IAM role of the platform.
+- `EMAIL_FROM` is the default sender of the email channel, also for providers that you add in the portal.
 
 ## Environment variables
 
@@ -102,12 +141,12 @@ All are optional, and empty values are treated as unset. Durations accept `ms`, 
 | `SESSION_TTL`                        | `7d`                        | Portal session lifetime.                                                                                                                                              |
 | `SETUP_TOKEN`                        | unset                       | When set, required to create the first admin at `/manage/setup`.                                                                                                      |
 | **Notifications**                    |                             |                                                                                                                                                                       |
-| `WEBHOOK_SECRET`                     | unset                       | Signs webhook payloads (`x-incident-command-signature: sha256=<hex>`).                                                                                                |
-| `EMAIL_FROM`                         | unset                       | Sender address. Email is disabled without it.                                                                                                                         |
-| `EMAIL_PROVIDER`                     | auto                        | `sendgrid` or `ses`. Auto: `sendgrid` if `SENDGRID_API_KEY` is set, else `ses` if `AWS_SES_REGION` is set.                                                            |
-| `SENDGRID_API_KEY`                   | unset                       | SendGrid API key (needs the two Twilio variables too).                                                                                                                |
-| `TWILIO_ACCOUNT_SID`                 | unset                       | Twilio account SID, required for SendGrid email.                                                                                                                      |
-| `TWILIO_AUTH_TOKEN`                  | unset                       | Twilio auth token, required for SendGrid email.                                                                                                                       |
+| `ENCRYPTION_KEY`                     | unset                       | Encrypts provider credentials in the database. Use at least 32 characters, for example `openssl rand -base64 32`. Required to save credentials in the portal.         |
+| `ENCRYPTION_KEY_PREVIOUS`            | unset                       | Old keys, separated by commas. They decrypt stored values until a save encrypts them again with `ENCRYPTION_KEY`.                                                     |
+| `EMAIL_FROM`                         | unset                       | Default sender of the email channel.                                                                                                                                  |
+| `WEBHOOK_SECRET`                     | unset                       | Signs the payloads of the built-in webhook sender, which webhooks use when the channel has no providers.                                                              |
+| `EMAIL_PROVIDER`                     | auto                        | `sendgrid` or `ses`, for an email channel without providers. Auto: `sendgrid` if `SENDGRID_API_KEY` is set, else `ses` if `AWS_SES_REGION` is set.                    |
+| `SENDGRID_API_KEY`                   | unset                       | SendGrid API key, for an email channel without providers.                                                                                                             |
 | `AWS_SES_REGION`                     | unset                       | SES region; takes precedence over `AWS_REGION`.                                                                                                                       |
 | `AWS_REGION`                         | unset                       | Fallback SES region.                                                                                                                                                  |
 | `AWS_ACCESS_KEY_ID`                  | unset                       | SES credentials; when unset the AWS default credential chain (IAM role) is used.                                                                                      |

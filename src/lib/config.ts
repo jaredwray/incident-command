@@ -3,10 +3,7 @@ import { z } from "zod";
 
 export type StoreKind = "memory" | "postgres" | "mongo";
 
-export interface EmailConfig {
-	provider: "sendgrid" | "ses";
-	from: string;
-}
+export type EmailProviderKind = "sendgrid" | "ses";
 
 export interface Config {
 	store: {
@@ -29,10 +26,18 @@ export interface Config {
 	siteName: string;
 	sessionTtl: number;
 	setupToken?: string;
-	email?: EmailConfig;
-	twilio?: { accountSid: string; authToken: string; sendGridApiKey?: string };
+	/** The default email sender (`EMAIL_FROM`). */
+	emailFrom?: string;
+	/**
+	 * The email provider from environment variables. The email channel uses it
+	 * only when an admin adds no email provider in the portal.
+	 */
+	emailProvider?: EmailProviderKind;
+	sendGridApiKey?: string;
 	aws?: { region: string; accessKeyId?: string; secretAccessKey?: string };
 	webhookSecret?: string;
+	/** Keys that encrypt provider credentials in the store. */
+	encryption: { key?: string; previousKeys: string[] };
 	/** Seed demo services and incidents into an empty store on boot. */
 	seedDemo: boolean;
 }
@@ -84,6 +89,10 @@ const duration = (fallback: string) =>
 			return ms;
 		});
 
+const MIN_KEY_LENGTH = 32;
+const MIN_KEY_MESSAGE = `Use at least ${MIN_KEY_LENGTH} characters, for example the output of: openssl rand -base64 32`;
+const encryptionKey = z.string().trim().min(MIN_KEY_LENGTH, MIN_KEY_MESSAGE);
+
 const envSchema = z.object({
 	DATABASE_URI: optional,
 	STORE: z.enum(["memory", "postgres", "mongo"]).optional(),
@@ -98,14 +107,24 @@ const envSchema = z.object({
 	SETUP_TOKEN: optional,
 	EMAIL_FROM: optional,
 	EMAIL_PROVIDER: z.enum(["sendgrid", "ses"]).optional(),
-	TWILIO_ACCOUNT_SID: optional,
-	TWILIO_AUTH_TOKEN: optional,
 	SENDGRID_API_KEY: optional,
 	AWS_SES_REGION: optional,
 	AWS_REGION: optional,
 	AWS_ACCESS_KEY_ID: optional,
 	AWS_SECRET_ACCESS_KEY: optional,
 	WEBHOOK_SECRET: optional,
+	ENCRYPTION_KEY: encryptionKey.optional(),
+	/** Old keys, separated by commas. They still decrypt stored values. */
+	ENCRYPTION_KEY_PREVIOUS: z
+		.string()
+		.optional()
+		.transform((value) =>
+			(value ?? "")
+				.split(",")
+				.map((key) => key.trim())
+				.filter(Boolean),
+		)
+		.pipe(z.array(encryptionKey)),
 	SEED_DEMO: z
 		.string()
 		.optional()
@@ -129,18 +148,11 @@ export function detectStoreKind(url: string | undefined): StoreKind {
 	);
 }
 
-function emailConfig(env: Env): EmailConfig | undefined {
-	if (!env.EMAIL_FROM) {
-		return undefined;
-	}
-	const provider =
+function emailProvider(env: Env): EmailProviderKind | undefined {
+	return (
 		env.EMAIL_PROVIDER ??
-		(env.SENDGRID_API_KEY
-			? "sendgrid"
-			: env.AWS_SES_REGION
-				? "ses"
-				: undefined);
-	return provider ? { provider, from: env.EMAIL_FROM } : undefined;
+		(env.SENDGRID_API_KEY ? "sendgrid" : env.AWS_SES_REGION ? "ses" : undefined)
+	);
 }
 
 /** Parses configuration from environment variables. */
@@ -174,15 +186,9 @@ export function loadConfig(
 		siteName: env.SITE_NAME ?? "Status",
 		sessionTtl: env.SESSION_TTL,
 		setupToken: env.SETUP_TOKEN,
-		email: emailConfig(env),
-		twilio:
-			env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN
-				? {
-						accountSid: env.TWILIO_ACCOUNT_SID,
-						authToken: env.TWILIO_AUTH_TOKEN,
-						sendGridApiKey: env.SENDGRID_API_KEY,
-					}
-				: undefined,
+		emailFrom: env.EMAIL_FROM,
+		emailProvider: emailProvider(env),
+		sendGridApiKey: env.SENDGRID_API_KEY,
 		aws: awsRegion
 			? {
 					region: awsRegion,
@@ -191,6 +197,10 @@ export function loadConfig(
 				}
 			: undefined,
 		webhookSecret: env.WEBHOOK_SECRET,
+		encryption: {
+			key: env.ENCRYPTION_KEY,
+			previousKeys: env.ENCRYPTION_KEY_PREVIOUS,
+		},
 		seedDemo: env.SEED_DEMO,
 	};
 }

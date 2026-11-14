@@ -110,7 +110,9 @@ describe("MCP handler", () => {
 		expect(editor).not.toContain("create_agent_token");
 		const admin = await names("admin");
 		expect(admin).toContain("create_agent_token");
-		expect(admin).toHaveLength(31);
+		expect(admin).toContain("get_notification_settings");
+		expect(admin).toContain("update_notification_channel");
+		expect(admin).toHaveLength(33);
 	});
 
 	it("lets an editor agent run an incident end to end", async () => {
@@ -383,8 +385,34 @@ describe("MCP handler", () => {
 		const email = (
 			await call("add_subscriber", { type: "email", target: "ops@acme.dev" })
 		).data;
-		expect([hook.type, email.type]).toEqual(["webhook", "email"]);
-		expect((await call("list_subscribers")).data).toHaveLength(2);
+		const phone = (
+			await call("add_subscriber", { type: "sms", target: "+15551234567" })
+		).data;
+		expect([hook.type, email.type, phone.type]).toEqual([
+			"webhook",
+			"email",
+			"sms",
+		]);
+		expect((await call("list_subscribers")).data).toHaveLength(3);
+
+		const channel = (
+			await call("update_notification_channel", {
+				channel: "sms",
+				strategy: "load_balanced",
+				from: "ACME",
+			})
+		).data;
+		expect(channel).toMatchObject({
+			id: "sms",
+			strategy: "load_balanced",
+			from: "ACME",
+		});
+		const channels = (await call("get_notification_settings")).data;
+		expect(channels.map((item: { id: string }) => item.id)).toEqual([
+			"webhook",
+			"email",
+			"sms",
+		]);
 		expect((await call("remove_subscriber", { id: hook.id })).data).toEqual({
 			deleted: hook.id,
 		});

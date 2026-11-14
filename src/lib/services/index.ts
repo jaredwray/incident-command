@@ -5,6 +5,7 @@ import type { ServiceContext } from "./context";
 import { DraftService } from "./drafts";
 import { IncidentService } from "./incidents";
 import { MemberService } from "./members";
+import { NotificationSettingsService } from "./notification-settings";
 import { SessionService } from "./sessions";
 import { SettingsService } from "./settings";
 import { StatusService } from "./status";
@@ -12,6 +13,7 @@ import { SubscriberService } from "./subscribers";
 
 export interface Services {
 	settings: SettingsService;
+	notificationSettings: NotificationSettingsService;
 	catalog: ServiceCatalog;
 	incidents: IncidentService;
 	drafts: DraftService;
@@ -26,9 +28,20 @@ export interface Services {
 
 export function createServices(ctx: ServiceContext): Services {
 	const settings = new SettingsService(ctx);
+	const notificationSettings = new NotificationSettingsService(ctx);
 	const catalog = new ServiceCatalog(ctx);
-	const subscribers = new SubscriberService(ctx, settings);
-	const incidents = new IncidentService(ctx, catalog, subscribers, settings);
+	const subscribers = new SubscriberService(
+		ctx,
+		settings,
+		notificationSettings,
+	);
+	const incidents = new IncidentService(
+		ctx,
+		catalog,
+		subscribers,
+		settings,
+		notificationSettings,
+	);
 	const drafts = new DraftService(ctx, incidents);
 	const status = new StatusService(ctx, settings, catalog, incidents);
 	const sessions = new SessionService(ctx);
@@ -37,6 +50,7 @@ export function createServices(ctx: ServiceContext): Services {
 
 	return {
 		settings,
+		notificationSettings,
 		catalog,
 		incidents,
 		drafts,

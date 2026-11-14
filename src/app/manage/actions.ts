@@ -11,10 +11,14 @@ import {
 	returnPath,
 	startSession,
 } from "@/lib/auth";
+import type { MoveDirection } from "@/lib/domain/schemas";
 import type {
+	DeliveryStrategy,
 	EventStatus,
 	IncidentImpact,
 	IncidentKind,
+	NotificationChannel,
+	ProviderType,
 	Role,
 	ServiceStatus,
 } from "@/lib/domain/types";
@@ -27,6 +31,7 @@ import {
 	list,
 	nonEmpty,
 	optionalText,
+	prefixed,
 	text,
 } from "@/lib/manage/forms";
 import { publicOrigin } from "@/lib/manage/origin";
@@ -385,11 +390,16 @@ export async function deleteAgentAction(form: FormData): Promise<void> {
 export async function addSubscriberAction(form: FormData): Promise<void> {
 	const { actor, services } = await requireMember("admin");
 	const target = text(form, "target");
-	await attempt("/manage/subscribers", () =>
-		text(form, "type") === "email"
-			? services.subscribers.addEmail(actor, { email: target })
-			: services.subscribers.addWebhook(actor, { url: target }),
-	);
+	await attempt("/manage/subscribers", () => {
+		switch (text(form, "type")) {
+			case "email":
+				return services.subscribers.addEmail(actor, { email: target });
+			case "sms":
+				return services.subscribers.addSms(actor, { phone: target });
+			default:
+				return services.subscribers.addWebhook(actor, { url: target });
+		}
+	});
 	redirect(flash("/manage/subscribers", "subscriber_added"));
 }
 
@@ -403,22 +413,124 @@ export async function deleteSubscriberAction(form: FormData): Promise<void> {
 
 // ---- settings -----------------------------------------------------------------------
 
-export async function updateSettingsAction(form: FormData): Promise<void> {
+const GENERAL_PATH = "/manage/settings";
+const BRANDING_PATH = "/manage/settings/branding";
+const NOTIFICATIONS_PATH = "/manage/settings/notifications";
+
+export async function updateGeneralSettingsAction(
+	form: FormData,
+): Promise<void> {
 	const { actor, services } = await requireMember("admin");
-	await attempt("/manage/settings", () =>
+	await attempt(GENERAL_PATH, () =>
 		services.settings.update(actor, {
 			siteName: text(form, "siteName"),
 			description: text(form, "description"),
 			siteUrl: optionalText(form, "siteUrl"),
-			logoUrl: optionalText(form, "logoUrl"),
-			faviconUrl: optionalText(form, "faviconUrl"),
 			supportUrl: optionalText(form, "supportUrl"),
-			theme: text(form, "theme"),
-			brandColor: optionalText(form, "brandColor"),
-			customCss: optionalText(form, "customCss"),
 			allowSubscriptions: checkbox(form, "allowSubscriptions"),
 			uptimeDays: integer(form, "uptimeDays"),
 		}),
 	);
-	redirect(flash("/manage/settings", "settings_saved"));
+	redirect(flash(GENERAL_PATH, "settings_saved"));
+}
+
+export async function updateBrandingAction(form: FormData): Promise<void> {
+	const { actor, services } = await requireMember("admin");
+	await attempt(BRANDING_PATH, () =>
+		services.settings.update(actor, {
+			theme: text(form, "theme"),
+			brandColor: optionalText(form, "brandColor"),
+			logoUrl: optionalText(form, "logoUrl"),
+			faviconUrl: optionalText(form, "faviconUrl"),
+			customCss: optionalText(form, "customCss"),
+		}),
+	);
+	redirect(flash(BRANDING_PATH, "branding_saved"));
+}
+
+// ---- notification channels -------------------------------------------------------------
+
+/** The channel of a notification form. The service validates the value. */
+function channelOf(form: FormData): NotificationChannel {
+	return text(form, "channel") as NotificationChannel;
+}
+
+export async function updateNotificationChannelAction(
+	form: FormData,
+): Promise<void> {
+	const { actor, services } = await requireMember("admin");
+	await attempt(NOTIFICATIONS_PATH, () =>
+		services.notificationSettings.updateChannel(actor, channelOf(form), {
+			revision: integer(form, "revision"),
+			enabled: checkbox(form, "enabled"),
+			strategy: text(form, "strategy") as DeliveryStrategy,
+			from: optionalText(form, "from"),
+		}),
+	);
+	redirect(flash(NOTIFICATIONS_PATH, "notification_channel_saved"));
+}
+
+export async function addNotificationProviderAction(
+	form: FormData,
+): Promise<void> {
+	const { actor, services } = await requireMember("admin");
+	await attempt(NOTIFICATIONS_PATH, () =>
+		services.notificationSettings.addProvider(actor, channelOf(form), {
+			type: text(form, "type") as ProviderType,
+			name: text(form, "name"),
+			from: optionalText(form, "from"),
+			values: prefixed(form, "field_"),
+		}),
+	);
+	redirect(flash(NOTIFICATIONS_PATH, "notification_provider_added"));
+}
+
+export async function updateNotificationProviderAction(
+	form: FormData,
+): Promise<void> {
+	const { actor, services } = await requireMember("admin");
+	await attempt(NOTIFICATIONS_PATH, () =>
+		services.notificationSettings.updateProvider(
+			actor,
+			channelOf(form),
+			text(form, "id"),
+			{
+				revision: integer(form, "revision"),
+				name: text(form, "name"),
+				from: optionalText(form, "from"),
+				values: prefixed(form, "field_"),
+				clear: list(form, "clear"),
+			},
+		),
+	);
+	redirect(flash(NOTIFICATIONS_PATH, "notification_provider_saved"));
+}
+
+export async function moveNotificationProviderAction(
+	form: FormData,
+): Promise<void> {
+	const { actor, services } = await requireMember("admin");
+	await attempt(NOTIFICATIONS_PATH, () =>
+		services.notificationSettings.moveProvider(
+			actor,
+			channelOf(form),
+			text(form, "id"),
+			text(form, "direction") as MoveDirection,
+		),
+	);
+	redirect(flash(NOTIFICATIONS_PATH, "notification_provider_moved"));
+}
+
+export async function removeNotificationProviderAction(
+	form: FormData,
+): Promise<void> {
+	const { actor, services } = await requireMember("admin");
+	await attempt(NOTIFICATIONS_PATH, () =>
+		services.notificationSettings.removeProvider(
+			actor,
+			channelOf(form),
+			text(form, "id"),
+		),
+	);
+	redirect(flash(NOTIFICATIONS_PATH, "notification_provider_removed"));
 }

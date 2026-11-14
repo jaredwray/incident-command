@@ -99,6 +99,36 @@
 		"kind": "notice",
 		"text": "Settings saved"
 	},
+	"branding_saved": {
+		"id": "fls_jhn7sfx0zs4kuij0",
+		"kind": "notice",
+		"text": "Branding saved"
+	},
+	"notification_channel_saved": {
+		"id": "fls_apfmvi2otxs98y80",
+		"kind": "notice",
+		"text": "Channel saved"
+	},
+	"notification_provider_added": {
+		"id": "fls_wnvbr2rmayw8l39f",
+		"kind": "notice",
+		"text": "Provider added"
+	},
+	"notification_provider_saved": {
+		"id": "fls_sy4pnm4196eplwvz",
+		"kind": "notice",
+		"text": "Provider saved"
+	},
+	"notification_provider_moved": {
+		"id": "fls_0gy0zhrjcus9uaas",
+		"kind": "notice",
+		"text": "Provider order saved"
+	},
+	"notification_provider_removed": {
+		"id": "fls_suoxwe4bbhk6ffe8",
+		"kind": "notice",
+		"text": "Provider removed"
+	},
 	"draft_saved": {
 		"id": "fls_96qgxl029w4onuvq",
 		"kind": "notice",
@@ -228,5 +258,15 @@
 		"id": "fls_mcwqanhcm3mah7x6",
 		"kind": "error",
 		"text": "Somebody else reviewed this draft at the same time. Reload the draft."
+	},
+	"encryption_key_missing": {
+		"id": "fls_salxo77grb6c509j",
+		"kind": "error",
+		"text": "Set ENCRYPTION_KEY on the server before you save provider credentials."
+	},
+	"notification_settings_changed": {
+		"id": "fls_4tbiwu38x1jwqnni",
+		"kind": "error",
+		"text": "Somebody else changed these notification settings. Reload the page."
 	}
 }

@@ -30,6 +30,20 @@ export function list(form: FormData, key: string): string[] {
 		.filter((value) => value !== "");
 }
 
+/** Every text value whose key starts with `prefix`, keyed without the prefix. */
+export function prefixed(
+	form: FormData,
+	prefix: string,
+): Record<string, string> {
+	const values: Record<string, string> = {};
+	for (const key of form.keys()) {
+		if (key.startsWith(prefix)) {
+			values[key.slice(prefix.length)] = text(form, key);
+		}
+	}
+	return values;
+}
+
 export function integer(form: FormData, key: string): number | undefined {
 	const value = text(form, key).trim();
 	return value === "" ? undefined : Number(value);

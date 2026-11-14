@@ -166,7 +166,11 @@ describe("CreateAgentForm", () => {
 describe("AddSubscriberForm", () => {
 	it("switches the destination field with the type and drops the old value", async () => {
 		const user = userEvent.setup();
-		render(<AddSubscriberForm emailEnabled />);
+		render(
+			<AddSubscriberForm
+				available={{ webhook: true, email: true, sms: true }}
+			/>,
+		);
 		expect(screen.getByRole("radio", { name: /Webhook/ })).toBeChecked();
 		const url = screen.getByLabelText("Webhook URL");
 		expect(url).toHaveAttribute("type", "url");
@@ -182,13 +186,22 @@ describe("AddSubscriberForm", () => {
 		expect(email).toHaveAttribute("type", "email");
 		expect(email).toHaveAttribute("placeholder", "ops@example.com");
 		expect(email).toHaveValue("");
+		await user.click(screen.getByText("Send a short text to a phone."));
+		expect(screen.getByRole("radio", { name: /Text message/ })).toBeChecked();
+		const phone = screen.getByLabelText("Phone number");
+		expect(phone).toHaveAttribute("type", "tel");
+		expect(phone).toHaveAttribute("placeholder", "+15551234567");
 	});
 
-	it("disables email when it is not configured", () => {
-		render(<AddSubscriberForm emailEnabled={false} />);
-		const email = screen.getByRole("radio", { name: /Email/ });
-		expect(email).toBeDisabled();
-		expect(screen.getByText("Not configured")).toBeInTheDocument();
+	it("disables the types whose channel cannot send", () => {
+		render(
+			<AddSubscriberForm
+				available={{ webhook: true, email: false, sms: false }}
+			/>,
+		);
+		expect(screen.getByRole("radio", { name: /Email/ })).toBeDisabled();
+		expect(screen.getByRole("radio", { name: /Text message/ })).toBeDisabled();
+		expect(screen.getAllByText("Not available")).toHaveLength(2);
 		expect(screen.getByRole("radio", { name: /Webhook/ })).toBeChecked();
 		expect(screen.getByLabelText("Webhook URL")).toHaveAttribute("type", "url");
 	});

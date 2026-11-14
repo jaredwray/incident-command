@@ -34,8 +34,31 @@ export type IncidentImpact = (typeof INCIDENT_IMPACTS)[number];
 export const ROLES = ["viewer", "editor", "admin"] as const;
 export type Role = (typeof ROLES)[number];
 
-export const SUBSCRIBER_TYPES = ["email", "webhook"] as const;
+export const SUBSCRIBER_TYPES = ["webhook", "email", "sms"] as const;
 export type SubscriberType = (typeof SUBSCRIBER_TYPES)[number];
+
+/** A delivery channel. Each subscriber type has the channel with the same name. */
+export type NotificationChannel = SubscriberType;
+export const NOTIFICATION_CHANNELS: readonly NotificationChannel[] =
+	SUBSCRIBER_TYPES;
+
+/**
+ * How a channel uses its providers. `active_passive` sends through the first
+ * provider and uses the next provider only when a send fails (airhorn
+ * fail-over). `load_balanced` sends each message through the next provider
+ * in turn (airhorn round-robin).
+ */
+export const DELIVERY_STRATEGIES = ["active_passive", "load_balanced"] as const;
+export type DeliveryStrategy = (typeof DELIVERY_STRATEGIES)[number];
+
+export const PROVIDER_TYPES = [
+	"webhook",
+	"sendgrid",
+	"ses",
+	"twilio",
+	"sns",
+] as const;
+export type ProviderType = (typeof PROVIDER_TYPES)[number];
 
 export type DraftAction = "create" | "update";
 export type DraftState = "pending" | "approved" | "discarded";
@@ -68,6 +91,63 @@ export interface Settings {
 	allowSubscriptions: boolean;
 	uptimeDays: number;
 	updatedAt: string;
+}
+
+/** A delivery provider that an admin added to a channel. */
+export interface NotificationProvider {
+	id: string;
+	type: ProviderType;
+	/** A label that identifies the provider in the portal and in error logs. */
+	name: string;
+	/** The sender for this provider. It replaces the sender of the channel. */
+	from?: string;
+	/** Settings that are not secret, such as a region or an account SID. */
+	options: Record<string, string>;
+	/** Credentials, keyed by field. Each value is encrypted (see `SecretBox`). */
+	secrets: Record<string, string>;
+	createdAt: string;
+	updatedAt: string;
+}
+
+/** The delivery settings of one channel. The document id is the channel. */
+export interface NotificationChannelSettings {
+	id: NotificationChannel;
+	enabled: boolean;
+	strategy: DeliveryStrategy;
+	/** The default sender of the channel (an email address or a phone number). */
+	from?: string;
+	/** In order. With `active_passive`, the first provider is the active one. */
+	providers: NotificationProvider[];
+	/** Incremented on every write; used for optimistic concurrency. */
+	revision: number;
+	updatedAt: string;
+}
+
+/** A provider without its credentials, safe to return from APIs and render. */
+export interface PublicNotificationProvider
+	extends Omit<NotificationProvider, "secrets"> {
+	/** The secret fields that have a stored value. */
+	savedSecrets: string[];
+	/** False when the stored credentials do not decrypt with the configured keys. */
+	credentialsReadable: boolean;
+}
+
+/** A provider that environment variables configure. */
+export interface EnvironmentProvider {
+	type: ProviderType;
+	name: string;
+}
+
+/** The delivery settings of a channel without credentials. */
+export interface PublicNotificationChannel
+	extends Omit<NotificationChannelSettings, "providers"> {
+	providers: PublicNotificationProvider[];
+	/** The channel uses these providers only when it has no providers of its own. */
+	environmentProviders: EnvironmentProvider[];
+	/** The sender that applies when neither the provider nor the channel has one. */
+	defaultFrom?: string;
+	/** True when the channel is on and has a provider that can send. */
+	available: boolean;
 }
 
 export interface Service {

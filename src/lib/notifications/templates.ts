@@ -64,6 +64,17 @@ export const WEBHOOK_TEMPLATE: AirhornTemplate = {
 	content: "<%- payload %>",
 };
 
+export const SMS_TEMPLATE: AirhornTemplate = {
+	templateEngine: "ejs",
+	content: "<%- text %>",
+};
+
+/**
+ * The longest text message. A text with only GSM-7 characters fits in three
+ * concatenated segments of 153 characters.
+ */
+export const SMS_MAX_LENGTH = 320;
+
 function joinUrl(base: string | undefined, path: string): string | undefined {
 	return base ? `${base.replace(/\/+$/, "")}${path}` : undefined;
 }
@@ -116,6 +127,39 @@ export function summaryText(notification: IncidentNotification): string {
 		lines.push(url);
 	}
 	return lines.join("\n");
+}
+
+/** The status line keeps at least this many characters when the header is long. */
+const SMS_MIN_STATUS = 100;
+
+/**
+ * Cuts the text to `room` characters, with "..." when it is too long. The
+ * "…" character is not in the GSM-7 alphabet, so it would change the
+ * encoding of the whole text to UCS-2 and make each segment shorter.
+ */
+function shorten(value: string, room: number): string {
+	return value.length > room
+		? `${value.slice(0, Math.max(room - 3, 0)).trimEnd()}...`
+		: value;
+}
+
+/**
+ * The text of a text message: the header, the status line and the link. The
+ * header and the status line are cut so the whole text fits in
+ * `SMS_MAX_LENGTH` characters. The status line keeps at least
+ * `SMS_MIN_STATUS` characters, and the link stays whole.
+ */
+export function smsText(notification: IncidentNotification): string {
+	const { incident, update, settings, event } = notification;
+	const url = incidentUrl(notification);
+	const tail = url ? `\n${url}` : "";
+	const status = `${EVENT_STATUS_LABELS[update.status]}: ${update.message}`;
+	const room = SMS_MAX_LENGTH - tail.length - 1;
+	const head = shorten(
+		`[${settings.siteName}] ${EVENT_PREFIX[event]}: ${incident.title}`,
+		room - Math.min(status.length, SMS_MIN_STATUS),
+	);
+	return `${head}\n${shorten(status, room - head.length)}${tail}`;
 }
 
 export function emailData(

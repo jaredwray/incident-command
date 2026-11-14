@@ -79,7 +79,7 @@ These hosts set `PORT` themselves; the server listens on whatever `PORT` says. I
 | `SITE_URL`     | Public URL, used in notification links.                                                    |
 | `SETUP_TOKEN`  | Required to create the first admin at `/manage/setup`.                                     |
 
-Optional: `WEBHOOK_SECRET`, email settings, cache and session tuning. Full list: [docs/deployment.md](../../docs/deployment.md#environment-variables).
+Optional: `ENCRYPTION_KEY` (needed to save notification provider credentials in the portal), `WEBHOOK_SECRET`, email settings, cache and session tuning. Full list: [docs/deployment.md](../../docs/deployment.md#environment-variables).
 
 ## First admin
 

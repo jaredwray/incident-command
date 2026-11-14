@@ -43,6 +43,12 @@ services:
         scope: RUN_TIME
         type: SECRET
         value: change-me-now
+      # Encrypts notification provider credentials that admins save in the
+      # portal (Settings -> Notifications). Make one: openssl rand -base64 32
+      # - key: ENCRYPTION_KEY
+      #   scope: RUN_TIME
+      #   type: SECRET
+      #   value: replace-with-a-base64-key-of-32-bytes
       # Optional: signs webhook payloads (x-incident-command-signature).
       # - key: WEBHOOK_SECRET
       #   scope: RUN_TIME
@@ -56,14 +62,6 @@ services:
       #   scope: RUN_TIME
       #   type: SECRET
       #   value: SG.xxxxxxxx
-      # - key: TWILIO_ACCOUNT_SID
-      #   scope: RUN_TIME
-      #   type: SECRET
-      #   value: ACxxxxxxxx
-      # - key: TWILIO_AUTH_TOKEN
-      #   scope: RUN_TIME
-      #   type: SECRET
-      #   value: xxxxxxxx
 
 ingress:
   rules:

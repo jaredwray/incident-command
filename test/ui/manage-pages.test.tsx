@@ -11,6 +11,8 @@ import LoginPage from "@/app/manage/login/page";
 import MembersPage from "@/app/manage/members/page";
 import DashboardPage from "@/app/manage/page";
 import ServicesPage from "@/app/manage/services/page";
+import BrandingPage from "@/app/manage/settings/branding/page";
+import NotificationsSettingsPage from "@/app/manage/settings/notifications/page";
 import SettingsPage from "@/app/manage/settings/page";
 import SetupPage from "@/app/manage/setup/page";
 import SubscribersPage from "@/app/manage/subscribers/page";
@@ -818,43 +820,299 @@ describe("admin pages", () => {
 		).toBeGreaterThan(0);
 	});
 
-	it("lists subscribers and warns when email is off", async () => {
-		const { app, services, notifier } = await setupApp();
+	it("lists subscribers and warns about channels that cannot send", async () => {
+		const { app, services } = await setupApp();
 		const { actor } = await signIn(app, "admin");
-		notifier.emailEnabled = false;
 		const empty = render(await SubscribersPage(flash()));
-		expect(screen.getByText(/Email is not configured/)).toBeInTheDocument();
+		expect(
+			screen.getByText(/These channels cannot send now: Text messaging\./),
+		).toBeInTheDocument();
+		expect(screen.queryByText(/public subscribe form/)).not.toBeInTheDocument();
+		expect(screen.getByRole("radio", { name: /Text message/ })).toBeDisabled();
+		expect(
+			screen.getByRole("link", { name: "Settings → Notifications" }),
+		).toHaveAttribute("href", "/manage/settings/notifications");
 		expect(screen.getByText("No subscribers yet.")).toBeInTheDocument();
 		empty.unmount();
-		notifier.emailEnabled = true;
+
+		await services.notificationSettings.updateChannel(actor, "email", {
+			enabled: false,
+		});
 		await services.subscribers.addWebhook(actor, {
 			url: "https://hooks.example.com/a",
 		});
-		await services.subscribers.subscribe({ email: "pending@example.com" });
-		render(await SubscribersPage(flash()));
+		await services.subscribers.addSms(actor, { phone: "+15551234567" });
+		const off = render(await SubscribersPage(flash()));
 		expect(
-			screen.queryByText(/Email is not configured/),
-		).not.toBeInTheDocument();
+			screen.getByText(
+				/cannot send now: Email, Text messaging\. .* and the public subscribe form is hidden/,
+			),
+		).toBeInTheDocument();
 		expect(screen.getByText("Subscribers (2)")).toBeInTheDocument();
 		expect(screen.getByText(/Webhook · Confirmed/)).toBeInTheDocument();
+		expect(screen.getByText(/Text message · Confirmed/)).toBeInTheDocument();
+		off.unmount();
+
+		await services.notificationSettings.updateChannel(actor, "email", {
+			enabled: true,
+		});
+		await services.notificationSettings.updateChannel(actor, "sms", {
+			from: "ACME",
+		});
+		await services.notificationSettings.addProvider(actor, "sms", {
+			type: "sns",
+			name: "SNS",
+			values: { region: "us-east-1" },
+		});
+		await services.subscribers.subscribe({ email: "pending@example.com" });
+		render(await SubscribersPage(flash()));
+		expect(screen.queryByText(/cannot send now/)).not.toBeInTheDocument();
 		expect(
 			screen.getByText(/Email · Pending confirmation/),
 		).toBeInTheDocument();
 	});
 
-	it("renders settings with the current theme selected", async () => {
+	it("renders the general settings section", async () => {
+		const { app, services } = await setupApp();
+		await signIn(app, "admin");
+		await services.settings.update(SYSTEM_ACTOR, { uptimeDays: 30 });
+		render(await SettingsPage(flash()));
+		const tabs = screen.getByRole("navigation", { name: "Settings sections" });
+		expect(within(tabs).getByRole("link", { name: "General" })).toHaveAttribute(
+			"aria-current",
+			"page",
+		);
+		expect(
+			within(tabs).getByRole("link", { name: "Notifications" }),
+		).toHaveAttribute("href", "/manage/settings/notifications");
+		expect(screen.getByLabelText("Uptime window (days)")).toHaveValue(30);
+		expect(
+			screen.getByLabelText("Allow visitors to subscribe by email"),
+		).toBeChecked();
+		expect(screen.queryByLabelText("Brand color")).not.toBeInTheDocument();
+	});
+
+	it("renders branding with the current theme selected", async () => {
 		const { app, services } = await setupApp();
 		await signIn(app, "admin");
 		await services.settings.update(SYSTEM_ACTOR, {
 			theme: "sunset",
 			brandColor: "#123456",
 		});
-		render(await SettingsPage(flash()));
+		render(await BrandingPage(flash()));
+		expect(screen.getByRole("link", { name: "Branding" })).toHaveAttribute(
+			"aria-current",
+			"page",
+		);
 		expect(screen.getByDisplayValue("sunset")).toBeChecked();
 		expect(screen.getByLabelText("Brand color")).toHaveValue("#123456");
 		expect(
-			screen.getByLabelText("Allow visitors to subscribe by email"),
+			screen.queryByLabelText("Uptime window (days)"),
+		).not.toBeInTheDocument();
+	});
+
+	it("renders the notification channels without an encryption key", async () => {
+		const { app } = await setupApp();
+		await signIn(app, "admin");
+		render(await NotificationsSettingsPage(flash()));
+		expect(screen.getByRole("link", { name: "Notifications" })).toHaveAttribute(
+			"aria-current",
+			"page",
+		);
+		expect(screen.getByRole("alert")).toHaveTextContent(
+			"ENCRYPTION_KEY is not set",
+		);
+		const card = (name: string) =>
+			screen.getByRole("heading", { name }).closest("section") as HTMLElement;
+		const webhooks = within(card("Webhooks"));
+		expect(webhooks.getByText("On")).toBeInTheDocument();
+		expect(
+			webhooks.getByText(
+				"No providers yet. Until you add one, this channel uses Built-in webhook sender.",
+			),
+		).toBeInTheDocument();
+		expect(
+			webhooks.queryByLabelText("Default from address"),
+		).not.toBeInTheDocument();
+		const secret = webhooks.getByLabelText("Signing secret");
+		expect(secret).toBeDisabled();
+		expect(
+			webhooks.getByText(
+				"Set ENCRYPTION_KEY on the server to save credentials.",
+			),
+		).toBeInTheDocument();
+
+		const email = within(card("Email"));
+		expect(email.getByRole("radio", { name: /Active\/passive/ })).toBeChecked();
+		expect(email.getByLabelText("Default from address")).toHaveAttribute(
+			"placeholder",
+			"status@test.dev",
+		);
+		expect(
+			email.getByText(/Leave empty to use status@test.dev \(EMAIL_FROM\)\./),
+		).toBeInTheDocument();
+
+		const sms = within(card("Text messaging"));
+		expect(sms.getByText("Not ready")).toBeInTheDocument();
+		expect(
+			sms.getByText("Add a provider so this channel can send."),
+		).toBeInTheDocument();
+		expect(
+			sms.getByText("No providers yet. Add one below."),
+		).toBeInTheDocument();
+		expect(sms.getByRole("button", { name: "Add Twilio" })).toBeInTheDocument();
+		expect(
+			sms.getByRole("button", { name: "Add Amazon SNS" }),
+		).toBeInTheDocument();
+	});
+
+	it("renders providers in order with their roles and saved credentials", async () => {
+		const { app, services } = await setupApp({
+			ENCRYPTION_KEY: "k".repeat(32),
+			EMAIL_FROM: "",
+		});
+		const { actor } = await signIn(app, "admin");
+		const settings = services.notificationSettings;
+		await settings.addProvider(actor, "email", {
+			type: "sendgrid",
+			name: "SendGrid primary",
+			values: { apiKey: "SG.key" },
+		});
+		await settings.addProvider(actor, "email", {
+			type: "ses",
+			name: "SES backup",
+			from: "ses@acme.dev",
+			values: {
+				region: "us-east-1",
+				accessKeyId: "AKIAIOSFODNN7EXAMPLE",
+				secretAccessKey: "secret",
+			},
+		});
+		await settings.addProvider(actor, "webhook", {
+			type: "webhook",
+			name: "Signed",
+			values: { signingSecret: "whsec" },
+		});
+		await settings.updateChannel(actor, "webhook", {
+			strategy: "load_balanced",
+			enabled: false,
+		});
+		// A provider whose credentials an unknown key encrypted.
+		await app.store.insert("notification_channels", {
+			id: "sms",
+			enabled: true,
+			strategy: "active_passive",
+			providers: [
+				{
+					id: "prv_lost",
+					type: "twilio",
+					name: "Lost key",
+					options: { accountSid: `AC${"0".repeat(32)}` },
+					secrets: { authToken: "v1.deadbeef.AAAA.AAAA" },
+					createdAt: "2026-01-01T00:00:00.000Z",
+					updatedAt: "2026-01-01T00:00:00.000Z",
+				},
+			],
+			revision: 1,
+			updatedAt: "2026-01-01T00:00:00.000Z",
+		});
+		render(await NotificationsSettingsPage(flash()));
+		expect(
+			screen.queryByText(/ENCRYPTION_KEY is not set/),
+		).not.toBeInTheDocument();
+		const card = (name: string) =>
+			within(
+				screen.getByRole("heading", { name }).closest("section") as HTMLElement,
+			);
+
+		const email = card("Email");
+		// Each save posts the revision that the page showed.
+		const emailRevision = String((await settings.list(actor))[1]?.revision);
+		const section = screen
+			.getByRole("heading", { name: "Email" })
+			.closest("section") as HTMLElement;
+		const revisions = [
+			...section.querySelectorAll<HTMLInputElement>('input[name="revision"]'),
+		].map((input) => input.value);
+		expect(revisions).toEqual([emailRevision, emailRevision, emailRevision]);
+		const [first, second] = email.getAllByRole("listitem");
+		expect(
+			within(first as HTMLElement).getByText("SendGrid primary", {
+				selector: "p",
+			}),
+		).toBeInTheDocument();
+		expect(
+			within(first as HTMLElement).getByText(
+				"SendGrid · Active · API key saved",
+			),
+		).toBeInTheDocument();
+		expect(
+			within(second as HTMLElement).getByText(
+				"Amazon SES · Passive 1 · From ses@acme.dev · Secret access key saved",
+			),
+		).toBeInTheDocument();
+		expect(
+			within(first as HTMLElement).queryByRole("button", { name: /Move up/ }),
+		).not.toBeInTheDocument();
+		expect(
+			within(first as HTMLElement).getByRole("button", {
+				name: "Move down SendGrid primary",
+			}),
+		).toBeInTheDocument();
+		expect(
+			within(second as HTMLElement).queryByRole("button", {
+				name: /Move down/,
+			}),
+		).not.toBeInTheDocument();
+		expect(
+			within(first as HTMLElement).getByLabelText("API key"),
+		).toHaveAttribute("placeholder", "Saved. Leave empty to keep it.");
+		expect(
+			within(first as HTMLElement).queryByText(/Remove the saved/),
+		).not.toBeInTheDocument();
+		expect(
+			within(second as HTMLElement).getByLabelText(
+				"Remove the saved secret access key",
+			),
+		).not.toBeChecked();
+		expect(within(second as HTMLElement).getByLabelText("Region")).toHaveValue(
+			"us-east-1",
+		);
+		expect(
+			email.getByText(
+				"This channel does not use SendGrid (environment variables) while it has providers.",
+			),
+		).toBeInTheDocument();
+		// Without EMAIL_FROM, only the SES provider has a sender.
+		expect(email.getByText("On")).toBeInTheDocument();
+		expect(email.getByLabelText("Default from address")).toHaveAttribute(
+			"placeholder",
+			"Status <status@example.com>",
+		);
+
+		const webhooks = card("Webhooks");
+		expect(
+			webhooks.getByText(/Signed webhook · Load balanced/),
+		).toBeInTheDocument();
+		expect(
+			webhooks.getByRole("radio", { name: /Load balanced/ }),
 		).toBeChecked();
+
+		expect(webhooks.getByText("Off")).toBeInTheDocument();
+
+		const sms = card("Text messaging");
+		expect(sms.getByText("Not ready")).toBeInTheDocument();
+		expect(
+			sms.getByText("Set a sender. The providers cannot send without one."),
+		).toBeInTheDocument();
+		expect(sms.getByRole("alert")).toHaveTextContent(
+			"The saved credentials do not decrypt",
+		);
+		// A saved secret is not required again in the edit form.
+		const [lost] = sms.getAllByRole("listitem");
+		expect(
+			within(lost as HTMLElement).getByLabelText("Auth token"),
+		).not.toBeRequired();
 	});
 
 	it("renders the account page", async () => {

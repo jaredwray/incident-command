@@ -1,5 +1,6 @@
 import {
 	acceptInviteAction,
+	addNotificationProviderAction,
 	addSubscriberAction,
 	approveDraftAction,
 	changePasswordAction,
@@ -16,22 +17,28 @@ import {
 	inviteMemberAction,
 	loginAction,
 	logoutAction,
+	moveNotificationProviderAction,
 	postIncidentUpdateAction,
+	removeNotificationProviderAction,
 	renewInviteLinkAction,
 	revokeAgentAction,
 	revokeInviteAction,
 	saveDraftAction,
 	setServiceStatusAction,
 	setupAction,
+	updateBrandingAction,
+	updateGeneralSettingsAction,
 	updateMemberAction,
+	updateNotificationChannelAction,
+	updateNotificationProviderAction,
 	updateServiceAction,
-	updateSettingsAction,
 } from "@/app/manage/actions";
 import { subscribeAction, unsubscribeAction } from "@/app/subscribe/actions";
 import { SESSION_COOKIE } from "@/lib/auth";
 import type { Actor } from "@/lib/domain/types";
 import { SYSTEM_ACTOR } from "@/lib/services/context";
 import {
+	expectFlashRedirect,
 	expectSameFlash,
 	flashMessage,
 	form,
@@ -773,6 +780,15 @@ describe("subscriber and settings actions", () => {
 			),
 			"/manage/subscribers?notice=Subscriber added",
 		);
+		expectSameFlash(
+			await redirectOf(
+				addSubscriberAction(form({ type: "sms", target: "+1 555 123 4567" })),
+			),
+			"/manage/subscribers?notice=Subscriber added",
+		);
+		expect(
+			(await services.subscribers.list(actor)).map((item) => item.target),
+		).toContain("+15551234567");
 		expect(
 			flashMessage(
 				await redirectOf(
@@ -794,21 +810,17 @@ describe("subscriber and settings actions", () => {
 		).toBe("That item was not found.");
 	});
 
-	it("saves settings", async () => {
+	it("saves the general settings without touching branding", async () => {
 		const { app, services } = await setupApp();
 		await signIn(app, "admin");
+		await services.settings.update(SYSTEM_ACTOR, { theme: "ocean" });
 		const url = await redirectOf(
-			updateSettingsAction(
+			updateGeneralSettingsAction(
 				form({
 					siteName: "Acme Status",
 					description: "Hello",
 					siteUrl: "https://status.acme.dev",
-					logoUrl: "",
-					faviconUrl: "",
 					supportUrl: "https://acme.dev/help",
-					theme: "midnight",
-					brandColor: "#ff0066",
-					customCss: ":root{}",
 					allowSubscriptions: "on",
 					uptimeDays: "30",
 				}),
@@ -817,20 +829,273 @@ describe("subscriber and settings actions", () => {
 		expectSameFlash(url, "/manage/settings?notice=Settings saved");
 		expect(await services.settings.get()).toMatchObject({
 			siteName: "Acme Status",
-			theme: "midnight",
+			siteUrl: "https://status.acme.dev",
+			theme: "ocean",
 			uptimeDays: 30,
 			allowSubscriptions: true,
 		});
-		expect(
-			flashMessage(
+		expectFlashRedirect(
+			await redirectOf(
+				updateGeneralSettingsAction(form({ siteName: "", uptimeDays: "1" })),
+			),
+			"/manage/settings",
+			"error",
+			"Check the form and try again.",
+		);
+	});
+
+	it("saves branding without touching the general settings", async () => {
+		const { app, services } = await setupApp();
+		await signIn(app, "admin");
+		await services.settings.update(SYSTEM_ACTOR, {
+			allowSubscriptions: true,
+			uptimeDays: 30,
+		});
+		const url = await redirectOf(
+			updateBrandingAction(
+				form({
+					theme: "midnight",
+					brandColor: "#ff0066",
+					logoUrl: "",
+					faviconUrl: "",
+					customCss: ":root{}",
+				}),
+			),
+		);
+		expectSameFlash(url, "/manage/settings/branding?notice=Branding saved");
+		expect(await services.settings.get()).toMatchObject({
+			theme: "midnight",
+			brandColor: "#ff0066",
+			customCss: ":root{}",
+			allowSubscriptions: true,
+			uptimeDays: 30,
+		});
+		expectFlashRedirect(
+			await redirectOf(
+				updateBrandingAction(form({ theme: "default", brandColor: "pink" })),
+			),
+			"/manage/settings/branding",
+			"error",
+			"Check the form and try again.",
+		);
+	});
+});
+
+describe("notification settings actions", () => {
+	const PATH = "/manage/settings/notifications";
+
+	it("saves a channel", async () => {
+		const { app, services } = await setupApp();
+		const { actor } = await signIn(app, "admin");
+		expectSameFlash(
+			await redirectOf(
+				updateNotificationChannelAction(
+					form({
+						channel: "email",
+						strategy: "load_balanced",
+						from: "Acme <status@acme.dev>",
+					}),
+				),
+			),
+			`${PATH}?notice=Channel saved`,
+		);
+		expect((await services.notificationSettings.list(actor))[1]).toMatchObject({
+			enabled: false,
+			strategy: "load_balanced",
+			from: "Acme <status@acme.dev>",
+		});
+		await redirectOf(
+			updateNotificationChannelAction(
+				form({ channel: "webhook", enabled: "on", strategy: "active_passive" }),
+			),
+		);
+		expect((await services.notificationSettings.list(actor))[0]?.enabled).toBe(
+			true,
+		);
+		expectFlashRedirect(
+			await redirectOf(
+				updateNotificationChannelAction(
+					form({ channel: "email", strategy: "active_passive", from: "nope" }),
+				),
+			),
+			PATH,
+			"error",
+			"Check the form and try again.",
+		);
+	});
+
+	it("refuses a channel form that shows an old revision", async () => {
+		const { app, services } = await setupApp();
+		const { actor } = await signIn(app, "admin");
+		await services.notificationSettings.updateChannel(actor, "email", {
+			enabled: false,
+		});
+		expectFlashRedirect(
+			await redirectOf(
+				updateNotificationChannelAction(
+					form({
+						channel: "email",
+						revision: "0",
+						enabled: "on",
+						strategy: "active_passive",
+					}),
+				),
+			),
+			PATH,
+			"error",
+			"Somebody else changed these notification settings. Reload the page.",
+		);
+		expect((await services.notificationSettings.list(actor))[1]?.enabled).toBe(
+			false,
+		);
+	});
+
+	it("needs an encryption key to add a provider with credentials", async () => {
+		const { app } = await setupApp();
+		await signIn(app, "admin");
+		expectFlashRedirect(
+			await redirectOf(
+				addNotificationProviderAction(
+					form({
+						channel: "email",
+						type: "sendgrid",
+						name: "SendGrid",
+						field_apiKey: "SG.key",
+					}),
+				),
+			),
+			PATH,
+			"error",
+			"Set ENCRYPTION_KEY on the server before you save provider credentials.",
+		);
+	});
+
+	it("adds, edits, orders and removes providers", async () => {
+		const { app, services } = await setupApp({
+			ENCRYPTION_KEY: "k".repeat(32),
+		});
+		const { actor } = await signIn(app, "admin");
+		const providers = async () =>
+			(await services.notificationSettings.list(actor))[2]?.providers ?? [];
+		for (const name of ["Twilio", "SNS"]) {
+			expectSameFlash(
 				await redirectOf(
-					updateSettingsAction(
-						form({ siteName: "Acme", theme: "default", brandColor: "pink" }),
+					addNotificationProviderAction(
+						form(
+							name === "Twilio"
+								? {
+										channel: "sms",
+										type: "twilio",
+										name,
+										from: "+15550001111",
+										field_accountSid: `AC${"1".repeat(32)}`,
+										field_authToken: "tok",
+									}
+								: {
+										channel: "sms",
+										type: "sns",
+										name,
+										from: "",
+										field_region: "us-east-1",
+										field_accessKeyId: "",
+										field_secretAccessKey: "",
+									},
+						),
 					),
 				),
-				"error",
+				`${PATH}?notice=Provider added`,
+			);
+		}
+		const [twilio, sns] = await providers();
+		expect(twilio).toMatchObject({
+			name: "Twilio",
+			from: "+15550001111",
+			options: { accountSid: `AC${"1".repeat(32)}` },
+			savedSecrets: ["authToken"],
+		});
+		expect(sns).toMatchObject({ options: { region: "us-east-1" } });
+		expect(sns?.from).toBeUndefined();
+
+		expectSameFlash(
+			await redirectOf(
+				updateNotificationProviderAction(
+					form({
+						channel: "sms",
+						id: twilio?.id ?? "",
+						name: "Twilio primary",
+						from: "",
+						field_accountSid: `AC${"1".repeat(32)}`,
+						field_authToken: "",
+					}),
+				),
 			),
-		).toBe("Check the form and try again.");
+			`${PATH}?notice=Provider saved`,
+		);
+		expect((await providers())[0]).toMatchObject({
+			name: "Twilio primary",
+			savedSecrets: ["authToken"],
+		});
+		expect((await providers())[0]?.from).toBeUndefined();
+
+		expectSameFlash(
+			await redirectOf(
+				moveNotificationProviderAction(
+					form({ channel: "sms", id: sns?.id ?? "", direction: "up" }),
+				),
+			),
+			`${PATH}?notice=Provider order saved`,
+		);
+		expect((await providers()).map((item) => item.name)).toEqual([
+			"SNS",
+			"Twilio primary",
+		]);
+
+		expectSameFlash(
+			await redirectOf(
+				removeNotificationProviderAction(
+					form({ channel: "sms", id: sns?.id ?? "" }),
+				),
+			),
+			`${PATH}?notice=Provider removed`,
+		);
+		expect((await providers()).map((item) => item.name)).toEqual([
+			"Twilio primary",
+		]);
+
+		for (const action of [
+			() =>
+				updateNotificationProviderAction(
+					form({ channel: "sms", id: "prv_missing", name: "x" }),
+				),
+			() =>
+				moveNotificationProviderAction(
+					form({ channel: "sms", id: "prv_missing", direction: "up" }),
+				),
+			() =>
+				removeNotificationProviderAction(
+					form({ channel: "sms", id: "prv_missing" }),
+				),
+		]) {
+			expectFlashRedirect(
+				await redirectOf(action()),
+				PATH,
+				"error",
+				"That item was not found.",
+			);
+		}
+	});
+
+	it("requires the admin role", async () => {
+		const { app } = await setupApp();
+		await signIn(app, "editor");
+		expectFlashRedirect(
+			await redirectOf(
+				updateNotificationChannelAction(form({ channel: "email" })),
+			),
+			"/manage",
+			"error",
+			"That page requires the admin role",
+		);
 	});
 });
 
@@ -848,7 +1113,7 @@ describe("public subscribe actions", () => {
 		const emptyEmail = await redirectOf(subscribeAction(new FormData()));
 		expect(new URL(emptyEmail, "http://localhost").pathname).toBe("/subscribe");
 		expect(flashMessage(emptyEmail, "error")).toBeTruthy();
-		const token = notifier.confirmations[0]?.token ?? "";
+		const token = notifier.confirmations[0]?.subscriber.token ?? "";
 		expect(await redirectOf(unsubscribeAction(form({ token })))).toBe(
 			"/subscribe/unsubscribe?done=1",
 		);
