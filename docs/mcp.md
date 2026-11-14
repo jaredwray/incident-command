@@ -50,39 +50,43 @@ Each token has a role. Tools the role cannot use are not listed, so agents never
 
 ## Tools
 
-| Tool                     | Role   | What it does                                                                        |
-| ------------------------ | ------ | ----------------------------------------------------------------------------------- |
-| `whoami`                 | viewer | The token's identity and role.                                                      |
-| `get_status`             | viewer | Overall status, services with status and uptime, open incidents and maintenance.    |
-| `list_services`          | viewer | All services (including hidden) in display order.                                   |
-| `list_incidents`         | viewer | Incidents and maintenance, newest first. Filter by `kind` and `open`.               |
-| `get_incident`           | viewer | One incident with its full timeline.                                                |
-| `create_service`         | editor | Add a service.                                                                      |
-| `update_service`         | editor | Edit a service (`null` clears description or group).                                |
-| `set_service_status`     | editor | Change a service's status without an incident. Feeds uptime history.                |
-| `delete_service`         | editor | Delete a service and its status history.                                            |
-| `create_incident`        | editor | Declare an incident. Affected services move to a status derived from the impact.    |
-| `post_incident_update`   | editor | Add a timeline update, optionally changing status and service status.               |
-| `resolve_incident`       | editor | Resolve an incident or complete maintenance; restores affected services.            |
-| `edit_incident`          | editor | Change title, impact, services or the maintenance window without posting an update. |
-| `delete_incident`        | editor | Delete an incident or maintenance.                                                  |
-| `schedule_maintenance`   | editor | Announce planned maintenance with a window.                                         |
-| `draft_notification`     | editor | Save a notification for review by a person. Returns the `reviewUrl`.                |
-| `get_notification_draft` | viewer | One notification draft and its review state.                                        |
-| `list_members`           | admin  | Portal members.                                                                     |
-| `invite_member`          | admin  | Create a one-time `inviteUrl` (valid for 7 days). The person creates their account. |
-| `list_invites`           | admin  | Invites that nobody used yet.                                                       |
-| `revoke_invite`          | admin  | Remove an invite. Its link stops working.                                           |
-| `update_member`          | admin  | Change name, email, role or password.                                               |
-| `remove_member`          | admin  | Remove a member (the last admin cannot be removed).                                 |
-| `list_agents`            | admin  | Agent tokens.                                                                       |
-| `create_agent_token`     | admin  | Create a token for another agent (returned once).                                   |
-| `revoke_agent_token`     | admin  | Revoke a token immediately.                                                         |
-| `get_settings`           | admin  | Status page settings and branding.                                                  |
-| `update_settings`        | admin  | Change name, URLs, theme, brand color, custom CSS, subscriptions, uptime window.    |
-| `list_subscribers`       | admin  | Email and webhook subscribers.                                                      |
-| `add_subscriber`         | admin  | Add a confirmed email subscriber or a webhook.                                      |
-| `remove_subscriber`      | admin  | Remove a subscriber.                                                                |
+| Tool                          | Role   | What it does                                                                        |
+| ----------------------------- | ------ | ----------------------------------------------------------------------------------- |
+| `whoami`                      | viewer | The token's identity and role.                                                      |
+| `get_status`                  | viewer | Overall status, services with status and uptime, open incidents and maintenance.    |
+| `list_services`               | viewer | All services (including hidden) in display order.                                   |
+| `list_incidents`              | viewer | Incidents and maintenance, newest first. Filter by `kind` and `open`.               |
+| `get_incident`                | viewer | One incident with its full timeline.                                                |
+| `create_service`              | editor | Add a service.                                                                      |
+| `update_service`              | editor | Edit a service (`null` clears description or group).                                |
+| `set_service_status`          | editor | Change a service's status without an incident. Feeds uptime history.                |
+| `delete_service`              | editor | Delete a service and its status history.                                            |
+| `create_incident`             | editor | Declare an incident. Affected services move to a status derived from the impact.    |
+| `post_incident_update`        | editor | Add a timeline update, optionally changing status and service status.               |
+| `resolve_incident`            | editor | Resolve an incident or complete maintenance; restores affected services.            |
+| `edit_incident`               | editor | Change title, impact, services or the maintenance window without posting an update. |
+| `delete_incident`             | editor | Delete an incident or maintenance.                                                  |
+| `schedule_maintenance`        | editor | Announce planned maintenance with a window.                                         |
+| `draft_notification`          | editor | Save a notification for review by a person. Returns the `reviewUrl`.                |
+| `get_notification_draft`      | viewer | One notification draft and its review state.                                        |
+| `list_members`                | admin  | Portal members.                                                                     |
+| `invite_member`               | admin  | Create a one-time `inviteUrl` (valid for 7 days). The person creates their account. |
+| `list_invites`                | admin  | Invites that nobody used yet.                                                       |
+| `revoke_invite`               | admin  | Remove an invite. Its link stops working.                                           |
+| `update_member`               | admin  | Change name, email, role or password.                                               |
+| `remove_member`               | admin  | Remove a member (the last admin cannot be removed).                                 |
+| `list_agents`                 | admin  | Agent tokens.                                                                       |
+| `create_agent_token`          | admin  | Create a token for another agent (returned once).                                   |
+| `revoke_agent_token`          | admin  | Revoke a token immediately.                                                         |
+| `get_settings`                | admin  | Status page settings and branding.                                                  |
+| `update_settings`             | admin  | Change name, URLs, theme, brand color, custom CSS, subscriptions, uptime window.    |
+| `get_notification_settings`   | admin  | The webhook, email and text messaging channels and their providers. No credentials. |
+| `update_notification_channel` | admin  | Turn a channel on or off, or set its delivery strategy or sender.                   |
+| `list_subscribers`            | admin  | Webhook, email and text message subscribers.                                        |
+| `add_subscriber`              | admin  | Add a confirmed email subscriber, a webhook or an E.164 phone number.               |
+| `remove_subscriber`           | admin  | Remove a subscriber.                                                                |
+
+Agents cannot add notification providers or read their credentials. An admin adds providers and credentials in the portal.
 
 Results are JSON in a text content block. Expected failures (validation, not found, permission) come back as tool errors with `isError: true` and a message such as `not_found: Incident "inc_123" was not found`; unexpected failures return `internal_error` without leaking details.
 

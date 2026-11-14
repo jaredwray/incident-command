@@ -1,12 +1,14 @@
 import { createId, createSecret } from "../crypto";
 import {
 	emailSubscriberSchema,
+	smsSubscriberSchema,
 	subscribeSchema,
 	webhookSubscriberSchema,
 } from "../domain/schemas";
 import type { Actor, Subscriber, SubscriberType } from "../domain/types";
 import { AppError, ForbiddenError, NotFoundError } from "../errors";
 import { iso, parse, requireRole, type ServiceContext } from "./context";
+import type { NotificationSettingsService } from "./notification-settings";
 import type { SettingsService } from "./settings";
 
 export type SubscribeOutcome = "confirmation_sent" | "already_subscribed";
@@ -14,16 +16,25 @@ export type SubscribeOutcome = "confirmation_sent" | "already_subscribed";
 export class SubscriberService {
 	private readonly ctx: ServiceContext;
 	private readonly settings: SettingsService;
+	private readonly notificationSettings: NotificationSettingsService;
 
-	constructor(ctx: ServiceContext, settings: SettingsService) {
+	constructor(
+		ctx: ServiceContext,
+		settings: SettingsService,
+		notificationSettings: NotificationSettingsService,
+	) {
 		this.ctx = ctx;
 		this.settings = settings;
+		this.notificationSettings = notificationSettings;
 	}
 
 	/** Whether the public status page can offer email subscriptions. */
 	async canSubscribe(): Promise<boolean> {
-		const settings = await this.settings.get();
-		return settings.allowSubscriptions && this.ctx.notifier.emailEnabled;
+		const [settings, available] = await Promise.all([
+			this.settings.get(),
+			this.notificationSettings.availability(),
+		]);
+		return settings.allowSubscriptions && available.email;
 	}
 
 	/** Public double opt-in email subscription. */
@@ -37,9 +48,14 @@ export class SubscriberService {
 			return "already_subscribed";
 		}
 		const subscriber = existing ?? (await this.insert("email", email, false));
+		const [settings, channels] = await Promise.all([
+			this.settings.get(),
+			this.notificationSettings.resolve(),
+		]);
 		const sent = await this.ctx.notifier.sendConfirmation(
 			subscriber,
-			await this.settings.get(),
+			settings,
+			channels.email,
 		);
 		if (!sent) {
 			throw new AppError(
@@ -92,6 +108,13 @@ export class SubscriberService {
 		requireRole(actor, "admin");
 		const { url } = parse(webhookSubscriberSchema, input);
 		return this.insert("webhook", url, true);
+	}
+
+	/** Adds a pre-confirmed phone number for text messages (admins only). */
+	async addSms(actor: Actor, input: { phone: string }): Promise<Subscriber> {
+		requireRole(actor, "admin");
+		const { phone } = parse(smsSubscriberSchema, input);
+		return this.insert("sms", phone, true);
 	}
 
 	/** Adds a pre-confirmed email subscriber (admins only, no opt-in email). */

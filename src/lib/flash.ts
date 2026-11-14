@@ -34,6 +34,10 @@ const MESSAGE_CODES: Record<string, FlashCode> = {
 	"This draft was already discarded": "draft_already_discarded",
 	"Somebody else reviewed this draft at the same time. Reload the draft.":
 		"draft_reviewed_meanwhile",
+	"Set ENCRYPTION_KEY on the server before you save provider credentials.":
+		"encryption_key_missing",
+	"Somebody else changed these notification settings. Reload the page.":
+		"notification_settings_changed",
 };
 
 const ERROR_CODE_FLASH: Record<ErrorCode, FlashCode> = {

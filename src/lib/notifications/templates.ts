@@ -64,6 +64,14 @@ export const WEBHOOK_TEMPLATE: AirhornTemplate = {
 	content: "<%- payload %>",
 };
 
+export const SMS_TEMPLATE: AirhornTemplate = {
+	templateEngine: "ejs",
+	content: "<%- text %>",
+};
+
+/** The longest text message. It fits in three concatenated SMS segments of 153 characters. */
+export const SMS_MAX_LENGTH = 320;
+
 function joinUrl(base: string | undefined, path: string): string | undefined {
 	return base ? `${base.replace(/\/+$/, "")}${path}` : undefined;
 }
@@ -116,6 +124,22 @@ export function summaryText(notification: IncidentNotification): string {
 		lines.push(url);
 	}
 	return lines.join("\n");
+}
+
+/**
+ * The text of a text message: the summary, with the status message cut so
+ * the whole text fits in `SMS_MAX_LENGTH` characters. The link stays whole.
+ */
+export function smsText(notification: IncidentNotification): string {
+	const { incident, update, settings, event } = notification;
+	const url = incidentUrl(notification);
+	const head = `[${settings.siteName}] ${EVENT_PREFIX[event]}: ${incident.title}`;
+	const tail = url ? `\n${url}` : "";
+	const status = `${EVENT_STATUS_LABELS[update.status]}: ${update.message}`;
+	const room = Math.max(SMS_MAX_LENGTH - head.length - tail.length - 1, 1);
+	const body =
+		status.length > room ? `${status.slice(0, room - 1).trimEnd()}…` : status;
+	return `${head}\n${body}${tail}`;
 }
 
 export function emailData(

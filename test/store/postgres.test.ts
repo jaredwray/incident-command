@@ -141,6 +141,7 @@ describe("PostgresStore", () => {
 			"ic_incidents",
 			"ic_invites",
 			"ic_members",
+			"ic_notification_channels",
 			"ic_notification_drafts",
 			"ic_service_status_changes",
 			"ic_services",

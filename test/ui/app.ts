@@ -5,14 +5,14 @@ import type { Role } from "@/lib/domain/types";
 import { type FlashKind, readFlash } from "@/lib/flash";
 import { SYSTEM_ACTOR } from "@/lib/services/context";
 import { memberActor } from "@/lib/services/members";
-import { Clock, FakeNotifier } from "../helpers";
+import { Clock, EMAIL_ENV, FakeNotifier } from "../helpers";
 import { cookieJar, NotFound, Redirect } from "./next-state";
 
 export async function setupApp(env: Record<string, string> = {}) {
 	const clock = new Clock();
 	const notifier = new FakeNotifier();
 	const app = await createApp({
-		config: loadConfig(env),
+		config: loadConfig({ ...EMAIL_ENV, ...env }),
 		notifier,
 		now: clock.now,
 	});

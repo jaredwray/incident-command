@@ -17,11 +17,17 @@ describe("SubscriberService", () => {
 		await expect(
 			t.services.subscribers.subscribe({ email: "Jane@Example.com" }),
 		).resolves.toBe("confirmation_sent");
-		const [pending] = t.notifier.confirmations;
+		const pending = t.notifier.confirmations[0]?.subscriber;
 		expect(pending).toMatchObject({
 			target: "jane@example.com",
 			confirmed: false,
 			type: "email",
+		});
+		// The confirmation goes through the email channel of the current settings.
+		expect(t.notifier.confirmations[0]?.channel).toMatchObject({
+			channel: "email",
+			enabled: true,
+			providers: [{ type: "sendgrid", from: "status@test.dev" }],
 		});
 		await expect(t.services.subscribers.recipients()).resolves.toEqual([]);
 
@@ -69,7 +75,9 @@ describe("SubscriberService", () => {
 			t.services.subscribers.subscribe({ email: "a@b.co" }),
 		).rejects.toBeInstanceOf(ForbiddenError);
 		const noEmail = createTestContext();
-		noEmail.notifier.emailEnabled = false;
+		await noEmail.services.notificationSettings.updateChannel(ADMIN, "email", {
+			enabled: false,
+		});
 		await expect(noEmail.services.subscribers.canSubscribe()).resolves.toBe(
 			false,
 		);
@@ -105,5 +113,22 @@ describe("SubscriberService", () => {
 		await expect(t.services.subscribers.list(EDITOR)).rejects.toBeInstanceOf(
 			ForbiddenError,
 		);
+	});
+
+	it("lets admins add phone numbers for text messages", async () => {
+		const phone = await t.services.subscribers.addSms(ADMIN, {
+			phone: "+1 (555) 123-4567",
+		});
+		expect(phone).toMatchObject({
+			type: "sms",
+			target: "+15551234567",
+			confirmed: true,
+		});
+		await expect(
+			t.services.subscribers.addSms(ADMIN, { phone: "555-1234" }),
+		).rejects.toThrow(/E\.164/);
+		await expect(
+			t.services.subscribers.addSms(EDITOR, { phone: "+15551234567" }),
+		).rejects.toBeInstanceOf(ForbiddenError);
 	});
 });

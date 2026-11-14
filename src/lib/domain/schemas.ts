@@ -1,12 +1,15 @@
 import { z } from "zod";
 import {
+	DELIVERY_STRATEGIES,
 	INCIDENT_IMPACTS,
 	INCIDENT_KINDS,
 	INCIDENT_STATUSES,
 	type IncidentKind,
 	MAINTENANCE_STATUSES,
+	PROVIDER_TYPES,
 	ROLES,
 	SERVICE_STATUSES,
+	SUBSCRIBER_TYPES,
 } from "./types";
 
 /** Optional text where an empty string means "not set". */
@@ -187,8 +190,89 @@ export type UpdateSettingsInput = z.input<typeof updateSettingsSchema>;
 
 export const subscribeSchema = z.object({ email });
 
+const PHONE = /^\+[1-9][0-9]{6,14}$/;
+const PHONE_MESSAGE =
+	"Use a phone number in E.164 format, such as +15551234567";
+
+/** A phone number in E.164 format. Spaces, dashes, dots and parentheses are removed. */
+const phone = z
+	.string()
+	.transform((value) => value.replace(/[\s().-]/g, ""))
+	.pipe(z.string().regex(PHONE, PHONE_MESSAGE));
+
+export const smsSubscriberSchema = z.object({ phone });
+
 export const webhookSubscriberSchema = z.object({
 	url: z.url({ protocol: /^https?$/ }).max(2000),
 });
 
 export const emailSubscriberSchema = z.object({ email });
+
+export const notificationChannelSchema = z.enum(SUBSCRIBER_TYPES);
+
+const NAMED_ADDRESS = /^([^<>"\r\n]{1,100}?)\s*<([^<>\s]+)>$/;
+
+/** Splits `Status <status@example.com>` into a name and an address. */
+export function splitAddress(value: string): { name?: string; email: string } {
+	const match = NAMED_ADDRESS.exec(value.trim());
+	// Both groups match at least one character.
+	return match
+		? { name: match[1] as string, email: match[2] as string }
+		: { email: value.trim() };
+}
+
+/** Validates a sender. Only the email and text messaging channels have a sender. */
+export const senderSchemas = {
+	email: z
+		.string()
+		.refine(
+			(value) => z.email().safeParse(splitAddress(value).email).success,
+			"Use an email address, optionally with a name: Status <status@example.com>",
+		),
+	sms: z
+		.string()
+		.refine(
+			(value) =>
+				PHONE.test(value) || /^(?=.*[A-Za-z])[A-Za-z0-9 ]{1,11}$/.test(value),
+			"Use a phone number in E.164 format or a sender ID of up to 11 letters and digits",
+		),
+} as const;
+
+export const updateNotificationChannelSchema = z.object({
+	enabled: z.boolean().optional(),
+	strategy: z.enum(DELIVERY_STRATEGIES).optional(),
+	from: patchText(200),
+});
+export type UpdateNotificationChannelInput = z.input<
+	typeof updateNotificationChannelSchema
+>;
+
+/** Field values of a provider, keyed by field. */
+const providerValues = z
+	.record(z.string().regex(/^[A-Za-z]{1,40}$/), z.string().trim().max(4000))
+	.optional();
+
+export const addNotificationProviderSchema = z.object({
+	type: z.enum(PROVIDER_TYPES),
+	name: z.string().trim().min(1).max(80),
+	from: text(200),
+	values: providerValues,
+});
+export type AddNotificationProviderInput = z.input<
+	typeof addNotificationProviderSchema
+>;
+
+export const updateNotificationProviderSchema = z.object({
+	name: z.string().trim().min(1).max(80).optional(),
+	from: patchText(200),
+	/** A secret field with an empty value keeps its stored value. */
+	values: providerValues,
+	/** The secret fields to delete. */
+	clear: z.array(z.string()).max(20).optional(),
+});
+export type UpdateNotificationProviderInput = z.input<
+	typeof updateNotificationProviderSchema
+>;
+
+export const moveDirectionSchema = z.enum(["up", "down"]);
+export type MoveDirection = z.infer<typeof moveDirectionSchema>;

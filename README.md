@@ -10,14 +10,14 @@
 ## Features
 
 - **Status page:** overall status banner, active incidents, upcoming maintenance, grouped services with 90-day uptime bars, incident history, RSS feed and a public JSON API. Light and dark mode, mobile friendly.
-- **MCP server:** a Streamable HTTP endpoint at `/api/mcp` with 31 role-scoped tools, so agents can declare and update incidents, change service status, schedule maintenance and (with an admin token) manage members, tokens, subscribers and settings. See [docs/mcp.md](docs/mcp.md).
+- **MCP server:** a Streamable HTTP endpoint at `/api/mcp` with 33 role-scoped tools, so agents can declare and update incidents, change service status, schedule maintenance and (with an admin token) manage members, tokens, subscribers and settings. See [docs/mcp.md](docs/mcp.md).
 - **Human review of notifications:** an agent can save a notification as a draft. The MCP server returns a review link. A person opens the link, changes the draft if necessary, and approves it. Nothing is published or sent before approval. See [docs/mcp.md](docs/mcp.md#notification-drafts).
-- **Manage portal** at `/manage`: declare incidents, post updates, review notification drafts, manage services, members (viewer/editor/admin, added with one-time invite links), agent tokens, subscribers and branding.
+- **Manage portal** at `/manage`: declare incidents, post updates, review notification drafts, manage services, members (viewer/editor/admin, added with one-time invite links), agent tokens, subscribers, and settings in three sections: General, Branding and Notifications.
 - **Skinnable:** Tailwind CSS v4 on top of CSS design tokens. Pick a theme preset, set a brand color, logo and custom CSS from the portal, or add your own preset. See [docs/theming.md](docs/theming.md).
 - **Runs anywhere:** Docker image for any container host, plus guides for Cloudflare, DigitalOcean, Google Cloud, AWS and Azure. See [docs/deployment.md](docs/deployment.md).
 - **Pluggable storage:** PostgreSQL, MongoDB or in-memory, chosen from `DATABASE_URI`. Adding an adapter means implementing one small interface.
 - **Keeps working when the database doesn't:** reads go through a [cacheable](https://cacheable.org) layer that never expires entries while the database is offline, so the status page keeps serving the last known state during an outage.
-- **Notifications with [airhorn](https://airhorn.org):** signed webhooks (Slack and Discord compatible) and double opt-in email via SendGrid or Amazon SES.
+- **Notifications with [airhorn](https://airhorn.org):** signed webhooks (Slack and Discord compatible), double opt-in email through SendGrid or Amazon SES, and text messages through Twilio or Amazon SNS. Each channel can have more than one provider, active/passive or load balanced. Provider credentials are encrypted in the database with `ENCRYPTION_KEY`.
 
 <table>
 <tr>
@@ -59,14 +59,14 @@ docker compose up --build
 
 Every option is configured with environment variables; the full reference is in [docs/deployment.md](docs/deployment.md) and [`.env.example`](.env.example). The essentials:
 
-| Variable                       | Purpose                                                                                                           |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URI`                 | `postgres://…`, `mongodb://…` or unset for memory. Tables/indexes are created on boot.                            |
-| `SITE_URL`                     | Public URL, used in notification links.                                                                           |
-| `SETUP_TOKEN`                  | Required to create the first admin at `/manage/setup`. Without it, whoever reaches that page first becomes admin. |
-| `CACHE_TTL`                    | How long cached reads are fresh (default `30s`).                                                                  |
-| `EMAIL_FROM` + SendGrid or SES | Enables email subscriptions.                                                                                      |
-| `WEBHOOK_SECRET`               | Signs webhook payloads (`x-incident-command-signature: sha256=…`).                                                |
+| Variable         | Purpose                                                                                                           |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URI`   | `postgres://…`, `mongodb://…` or unset for memory. Tables/indexes are created on boot.                            |
+| `SITE_URL`       | Public URL, used in notification links.                                                                           |
+| `SETUP_TOKEN`    | Required to create the first admin at `/manage/setup`. Without it, whoever reaches that page first becomes admin. |
+| `CACHE_TTL`      | How long cached reads are fresh (default `30s`).                                                                  |
+| `ENCRYPTION_KEY` | Encrypts provider credentials. Set it, then add providers in **Settings → Notifications**.                        |
+| `EMAIL_FROM`     | The default email sender.                                                                                         |
 
 Health check: `GET /healthz` returns `ok`, `degraded` (database offline, cached data still served) or `503` when the app cannot start.
 
@@ -94,7 +94,7 @@ Ask your agent something like _"We're seeing API errors in us-east, declare a ma
                      │                         │
                      ▼                         ▼
           CachedStore (cacheable)        Notifier (airhorn)
-     stale-while-offline read cache    webhooks · SendGrid · SES
+     stale-while-offline read cache    webhooks · email · SMS
                      │
                      ▼
      DocumentStore adapter: Postgres (jsonb) · MongoDB · memory
@@ -103,7 +103,7 @@ Ask your agent something like _"We're seeing API errors in us-east, declare a ma
 - **`src/lib/store`:** the `DocumentStore` interface (find/get/count/insert/update/delete with a small portable query language) and its adapters. A shared contract test suite (`test/store/contract.ts`) runs against every adapter, so a new adapter (SQLite, DynamoDB, Firestore, …) only has to pass it.
 - **`src/lib/store/cached.ts`:** wraps any adapter. Cached reads are fresh for `CACHE_TTL`; after that they are refreshed from the database, and if the database is unreachable the last known value is served instead of an error. Writes go straight to the database and mark cached reads stale without discarding them. Only public status data is cached; sessions, members and tokens always hit the database.
 - **`src/lib/services`:** all business logic and authorization (`viewer` < `editor` < `admin`), shared by the portal, the MCP server and the public pages.
-- **`src/lib/notifications`:** an airhorn instance with a signed webhook provider and optional SendGrid (`@airhornjs/twilio`) or SES (`@airhornjs/aws`) email.
+- **`src/lib/notifications`:** one airhorn instance for each channel, with its providers and its send strategy (fail-over or round-robin): a signed webhook provider, SendGrid or SES (`@airhornjs/aws`) email, and Twilio (`@airhornjs/twilio`) or SNS (`@airhornjs/aws`) text messages.
 
 ## Development
 

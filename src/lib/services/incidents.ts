@@ -34,6 +34,7 @@ import {
 	requireRole,
 	type ServiceContext,
 } from "./context";
+import type { NotificationSettingsService } from "./notification-settings";
 import type { SettingsService } from "./settings";
 import type { SubscriberService } from "./subscribers";
 
@@ -102,17 +103,20 @@ export class IncidentService {
 	private readonly catalog: ServiceCatalog;
 	private readonly subscribers: SubscriberService;
 	private readonly settings: SettingsService;
+	private readonly notificationSettings: NotificationSettingsService;
 
 	constructor(
 		ctx: ServiceContext,
 		catalog: ServiceCatalog,
 		subscribers: SubscriberService,
 		settings: SettingsService,
+		notificationSettings: NotificationSettingsService,
 	) {
 		this.ctx = ctx;
 		this.catalog = catalog;
 		this.subscribers = subscribers;
 		this.settings = settings;
+		this.notificationSettings = notificationSettings;
 	}
 
 	async list(options: IncidentListOptions = {}): Promise<Incident[]> {
@@ -474,6 +478,7 @@ export class IncidentService {
 					services: await this.affectedServices(incident),
 				},
 				subscribers,
+				await this.notificationSettings.resolve(),
 			);
 		} catch (error) {
 			console.error(

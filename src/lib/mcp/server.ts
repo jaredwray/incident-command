@@ -9,7 +9,13 @@ import {
 	serviceStatusSchema,
 } from "../domain/schemas";
 import { hasRole } from "../domain/status";
-import type { Actor, Incident, Role } from "../domain/types";
+import {
+	type Actor,
+	DELIVERY_STRATEGIES,
+	type Incident,
+	type Role,
+	SUBSCRIBER_TYPES,
+} from "../domain/types";
 import { formatUptime } from "../domain/uptime";
 import { isAppError } from "../errors";
 import type { Services } from "../services";
@@ -683,10 +689,47 @@ export function createMcpServer(
 
 	tool(
 		"admin",
+		"get_notification_settings",
+		{
+			title: "Get notification settings",
+			description:
+				"The webhook, email and text messaging channels: on or off, the delivery strategy, the sender and the providers. Credentials are never returned.",
+			inputSchema: {},
+			readOnly: true,
+		},
+		async () => services.notificationSettings.list(actor),
+	);
+
+	tool(
+		"admin",
+		"update_notification_channel",
+		{
+			title: "Update notification channel",
+			description:
+				"Turns a channel on or off, sets its delivery strategy (active_passive or load_balanced) or sets its sender. Add providers and their credentials in the portal.",
+			inputSchema: {
+				channel: z.enum(SUBSCRIBER_TYPES),
+				enabled: z.boolean().optional(),
+				strategy: z.enum(DELIVERY_STRATEGIES).optional(),
+				from: z
+					.string()
+					.nullable()
+					.optional()
+					.describe(
+						"Email address or phone number. Pass null or an empty string to clear it.",
+					),
+			},
+		},
+		async ({ channel, ...input }) =>
+			services.notificationSettings.updateChannel(actor, channel, input),
+	);
+
+	tool(
+		"admin",
 		"list_subscribers",
 		{
 			title: "List subscribers",
-			description: "Email and webhook subscribers.",
+			description: "Webhook, email and text message subscribers.",
 			inputSchema: {},
 			readOnly: true,
 		},
@@ -699,16 +742,24 @@ export function createMcpServer(
 		{
 			title: "Add subscriber",
 			description:
-				"Adds a confirmed email subscriber or a webhook (Slack, Discord or any JSON endpoint).",
+				"Adds a confirmed email subscriber, a webhook (Slack, Discord or any JSON endpoint) or a phone number for text messages.",
 			inputSchema: {
-				type: z.enum(["email", "webhook"]),
-				target: z.string().describe("Email address or https URL"),
+				type: z.enum(SUBSCRIBER_TYPES),
+				target: z
+					.string()
+					.describe("Email address, https URL or E.164 phone number"),
 			},
 		},
-		async (args) =>
-			args.type === "email"
-				? services.subscribers.addEmail(actor, { email: args.target })
-				: services.subscribers.addWebhook(actor, { url: args.target }),
+		async (args) => {
+			switch (args.type) {
+				case "email":
+					return services.subscribers.addEmail(actor, { email: args.target });
+				case "sms":
+					return services.subscribers.addSms(actor, { phone: args.target });
+				default:
+					return services.subscribers.addWebhook(actor, { url: args.target });
+			}
+		},
 	);
 
 	tool(

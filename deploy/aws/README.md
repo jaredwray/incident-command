@@ -57,7 +57,7 @@ SETUP_SECRET_ARN=$(aws secretsmanager create-secret --name incident-command/setu
   --secret-string 'CHOOSE_A_LONG_TOKEN' --query ARN --output text)
 ```
 
-Add `incident-command/webhook-secret` and other optional secrets the same way.
+Add `incident-command/encryption-key` (make the value with `openssl rand -base64 32`; it encrypts the notification provider credentials that admins save in the portal), `incident-command/webhook-secret` and other optional secrets the same way, then map them to `ENCRYPTION_KEY` and `WEBHOOK_SECRET`.
 
 ## 4. Email with SES
 
@@ -67,6 +67,7 @@ aws sesv2 create-email-identity --email-identity example.com   # then add the DK
 
 - Set `EMAIL_FROM` (an address on the verified domain) and `AWS_SES_REGION`. `AWS_SES_REGION` also selects SES automatically; with only `AWS_REGION` set you also need `EMAIL_PROVIDER=ses`.
 - Leave `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` unset: the SDK uses the service's IAM role. The role needs `ses:SendEmail` ([`iam-policy.json`](iam-policy.json)).
+- For text messages through Amazon SNS with the IAM role, add an Amazon SNS provider in **Settings → Notifications** without keys, and give the role `sns:Publish`.
 - New SES accounts are in the sandbox and can only send to verified addresses. Request production access in the SES console.
 
 ## 5a. Run on App Runner

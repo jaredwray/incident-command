@@ -1,11 +1,20 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { AddSubscriberForm } from "@/components/manage/add-subscriber-form";
 import { ConfirmButton } from "@/components/manage/confirm-button";
 import { type FlashParams, ManageShell } from "@/components/manage/shell";
 import { Card, EmptyState } from "@/components/manage/ui";
 import { LocalTime } from "@/components/time";
 import { requireMember } from "@/lib/auth";
+import type { SubscriberType } from "@/lib/domain/types";
+import { CHANNELS } from "@/lib/notifications/catalog";
 import { deleteSubscriberAction } from "../actions";
+
+const TYPE_LABELS: Record<SubscriberType, string> = {
+	webhook: "Webhook",
+	email: "Email",
+	sms: "Text message",
+};
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Subscribers" };
@@ -17,10 +26,14 @@ export default async function SubscribersPage({
 }) {
 	const flash = await searchParams;
 	const { member, actor, services, app } = await requireMember("admin");
-	const [settings, subscribers] = await Promise.all([
+	const [settings, subscribers, available] = await Promise.all([
 		services.settings.get(),
 		services.subscribers.list(actor),
+		services.notificationSettings.availability(),
 	]);
+	const unavailable = (Object.keys(available) as SubscriberType[]).filter(
+		(type) => !available[type],
+	);
 	return (
 		<ManageShell
 			member={member}
@@ -30,18 +43,27 @@ export default async function SubscribersPage({
 			flash={flash}
 			health={app.store.health}
 		>
-			{!app.notifier.emailEnabled && (
+			{unavailable.length > 0 && (
 				<p className="rounded-lg border border-border bg-surface-muted px-4 py-3 text-sm text-muted">
-					Email is not configured, so only webhooks are delivered and the public
-					subscribe form is hidden. Set EMAIL_FROM with SendGrid or Amazon SES
-					to enable email.
+					These channels cannot send now:{" "}
+					{unavailable.map((type) => CHANNELS[type].label).join(", ")}. Their
+					subscribers get no notifications
+					{available.email ? "" : " and the public subscribe form is hidden"}.
+					Turn them on and add providers in{" "}
+					<Link
+						href="/manage/settings/notifications"
+						className="underline hover:text-fg"
+					>
+						Settings → Notifications
+					</Link>
+					.
 				</p>
 			)}
 			<Card
 				title="Add a subscriber"
-				description="Choose webhook or email. Each subscriber receives incident updates."
+				description="Choose webhook, email or text message. Each subscriber receives incident updates."
 			>
-				<AddSubscriberForm emailEnabled={app.notifier.emailEnabled} />
+				<AddSubscriberForm available={available} />
 			</Card>
 			<Card title={`Subscribers (${subscribers.length})`}>
 				{subscribers.length === 0 ? (
@@ -56,7 +78,7 @@ export default async function SubscribersPage({
 								<div className="min-w-0">
 									<p className="truncate font-medium">{subscriber.target}</p>
 									<p className="text-xs text-muted">
-										{subscriber.type === "email" ? "Email" : "Webhook"} ·{" "}
+										{TYPE_LABELS[subscriber.type]} ·{" "}
 										{subscriber.confirmed
 											? "Confirmed"
 											: "Pending confirmation"}{" "}

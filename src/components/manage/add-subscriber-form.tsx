@@ -3,9 +3,8 @@
 import { useState } from "react";
 import { addSubscriberAction } from "@/app/manage/actions";
 import { SubmitButton } from "@/components/submit-button";
+import type { SubscriberType } from "@/lib/domain/types";
 import { buttonClass, Field, inputClass } from "./ui";
-
-type SubscriberType = "webhook" | "email";
 
 const TYPES: { value: SubscriberType; title: string; detail: string }[] = [
 	{
@@ -14,15 +13,20 @@ const TYPES: { value: SubscriberType; title: string; detail: string }[] = [
 		detail: "Send a JSON payload to a URL.",
 	},
 	{ value: "email", title: "Email", detail: "Send updates to an address." },
+	{
+		value: "sms",
+		title: "Text message",
+		detail: "Send a short text to a phone.",
+	},
 ];
 
 const TARGETS: Record<
 	SubscriberType,
 	{
 		label: string;
-		inputType: "url" | "email";
+		inputType: "url" | "email" | "tel";
 		placeholder: string;
-		autoComplete: "url" | "email";
+		autoComplete: "url" | "email" | "tel";
 		hint: string;
 	}
 > = {
@@ -40,6 +44,13 @@ const TARGETS: Record<
 		autoComplete: "email",
 		hint: "The address is confirmed at once. No confirmation mail is sent.",
 	},
+	sms: {
+		label: "Phone number",
+		inputType: "tel",
+		placeholder: "+15551234567",
+		autoComplete: "tel",
+		hint: "Use E.164 format with the country code. Get consent before you add a number.",
+	},
 };
 
 const cardClass = "flex items-start gap-3 rounded-lg border px-4 py-3 text-sm";
@@ -47,17 +58,24 @@ const selectedClass = "border-brand bg-brand/10";
 const idleClass = "border-border bg-bg hover:bg-surface-muted";
 const disabledClass = "cursor-not-allowed border-border bg-bg opacity-60";
 
-/** Adds a webhook or an email subscriber. The destination field follows the type. */
-export function AddSubscriberForm({ emailEnabled }: { emailEnabled: boolean }) {
+/**
+ * Adds a webhook, email or phone subscriber. The destination field follows
+ * the type. A type whose channel cannot send is not available.
+ */
+export function AddSubscriberForm({
+	available,
+}: {
+	available: Record<SubscriberType, boolean>;
+}) {
 	const [type, setType] = useState<SubscriberType>("webhook");
 	const target = TARGETS[type];
 	return (
 		<form action={addSubscriberAction} className="space-y-4">
 			<fieldset className="space-y-1.5">
 				<legend className="text-sm font-medium">Type</legend>
-				<div className="grid gap-3 sm:grid-cols-2">
+				<div className="grid gap-3 sm:grid-cols-3">
 					{TYPES.map((option) => {
-						const disabled = option.value === "email" && !emailEnabled;
+						const disabled = !available[option.value];
 						const selected = type === option.value;
 						return (
 							<label
@@ -83,7 +101,7 @@ export function AddSubscriberForm({ emailEnabled }: { emailEnabled: boolean }) {
 									<span className="flex flex-wrap items-baseline gap-x-2">
 										<span className="font-medium">{option.title}</span>
 										{disabled && (
-											<span className="text-xs text-muted">Not configured</span>
+											<span className="text-xs text-muted">Not available</span>
 										)}
 									</span>
 									<span className="block text-xs text-muted">

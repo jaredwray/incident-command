@@ -54,7 +54,7 @@ for s in incident-command-database-url incident-command-setup-token; do
 done
 ```
 
-Store other secrets (`WEBHOOK_SECRET`, `SETUP_TOKEN`, `SENDGRID_API_KEY`, `TWILIO_AUTH_TOKEN`, …) the same way and add them to `--set-secrets`.
+Store other secrets (`ENCRYPTION_KEY`, `WEBHOOK_SECRET`, `SETUP_TOKEN`, `SENDGRID_API_KEY`, …) the same way and add them to `--set-secrets`. `ENCRYPTION_KEY` encrypts the notification provider credentials that admins save in the portal; make one with `openssl rand -base64 32`.
 
 ## 3. Deploy
 

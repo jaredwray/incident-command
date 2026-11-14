@@ -73,7 +73,7 @@ az containerapp update --name incident-command --resource-group $RG \
   --min-replicas 1 --max-replicas 3
 ```
 
-Add `WEBHOOK_SECRET`, `SETUP_TOKEN` and email keys the same way (`secret set`, then `secretref:`). To keep secrets in Key Vault instead, give the app a managed identity with the **Key Vault Secrets User** role and reference them with `--secrets "database-url=keyvaultref:https://VAULT.vault.azure.net/secrets/database-url,identityref:system"`.
+Add `ENCRYPTION_KEY`, `WEBHOOK_SECRET`, `SETUP_TOKEN` and email keys the same way (`secret set`, then `secretref:`). To keep secrets in Key Vault instead, give the app a managed identity with the **Key Vault Secrets User** role and reference them with `--secrets "database-url=keyvaultref:https://VAULT.vault.azure.net/secrets/database-url,identityref:system"`.
 
 Redeploy after code changes with the same `az containerapp up` command.
 
@@ -85,7 +85,7 @@ Redeploy after code changes with the same `az containerapp up` command.
 | `SITE_URL`     | `https://$FQDN` or your custom domain |
 | `SETUP_TOKEN`  | First admin at `/manage/setup`        |
 
-Email: SendGrid (`SENDGRID_API_KEY`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`) or SES with access keys (`AWS_SES_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`), plus `EMAIL_FROM`. Full list: [docs/deployment.md](../../docs/deployment.md#environment-variables).
+Notifications: set `ENCRYPTION_KEY` (make one with `openssl rand -base64 32`), then add providers in **Settings → Notifications**. Without providers there, email uses SendGrid (`SENDGRID_API_KEY`) or SES with access keys (`AWS_SES_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`), plus `EMAIL_FROM`. Full list: [docs/deployment.md](../../docs/deployment.md#environment-variables).
 
 ## First admin
 

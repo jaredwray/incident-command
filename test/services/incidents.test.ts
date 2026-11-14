@@ -51,6 +51,11 @@ describe("IncidentService", () => {
 		expect(
 			t.notifier.incidents[0]?.notification.services.map((c) => c.id),
 		).toEqual([api]);
+		// The notifier gets the delivery settings that apply at send time.
+		expect(t.notifier.incidents[0]?.channels.email).toMatchObject({
+			channel: "email",
+			providers: [{ type: "sendgrid" }],
+		});
 		await expect(t.services.incidents.get(incident.id)).resolves.toEqual(
 			incident,
 		);

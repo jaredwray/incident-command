@@ -6,7 +6,7 @@ import {
 	secureCookies,
 	startSession,
 } from "@/lib/auth";
-import { ValidationError } from "@/lib/errors";
+import { ConflictError, ValidationError } from "@/lib/errors";
 import {
 	flashCodeForError,
 	flashEntry,
@@ -25,6 +25,8 @@ import {
 	text,
 } from "@/lib/manage/forms";
 import { publicOrigin } from "@/lib/manage/origin";
+import { EncryptionKeyMissingError } from "@/lib/secrets";
+import { NOTIFICATION_SETTINGS_CHANGED } from "@/lib/services/notification-settings";
 import {
 	expectFlashRedirect,
 	flashMessage,
@@ -78,6 +80,18 @@ describe("auth helpers", () => {
 		expect(
 			flashCodeForError(new ValidationError("Current password is incorrect")),
 		).toBe("current_password_incorrect");
+	});
+
+	it("shows the notification settings errors with their own text", () => {
+		// The service error text must match the catalog, or the portal shows a generic error.
+		const missing = new EncryptionKeyMissingError();
+		expect(readFlash("error", flashCodeForError(missing))).toBe(
+			missing.message,
+		);
+		const changed = new ConflictError(NOTIFICATION_SETTINGS_CHANGED);
+		expect(readFlash("error", flashCodeForError(changed))).toBe(
+			changed.message,
+		);
 	});
 
 	it("decides when cookies are secure", () => {
