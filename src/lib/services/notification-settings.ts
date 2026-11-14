@@ -101,12 +101,16 @@ export class NotificationSettingsService {
 		const id = parse(notificationChannelSchema, channel);
 		const patch = parse(updateNotificationChannelSchema, input);
 		const from = this.sender(id, patch.from);
-		const saved = await this.mutate(id, (current) => ({
-			...current,
-			enabled: patch.enabled ?? current.enabled,
-			strategy: patch.strategy ?? current.strategy,
-			from: from === undefined ? current.from : (from ?? undefined),
-		}));
+		const saved = await this.mutate(
+			id,
+			(current) => ({
+				...current,
+				enabled: patch.enabled ?? current.enabled,
+				strategy: patch.strategy ?? current.strategy,
+				from: from === undefined ? current.from : (from ?? undefined),
+			}),
+			patch.revision,
+		);
 		return this.toPublic(saved);
 	}
 
@@ -157,33 +161,37 @@ export class NotificationSettingsService {
 		const id = parse(notificationChannelSchema, channel);
 		const data = parse(updateNotificationProviderSchema, input);
 		const from = this.sender(id, data.from);
-		const saved = await this.mutate(id, (current) => {
-			const existing = this.findProvider(current, providerId);
-			const next: NotificationProvider = {
-				...existing,
-				name: data.name ?? existing.name,
-				...this.fields(
-					id,
-					providerId,
-					PROVIDERS[existing.type],
-					data.values ?? {},
-					existing,
-					data.clear ?? [],
-				),
-				updatedAt: iso(this.ctx.now()),
-			};
-			if (from === null) {
-				delete next.from;
-			} else if (from !== undefined) {
-				next.from = from;
-			}
-			return {
-				...current,
-				providers: current.providers.map((provider) =>
-					provider.id === providerId ? next : provider,
-				),
-			};
-		});
+		const saved = await this.mutate(
+			id,
+			(current) => {
+				const existing = this.findProvider(current, providerId);
+				const next: NotificationProvider = {
+					...existing,
+					name: data.name ?? existing.name,
+					...this.fields(
+						id,
+						providerId,
+						PROVIDERS[existing.type],
+						data.values ?? {},
+						existing,
+						data.clear ?? [],
+					),
+					updatedAt: iso(this.ctx.now()),
+				};
+				if (from === null) {
+					delete next.from;
+				} else if (from !== undefined) {
+					next.from = from;
+				}
+				return {
+					...current,
+					providers: current.providers.map((provider) =>
+						provider.id === providerId ? next : provider,
+					),
+				};
+			},
+			data.revision,
+		);
 		return publicProvider(this.findProvider(saved, providerId), true);
 	}
 
@@ -280,19 +288,25 @@ export class NotificationSettingsService {
 
 	/**
 	 * Reads the channel, applies a change and writes it back if nobody else
-	 * wrote it meanwhile. Each write also encrypts again any secret that an
-	 * old key (`ENCRYPTION_KEY_PREVIOUS`) encrypted.
+	 * wrote it meanwhile. With `expected`, the change also fails when the
+	 * stored revision is not the revision that the form showed. Each write
+	 * also encrypts again any secret that an old key
+	 * (`ENCRYPTION_KEY_PREVIOUS`) encrypted.
 	 */
 	private async mutate(
 		channel: NotificationChannel,
 		change: (
 			current: NotificationChannelSettings,
 		) => NotificationChannelSettings,
+		expected?: number,
 	): Promise<NotificationChannelSettings> {
 		const stored = await this.ctx.store.get("notification_channels", channel, {
 			consistent: true,
 		});
 		const current = stored ?? this.defaults(channel);
+		if (expected !== undefined && expected !== current.revision) {
+			throw new ConflictError(NOTIFICATION_SETTINGS_CHANGED);
+		}
 		const changed = change(current);
 		const next: NotificationChannelSettings = {
 			...changed,
@@ -441,7 +455,9 @@ export class NotificationSettingsService {
 		channel: NotificationChannelSettings,
 	): { from?: string }[] {
 		return channel.providers.length > 0
-			? channel.providers
+			? channel.providers.filter((provider) =>
+					this.readable(channel.id, provider),
+				)
 			: environmentProviders(this.ctx.config, channel.id);
 	}
 
@@ -466,6 +482,16 @@ export class NotificationSettingsService {
 				this.box.decrypt(value, secretContext(channel, provider.id, field)),
 			]),
 		);
+	}
+
+	/** A webhook provider without its own signing secret signs with `WEBHOOK_SECRET`. */
+	private defaultSecrets(
+		provider: NotificationProvider,
+	): Record<string, string> {
+		const secret = this.ctx.config.webhookSecret;
+		return provider.type === "webhook" && secret
+			? { signingSecret: secret }
+			: {};
 	}
 
 	private readable(
@@ -533,7 +559,10 @@ export class NotificationSettingsService {
 					name: provider.name,
 					from: provider.from ?? sender,
 					options: provider.options,
-					secrets: this.decryptSecrets(channel, provider),
+					secrets: {
+						...this.defaultSecrets(provider),
+						...this.decryptSecrets(channel, provider),
+					},
 				},
 			];
 		} catch (error) {

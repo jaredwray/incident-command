@@ -240,6 +240,7 @@ function ProviderItem({
 					className="mt-3 space-y-4"
 				>
 					{hidden}
+					<input type="hidden" name="revision" value={channel.revision} />
 					<ProviderFields
 						idPrefix={provider.id}
 						channel={channelDefinition}
@@ -293,6 +294,7 @@ export function NotificationChannelCard({
 		>
 			<form action={updateNotificationChannelAction} className="space-y-4">
 				<input type="hidden" name="channel" value={channel.id} />
+				<input type="hidden" name="revision" value={channel.revision} />
 				<Checkbox
 					name="enabled"
 					label={`Send ${definition.noun} notifications`}

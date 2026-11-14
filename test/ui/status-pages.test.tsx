@@ -309,6 +309,19 @@ describe("subscription pages", () => {
 		expect(screen.getByText("You're already subscribed")).toBeInTheDocument();
 	});
 
+	it("serves the cached status page while the database is offline", async () => {
+		const { app } = await setupApp();
+		render(await StatusPage()).unmount();
+		vi.spyOn(app.store.inner, "find").mockRejectedValue(new Error("down"));
+		vi.spyOn(app.store.inner, "get").mockRejectedValue(new Error("down"));
+		app.store.invalidate();
+		render(await StatusPage());
+		expect(
+			screen.getByRole("heading", { name: "We're fully operational" }),
+		).toBeInTheDocument();
+		expect(app.store.health.online).toBe(false);
+	});
+
 	it("explains when subscriptions are unavailable", async () => {
 		const { services } = await setupApp();
 		await services.notificationSettings.updateChannel(SYSTEM_ACTOR, "email", {

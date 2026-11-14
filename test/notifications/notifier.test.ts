@@ -251,26 +251,42 @@ describe("templates", () => {
 		).toBe("https://x.co/incidents/inc_1");
 	});
 
-	it("fits text messages in two segments and keeps the link whole", () => {
+	it("fits text messages in SMS_MAX_LENGTH characters and keeps the link whole", () => {
 		const url = "https://status.acme.dev";
+		const link = "https://status.acme.dev/incidents/inc_1";
 		const short = smsText({ ...notification, siteUrl: url });
 		expect(short).toBe(
-			"[Acme Status] New incident: API errors <script>\nInvestigating: We are looking into elevated errors & timeouts.\nhttps://status.acme.dev/incidents/inc_1",
+			`[Acme Status] New incident: API errors <script>\nInvestigating: We are looking into elevated errors & timeouts.\n${link}`,
 		);
 		const long = smsText({
 			...notification,
 			siteUrl: url,
 			update: { ...update, message: "word ".repeat(200) },
 		});
-		expect(long).toHaveLength(SMS_MAX_LENGTH);
-		expect(long.endsWith("…\nhttps://status.acme.dev/incidents/inc_1")).toBe(
-			true,
+		expect(long.length).toBeLessThanOrEqual(SMS_MAX_LENGTH);
+		expect(long).not.toContain("…");
+		expect(long.endsWith(`...\n${link}`)).toBe(true);
+
+		// A long site name and title are cut, so the status still fits.
+		const longHeader = {
+			settings: { ...settings, siteName: "S".repeat(120) },
+			incident: { ...incident, title: "T".repeat(200) },
+		};
+		const huge = smsText({ ...notification, ...longHeader, siteUrl: url });
+		expect(huge).toHaveLength(SMS_MAX_LENGTH);
+		const [head, status, tail] = huge.split("\n");
+		expect(head?.endsWith("T...")).toBe(true);
+		expect(status).toBe(
+			"Investigating: We are looking into elevated errors & timeouts.",
 		);
-		const huge = smsText({
+		expect(tail).toBe(link);
+		const both = smsText({
 			...notification,
-			incident: { ...incident, title: "T".repeat(400) },
+			...longHeader,
+			update: { ...update, message: "word ".repeat(200) },
 		});
-		expect(huge.split("\n")[1]).toBe("…");
+		expect(both.length).toBeLessThanOrEqual(SMS_MAX_LENGTH);
+		expect(both.split("\n")[1]?.length).toBeGreaterThanOrEqual(99);
 	});
 
 	it("builds email data and webhook payloads", () => {

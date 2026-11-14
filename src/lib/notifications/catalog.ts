@@ -59,7 +59,7 @@ export const PROVIDERS: Record<ProviderType, ProviderDefinition> = {
 				key: "signingSecret",
 				label: "Signing secret",
 				secret: true,
-				hint: "Signs each body with HMAC-SHA256 in the x-incident-command-signature header.",
+				hint: "Signs each body with HMAC-SHA256 in the x-incident-command-signature header. When it is empty, WEBHOOK_SECRET signs, if it is set.",
 			},
 			{
 				key: "timeoutSeconds",
@@ -168,7 +168,7 @@ export const CHANNELS: Record<NotificationChannel, ChannelDefinition> = {
 			label: "From number or sender ID",
 			defaultLabel: "Default from number or sender ID",
 			placeholder: "+15551234567",
-			hint: "A phone number in E.164 format, or an alphanumeric sender ID of up to 11 characters.",
+			hint: "A phone number in E.164 format, or a sender ID of up to 11 letters and digits.",
 		},
 	},
 };

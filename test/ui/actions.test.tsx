@@ -924,6 +924,32 @@ describe("notification settings actions", () => {
 		);
 	});
 
+	it("refuses a channel form that shows an old revision", async () => {
+		const { app, services } = await setupApp();
+		const { actor } = await signIn(app, "admin");
+		await services.notificationSettings.updateChannel(actor, "email", {
+			enabled: false,
+		});
+		expectFlashRedirect(
+			await redirectOf(
+				updateNotificationChannelAction(
+					form({
+						channel: "email",
+						revision: "0",
+						enabled: "on",
+						strategy: "active_passive",
+					}),
+				),
+			),
+			PATH,
+			"error",
+			"Somebody else changed these notification settings. Reload the page.",
+		);
+		expect((await services.notificationSettings.list(actor))[1]?.enabled).toBe(
+			false,
+		);
+	});
+
 	it("needs an encryption key to add a provider with credentials", async () => {
 		const { app } = await setupApp();
 		await signIn(app, "admin");

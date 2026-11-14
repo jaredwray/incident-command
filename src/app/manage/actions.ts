@@ -461,6 +461,7 @@ export async function updateNotificationChannelAction(
 	const { actor, services } = await requireMember("admin");
 	await attempt(NOTIFICATIONS_PATH, () =>
 		services.notificationSettings.updateChannel(actor, channelOf(form), {
+			revision: integer(form, "revision"),
 			enabled: checkbox(form, "enabled"),
 			strategy: text(form, "strategy") as DeliveryStrategy,
 			from: optionalText(form, "from"),
@@ -494,6 +495,7 @@ export async function updateNotificationProviderAction(
 			channelOf(form),
 			text(form, "id"),
 			{
+				revision: integer(form, "revision"),
 				name: text(form, "name"),
 				from: optionalText(form, "from"),
 				values: prefixed(form, "field_"),

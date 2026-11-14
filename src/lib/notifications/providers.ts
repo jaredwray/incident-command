@@ -5,6 +5,7 @@ import type {
 	AirhornProviderSendResult,
 	AirhornSendType,
 } from "airhorn";
+import { isPhoneNumber } from "../domain/schemas";
 import { errorMessage } from "../errors";
 import type { DeliveryChannel, ResolvedProvider } from "./delivery";
 import { SendGridProvider } from "./sendgrid";
@@ -44,6 +45,44 @@ export class ChannelProvider implements AirhornProvider {
 	}
 }
 
+/**
+ * Sends text messages through Amazon SNS. The airhorn AWS provider puts the
+ * sender in the SNS sender ID, which takes only letters and digits. For a
+ * phone number, this provider sends the origination number instead. The AWS
+ * provider copies `options` into its request after its own message
+ * attributes, so these attributes replace them.
+ */
+export class SnsProvider implements AirhornProvider {
+	readonly name: string;
+	readonly capabilities: AirhornSendType[];
+	private readonly inner: AirhornProvider;
+
+	constructor(inner: AirhornProvider) {
+		this.name = inner.name;
+		this.capabilities = inner.capabilities;
+		this.inner = inner;
+	}
+
+	send(
+		message: AirhornProviderMessage,
+		options?: unknown,
+	): Promise<AirhornProviderSendResult> {
+		if (!isPhoneNumber(message.from)) {
+			return this.inner.send(message, options);
+		}
+		const attribute = (value: string) => ({
+			DataType: "String",
+			StringValue: value,
+		});
+		return this.inner.send(message, {
+			MessageAttributes: {
+				"AWS.SNS.SMS.SMSType": attribute("Transactional"),
+				"AWS.MM.SMS.OriginationNumber": attribute(message.from),
+			},
+		});
+	}
+}
+
 function awsCredentials(provider: ResolvedProvider) {
 	return {
 		region: provider.options.region as string,
@@ -68,15 +107,21 @@ export async function createProvider(
 			return new SendGridProvider({
 				apiKey: provider.secrets.apiKey as string,
 			});
-		case "ses":
-		case "sns": {
+		case "ses": {
 			const { AirhornAws } = await import("@airhornjs/aws");
 			return new AirhornAws({
 				...awsCredentials(provider),
-				capabilities: [
-					(provider.type === "ses" ? "email" : "sms") as AirhornSendType,
-				],
+				capabilities: ["email" as AirhornSendType],
 			});
+		}
+		case "sns": {
+			const { AirhornAws } = await import("@airhornjs/aws");
+			return new SnsProvider(
+				new AirhornAws({
+					...awsCredentials(provider),
+					capabilities: ["sms" as AirhornSendType],
+				}),
+			);
 		}
 		case "twilio": {
 			const { AirhornTwilio } = await import("@airhornjs/twilio");

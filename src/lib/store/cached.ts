@@ -15,6 +15,8 @@ export const DEFAULT_CACHED_COLLECTIONS: readonly CollectionName[] = [
 	"services",
 	"service_status_changes",
 	"incidents",
+	// The public pages read it to decide whether to offer email subscriptions.
+	"notification_channels",
 ];
 
 export interface CachedStoreOptions {

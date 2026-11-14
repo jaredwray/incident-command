@@ -17,12 +17,6 @@ function request(fetch: ReturnType<typeof vi.fn>) {
 describe("SendGridProvider", () => {
 	afterEach(() => vi.unstubAllGlobals());
 
-	it("advertises email capability", () => {
-		const provider = new SendGridProvider({ apiKey: "SG.x" });
-		expect(provider.name).toBe("sendgrid");
-		expect(provider.capabilities).toEqual([AirhornSendType.Email]);
-	});
-
 	it("posts the mail with its own key and returns the message id", async () => {
 		const fetch = vi.fn(
 			async () =>

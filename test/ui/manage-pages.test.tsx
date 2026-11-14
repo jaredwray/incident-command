@@ -1026,6 +1026,15 @@ describe("admin pages", () => {
 			);
 
 		const email = card("Email");
+		// Each save posts the revision that the page showed.
+		const emailRevision = String((await settings.list(actor))[1]?.revision);
+		const section = screen
+			.getByRole("heading", { name: "Email" })
+			.closest("section") as HTMLElement;
+		const revisions = [
+			...section.querySelectorAll<HTMLInputElement>('input[name="revision"]'),
+		].map((input) => input.value);
+		expect(revisions).toEqual([emailRevision, emailRevision, emailRevision]);
 		const [first, second] = email.getAllByRole("listitem");
 		expect(
 			within(first as HTMLElement).getByText("SendGrid primary", {

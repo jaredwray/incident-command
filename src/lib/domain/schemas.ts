@@ -191,6 +191,11 @@ export type UpdateSettingsInput = z.input<typeof updateSettingsSchema>;
 export const subscribeSchema = z.object({ email });
 
 const PHONE = /^\+[1-9][0-9]{6,14}$/;
+
+/** True for a phone number in E.164 format, such as `+15551234567`. */
+export function isPhoneNumber(value: string): boolean {
+	return PHONE.test(value);
+}
 const PHONE_MESSAGE =
 	"Use a phone number in E.164 format, such as +15551234567";
 
@@ -233,12 +238,19 @@ export const senderSchemas = {
 		.string()
 		.refine(
 			(value) =>
-				PHONE.test(value) || /^(?=.*[A-Za-z])[A-Za-z0-9 ]{1,11}$/.test(value),
+				PHONE.test(value) || /^(?=.*[A-Za-z])[A-Za-z0-9]{1,11}$/.test(value),
 			"Use a phone number in E.164 format or a sender ID of up to 11 letters and digits",
 		),
 } as const;
 
+/**
+ * The revision that a form showed. A save with an old revision fails, so a
+ * form that is out of date cannot undo the change of a different admin.
+ */
+const expectedRevision = z.number().int().nonnegative().optional();
+
 export const updateNotificationChannelSchema = z.object({
+	revision: expectedRevision,
 	enabled: z.boolean().optional(),
 	strategy: z.enum(DELIVERY_STRATEGIES).optional(),
 	from: patchText(200),
@@ -263,6 +275,7 @@ export type AddNotificationProviderInput = z.input<
 >;
 
 export const updateNotificationProviderSchema = z.object({
+	revision: expectedRevision,
 	name: z.string().trim().min(1).max(80).optional(),
 	from: patchText(200),
 	/** A secret field with an empty value keeps its stored value. */

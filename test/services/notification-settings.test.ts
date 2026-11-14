@@ -149,6 +149,7 @@ describe("NotificationSettingsService", () => {
 			["email", { from: "Name <nope>" }, /email address/],
 			["sms", { from: "12" }, /E\.164/],
 			["sms", { from: "TOOLONGSENDERID" }, /E\.164/],
+			["sms", { from: "ACME CO" }, /E\.164/],
 			["webhook", { from: "x@y.co" }, /Webhooks have no sender/],
 			["email", { strategy: "random" }, /strategy/],
 			["fax" as "sms", { enabled: true }, /Invalid option/],
@@ -468,6 +469,10 @@ describe("NotificationSettingsService", () => {
 		const resolved = await other.services.notificationSettings.resolve();
 		// The stored providers still replace the environment provider.
 		expect(resolved.email.providers).toEqual([]);
+		// The channel cannot send, so the public subscribe form is hidden.
+		expect(
+			(await other.services.notificationSettings.availability()).email,
+		).toBe(false);
 		expect(spy).toHaveBeenCalledWith(
 			'[notifications] skipped provider "Old key": The value was encrypted with a key that is not configured',
 		);
@@ -506,6 +511,58 @@ describe("NotificationSettingsService", () => {
 			(await newOnly.services.notificationSettings.resolve()).email.providers[0]
 				?.secrets,
 		).toEqual({ apiKey: "SG.rotate" });
+	});
+
+	it("refuses a save from a form that shows an old revision", async () => {
+		const t = withKey();
+		const settings = t.services.notificationSettings;
+		const shown = await settings.updateChannel(ADMIN, "sms", { from: "ACME" });
+		const provider = await settings.addProvider(ADMIN, "sms", {
+			type: "sns",
+			name: "SNS",
+			values: { region: "us-east-1" },
+		});
+		await expect(
+			settings.updateChannel(ADMIN, "sms", {
+				revision: shown.revision,
+				enabled: false,
+			}),
+		).rejects.toThrow(NOTIFICATION_SETTINGS_CHANGED);
+		await expect(
+			settings.updateProvider(ADMIN, "sms", provider.id, {
+				revision: shown.revision,
+				name: "Old",
+			}),
+		).rejects.toBeInstanceOf(ConflictError);
+		const current = (await settings.list(ADMIN))[2]?.revision;
+		await expect(
+			settings.updateProvider(ADMIN, "sms", provider.id, {
+				revision: current,
+				name: "New",
+			}),
+		).resolves.toMatchObject({ name: "New" });
+		await expect(
+			settings.updateChannel(ADMIN, "sms", { revision: -1 }),
+		).rejects.toBeInstanceOf(ValidationError);
+	});
+
+	it("signs with WEBHOOK_SECRET when a webhook provider has no secret", async () => {
+		const t = withKey({ WEBHOOK_SECRET: "env-secret" });
+		const settings = t.services.notificationSettings;
+		await settings.addProvider(ADMIN, "webhook", {
+			type: "webhook",
+			name: "Timeout only",
+			values: { timeoutSeconds: "5" },
+		});
+		await settings.addProvider(ADMIN, "webhook", {
+			type: "webhook",
+			name: "Own secret",
+			values: { signingSecret: "own-secret" },
+		});
+		const secrets = (await settings.resolve()).webhook.providers.map(
+			(provider) => provider.secrets.signingSecret,
+		);
+		expect(secrets).toEqual(["env-secret", "own-secret"]);
 	});
 
 	it("refuses to overwrite a change that somebody else saved meanwhile", async () => {
