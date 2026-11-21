@@ -7,6 +7,7 @@ import {
 	type IncidentKind,
 	MAINTENANCE_STATUSES,
 	PROVIDER_TYPES,
+	QUEUE_PROVIDER_IDS,
 	ROLES,
 	SERVICE_STATUSES,
 	type ServiceRegions,
@@ -389,6 +390,15 @@ export const senderSchemas = {
  * form that is out of date cannot undo the change of a different admin.
  */
 const expectedRevision = z.number().int().nonnegative().optional();
+
+export const updateNotificationQueueSchema = z.object({
+	revision: z.number().int().nonnegative(),
+	provider: z.enum(QUEUE_PROVIDER_IDS).optional(),
+	uri: z.string().trim().max(2000).optional(),
+});
+export type UpdateNotificationQueueInput = z.input<
+	typeof updateNotificationQueueSchema
+>;
 
 export const updateNotificationChannelSchema = z.object({
 	revision: expectedRevision,

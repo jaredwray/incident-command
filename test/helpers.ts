@@ -35,17 +35,46 @@ export class FakeNotifier implements Notifier {
 	confirmations: { subscriber: Subscriber; channel: DeliveryChannel }[] = [];
 	confirmationResult = true;
 	fail = false;
+	/** Targets that the next send reports as failed. */
+	failTargets = new Set<string>();
+	private gate: Promise<void> | undefined;
+
+	/** Holds the next send until `release` runs. */
+	hold(): () => void {
+		let release = () => {};
+		this.gate = new Promise((resolve) => {
+			release = () => {
+				this.gate = undefined;
+				resolve();
+			};
+		});
+		return release;
+	}
 
 	async notifyIncident(
 		notification: IncidentNotification,
 		subscribers: Subscriber[],
 		channels: DeliveryChannels,
+		onResult?: (subscriber: Subscriber, ok: boolean) => Promise<void> | void,
 	): Promise<NotifyResult> {
 		if (this.fail) {
 			throw new Error("notifier exploded");
 		}
+		if (this.gate) {
+			await this.gate;
+		}
 		this.incidents.push({ notification, subscribers, channels });
-		return { sent: subscribers.length, failed: 0 };
+		let sent = 0;
+		for (const subscriber of subscribers) {
+			const ok = !this.failTargets.has(subscriber.target);
+			if (ok) {
+				sent += 1;
+			}
+			if (onResult) {
+				await onResult(subscriber, ok);
+			}
+		}
+		return { sent, failed: subscribers.length - sent };
 	}
 
 	async sendConfirmation(

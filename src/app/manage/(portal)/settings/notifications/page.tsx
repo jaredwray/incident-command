@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { NotificationChannelCard } from "@/components/manage/notification-channel";
+import { QueueSettingsCard } from "@/components/manage/queue-settings";
 import { SettingsTabs } from "@/components/manage/settings-tabs";
 import { type FlashParams, ManagePage } from "@/components/manage/shell";
 import { requireMember } from "@/lib/auth";
@@ -15,6 +16,7 @@ export default async function NotificationsSettingsPage({
 	const flash = await searchParams;
 	const { actor, services, app } = await requireMember("admin");
 	const channels = await services.notificationSettings.list(actor);
+	const queue = await services.notificationQueue.view(actor);
 	const canStoreSecrets = services.notificationSettings.canStoreSecrets;
 	return (
 		<ManagePage title="Settings" flash={flash} health={app.store.health}>
@@ -45,6 +47,7 @@ export default async function NotificationsSettingsPage({
 					your platform, then restart the server.
 				</p>
 			)}
+			<QueueSettingsCard queue={queue} canStoreSecrets={canStoreSecrets} />
 			{channels.map((channel) => (
 				<NotificationChannelCard
 					key={channel.id}

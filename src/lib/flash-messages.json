@@ -394,6 +394,31 @@
 		"kind": "error",
 		"text": "Somebody else changed these notification settings. Reload the page."
 	},
+	"notification_queue_saved": {
+		"id": "fls_q1savednotice01",
+		"kind": "notice",
+		"text": "Queue saved"
+	},
+	"notifications_queued": {
+		"id": "fls_q2queuednote002",
+		"kind": "notice",
+		"text": "The notifications are in the queue."
+	},
+	"notification_queue_changed": {
+		"id": "fls_q3changederr003",
+		"kind": "error",
+		"text": "Somebody else changed the queue settings. Reload the page."
+	},
+	"queue_uri_invalid": {
+		"id": "fls_q4uriinvalid04",
+		"kind": "error",
+		"text": "The connection URI is not correct for this provider."
+	},
+	"queue_unreachable": {
+		"id": "fls_q5unreacherr05",
+		"kind": "error",
+		"text": "The settings are saved, but the server cannot connect to the queue. The server sends notifications without the queue until the connection works."
+	},
 	"logo_type": {
 		"id": "fls_7n4qlogo1typexx",
 		"kind": "error",

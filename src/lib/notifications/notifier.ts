@@ -46,6 +46,7 @@ export interface Notifier {
 		notification: IncidentNotification,
 		subscribers: Subscriber[],
 		channels: DeliveryChannels,
+		onResult?: (subscriber: Subscriber, ok: boolean) => Promise<void> | void,
 	): Promise<NotifyResult>;
 	sendConfirmation(
 		subscriber: Subscriber,
@@ -147,6 +148,7 @@ export class AirhornNotifier implements Notifier {
 		notification: IncidentNotification,
 		subscribers: Subscriber[],
 		channels: DeliveryChannels,
+		onResult?: (subscriber: Subscriber, ok: boolean) => Promise<void> | void,
 	): Promise<NotifyResult> {
 		const withSiteUrl = { ...notification, siteUrl: this.siteUrl };
 		const recipients = subscribers.filter(
@@ -159,26 +161,37 @@ export class AirhornNotifier implements Notifier {
 		const results = await mapLimit(
 			recipients,
 			this.concurrency,
-			(subscriber) => {
+			async (subscriber) => {
 				const channel = channels[subscriber.type];
-				switch (subscriber.type) {
-					case "webhook":
-						return this.deliver(channel, subscriber.target, WEBHOOK_TEMPLATE, {
-							payload,
-						});
-					case "sms":
-						return this.deliver(channel, subscriber.target, SMS_TEMPLATE, {
-							text: sms,
-						});
-					case "email":
-						return this.deliver(
-							channel,
-							subscriber.target,
-							EMAIL_TEMPLATE,
-							emailData(withSiteUrl, subscriber),
-							{ text },
-						);
+				const ok = await (async () => {
+					switch (subscriber.type) {
+						case "webhook":
+							return this.deliver(
+								channel,
+								subscriber.target,
+								WEBHOOK_TEMPLATE,
+								{
+									payload,
+								},
+							);
+						case "sms":
+							return this.deliver(channel, subscriber.target, SMS_TEMPLATE, {
+								text: sms,
+							});
+						case "email":
+							return this.deliver(
+								channel,
+								subscriber.target,
+								EMAIL_TEMPLATE,
+								emailData(withSiteUrl, subscriber),
+								{ text },
+							);
+					}
+				})();
+				if (onResult) {
+					await onResult(subscriber, ok);
 				}
+				return ok;
 			},
 		);
 		const sent = results.filter(Boolean).length;

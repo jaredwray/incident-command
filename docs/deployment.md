@@ -71,6 +71,17 @@ Open `/manage/setup` and create the admin there. Set `SETUP_TOKEN` so the page r
 - Each instance keeps its own database connection pool; size the instance count against your database's connection limit.
 - Build each release with the same `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY`. Next.js salts the server action ids with it. Without it, a deploy changes every id, and a portal page that a browser loaded before the deploy shows "This page is out of date" on its next form submit.
 
+## Notification queue
+
+An admin selects one queue in **Manage → Settings → Notifications**, or no queue.
+
+- With no queue, a window shows the status of each notification when you send.
+- With a queue, the incident dashboard shows a progress bar. The bar updates until the queue is done.
+- The providers are Redis, RabbitMQ and NATS. Select one.
+- Each provider keeps the tasks. NATS needs JetStream.
+- The queue runs in the Node server. A Cloudflare Worker does not run the queue. The container does.
+- After a restart, the server continues a job that stopped.
+
 ## Notifications
 
 Admins set up notifications in **Manage → Settings → Notifications**. Incident Command sends them through [airhorn](https://airhorn.org).

@@ -55,6 +55,31 @@ export type DeliveryStrategy = (typeof DELIVERY_STRATEGIES)[number];
 export const PROVIDER_TYPES = ["sendgrid", "ses", "twilio", "sns"] as const;
 export type ProviderType = (typeof PROVIDER_TYPES)[number];
 
+/** The qified providers. An admin selects one, or no queue. */
+export const QUEUE_PROVIDER_IDS = ["redis", "rabbitmq", "nats"] as const;
+export type QueueProviderId = (typeof QUEUE_PROVIDER_IDS)[number];
+
+/** Why a queued job ran in this process. */
+export type QueueFallback = "load" | "enqueue" | "stalled";
+
+/** The state of one notification in a send job. */
+export type DeliveryState = "pending" | "sending" | "sent" | "failed";
+
+/** Why one notification failed. */
+export type DeliveryFailure = "provider" | "not_sent" | "interrupted";
+
+/**
+ * The kind of notice. A queued job keeps this value, so a later post does
+ * not change the notice.
+ */
+export type NotificationEvent =
+	| "incident.created"
+	| "incident.updated"
+	| "incident.resolved"
+	| "maintenance.scheduled"
+	| "maintenance.updated"
+	| "maintenance.completed";
+
 /** A provider type, or `webhook`: the built-in webhook sender of the server. */
 export type SenderType = ProviderType | "webhook";
 
@@ -163,6 +188,92 @@ export interface NotificationChannelSettings {
 	/** Incremented on every write; used for optimistic concurrency. */
 	revision: number;
 	updatedAt: string;
+}
+
+/** The queue settings. One document, id `queue`. No provider means no queue. */
+export interface NotificationQueueSettings {
+	id: "queue";
+	provider?: QueueProviderId;
+	/** The connection URI, encrypted. */
+	uri?: string;
+	revision: number;
+	updatedAt: string;
+}
+
+/** One send of the notifications for one post. */
+export interface NotificationJob {
+	id: string;
+	incidentId: string;
+	updateId: string;
+	event: NotificationEvent;
+	/** True when a queue provider was set at the start of the send. */
+	queued: boolean;
+	provider?: QueueProviderId;
+	fallback?: QueueFallback;
+	state: "active" | "done";
+	total: number;
+	/** Final counts. The service writes them once, when the job is done. */
+	sent: number;
+	failed: number;
+	createdBy: AuthorRef;
+	createdAt: string;
+	heartbeatAt: string;
+	finishedAt?: string;
+}
+
+/** One notification inside a send job. The label hides the address. */
+export interface NotificationDelivery {
+	id: string;
+	jobId: string;
+	subscriberId: string;
+	channel: NotificationChannel;
+	label: string;
+	order: number;
+	state: DeliveryState;
+	error?: DeliveryFailure;
+	createdAt: string;
+	updatedAt: string;
+}
+
+/** One row of a send job, safe to show in the portal. */
+export interface NotificationDeliveryView {
+	id: string;
+	channel: NotificationChannel;
+	order: number;
+	state: DeliveryState;
+	label?: string;
+	error?: DeliveryFailure;
+}
+
+/** A send job, safe to show in the portal. */
+export interface NotificationJobView {
+	id: string;
+	incidentId: string;
+	state: "active" | "done";
+	total: number;
+	sent: number;
+	failed: number;
+	queued: boolean;
+	fallback?: QueueFallback;
+	deliveries: NotificationDeliveryView[];
+	truncated: boolean;
+}
+
+/** The progress of the queued sends for one incident. */
+export interface NotificationProgress {
+	total: number;
+	done: number;
+	sent: number;
+	failed: number;
+	active: number;
+	fallback: boolean;
+}
+
+/** The queue choice, without the connection URI. */
+export interface PublicNotificationQueue {
+	provider?: QueueProviderId;
+	hasUri: boolean;
+	revision: number;
 }
 
 /** A provider without its credentials, safe to return from APIs and render. */

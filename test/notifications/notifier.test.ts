@@ -390,6 +390,7 @@ describe("templates", () => {
 describe("AirhornNotifier", () => {
 	it("sends escaped emails, signed webhooks and text messages to confirmed subscribers", async () => {
 		const { notifier: n, errors } = notifier();
+		const reported: { id: string; ok: boolean }[] = [];
 		const result = await n.notifyIncident(
 			notification,
 			[
@@ -407,9 +408,20 @@ describe("AirhornNotifier", () => {
 				}),
 			],
 			channels(),
+			async (person, ok) => {
+				reported.push({ id: person.id, ok });
+			},
 		);
 		expect(errors).toEqual([]);
 		expect(result).toEqual({ sent: 3, failed: 0 });
+		expect(reported).toEqual(
+			expect.arrayContaining([
+				{ id: "sub_1", ok: true },
+				{ id: "sub_2", ok: true },
+				{ id: "sub_3", ok: true },
+			]),
+		);
+		expect(reported).toHaveLength(3);
 
 		const email = requests.find((request) => request.url === SENDGRID_URL);
 		expect(headers(email).authorization).toBe("Bearer SG.key");
@@ -571,12 +583,17 @@ describe("AirhornNotifier", () => {
 	it("names the failed provider in the error", async () => {
 		respond = () => new Response("bad key", { status: 401 });
 		const { notifier: n, errors } = notifier();
+		const reported: boolean[] = [];
 		const result = await n.notifyIncident(
 			notification,
 			[subscriber()],
 			channels(),
+			async (_person, ok) => {
+				reported.push(ok);
+			},
 		);
 		expect(result).toEqual({ sent: 0, failed: 1 });
+		expect(reported).toEqual([false]);
 		expect(errors.map((error) => error.message)).toEqual([
 			"Failed to send email to jane@example.com: sendgrid provider: SendGrid responded with status 401",
 		]);

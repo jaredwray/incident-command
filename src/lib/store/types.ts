@@ -6,7 +6,10 @@ import type {
 	Invite,
 	Member,
 	NotificationChannelSettings,
+	NotificationDelivery,
 	NotificationDraft,
+	NotificationJob,
+	NotificationQueueSettings,
 	OAuthClient,
 	OAuthCode,
 	OAuthGrant,
@@ -39,6 +42,9 @@ export interface CollectionMap {
 	subscribers: Subscriber;
 	notification_drafts: NotificationDraft;
 	notification_channels: NotificationChannelSettings;
+	notification_queue: NotificationQueueSettings;
+	notification_jobs: NotificationJob;
+	notification_deliveries: NotificationDelivery;
 }
 
 export type CollectionName = keyof CollectionMap;
@@ -63,6 +69,9 @@ export const COLLECTIONS: readonly CollectionName[] = [
 	"subscribers",
 	"notification_drafts",
 	"notification_channels",
+	"notification_queue",
+	"notification_jobs",
+	"notification_deliveries",
 ];
 
 export interface IndexDefinition {
@@ -109,6 +118,13 @@ export const INDEXES: Record<CollectionName, readonly IndexDefinition[]> = {
 		{ field: "incidentId" },
 	],
 	notification_channels: [],
+	notification_queue: [],
+	notification_jobs: [
+		{ field: "incidentId" },
+		{ field: "state" },
+		{ field: "createdAt" },
+	],
+	notification_deliveries: [{ field: "jobId" }, { field: "createdAt" }],
 };
 
 export type Scalar = string | number | boolean | null;

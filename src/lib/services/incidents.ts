@@ -40,6 +40,7 @@ import {
 	requirePermission,
 	type ServiceContext,
 } from "./context";
+import type { NotificationJobService } from "./notification-jobs";
 import type { NotificationSettingsService } from "./notification-settings";
 import type { RegionService } from "./regions";
 import type { SettingsService } from "./settings";
@@ -71,6 +72,13 @@ export interface PublishOptions {
 	 * the record when a later step of the publication fails.
 	 */
 	id?: string;
+	/** The id of the notification job. The portal sets it before the send. */
+	jobId?: string;
+	/**
+	 * `wait` sends before the call returns. `background` returns while the
+	 * send continues. A queue ignores this and enqueues the job.
+	 */
+	delivery?: "wait" | "background";
 }
 
 export interface IncidentListOptions {
@@ -324,6 +332,34 @@ function withPostFields(stored: StoredIncident): Incident {
 	};
 }
 
+/**
+ * The incident as one post recorded it. The title, the impact and the
+ * status come from that post.
+ */
+export function incidentAsOf(
+	stored: StoredIncident,
+	updateId: string,
+): { incident: Incident; update: IncidentUpdate } | undefined {
+	const incident = withPostFields(stored);
+	const update = incident.updates.find((item) => item.id === updateId);
+	if (!update) {
+		return undefined;
+	}
+	const snapshot: Incident = {
+		...incident,
+		title: update.title,
+		impact: update.impact,
+		status: update.status,
+	};
+	// The time belongs to this post. A later post does not change it.
+	if (isClosedStatus(update.status)) {
+		snapshot.resolvedAt = update.createdAt;
+	} else {
+		delete snapshot.resolvedAt;
+	}
+	return { update, incident: snapshot };
+}
+
 export class IncidentService {
 	private readonly ctx: ServiceContext;
 	private readonly catalog: ServiceCatalog;
@@ -331,6 +367,7 @@ export class IncidentService {
 	private readonly settings: SettingsService;
 	private readonly notificationSettings: NotificationSettingsService;
 	private readonly regions: RegionService;
+	private readonly jobs: NotificationJobService;
 
 	constructor(
 		ctx: ServiceContext,
@@ -339,6 +376,7 @@ export class IncidentService {
 		settings: SettingsService,
 		notificationSettings: NotificationSettingsService,
 		regions: RegionService,
+		jobs: NotificationJobService,
 	) {
 		this.ctx = ctx;
 		this.catalog = catalog;
@@ -346,6 +384,7 @@ export class IncidentService {
 		this.settings = settings;
 		this.notificationSettings = notificationSettings;
 		this.regions = regions;
+		this.jobs = jobs;
 	}
 
 	async list(options: IncidentListOptions = {}): Promise<Incident[]> {
@@ -514,10 +553,12 @@ export class IncidentService {
 			data.serviceStatuses,
 		);
 		await this.notify(
+			actor,
 			kind === "incident" ? "incident.created" : "maintenance.scheduled",
 			incident,
 			update,
 			data.notify,
+			options,
 		);
 		return incident;
 	}
@@ -599,7 +640,7 @@ export class IncidentService {
 				: closing && !wasClosed
 					? "maintenance.completed"
 					: "maintenance.updated";
-		await this.notify(event, next, update, data.notify);
+		await this.notify(actor, event, next, update, data.notify, options);
 		return next;
 	}
 
@@ -857,10 +898,12 @@ export class IncidentService {
 	}
 
 	private async notify(
+		actor: Actor,
 		event: NotificationEvent,
 		incident: Incident,
 		update: IncidentUpdate,
 		enabled: boolean | undefined,
+		options: PublishOptions,
 	): Promise<void> {
 		if (enabled === false) {
 			return;
@@ -872,8 +915,9 @@ export class IncidentService {
 			if (subscribers.length === 0) {
 				return;
 			}
-			await this.ctx.notifier.notifyIncident(
-				{
+			await this.jobs.start({
+				actor,
+				notification: {
 					event,
 					incident,
 					update,
@@ -881,8 +925,10 @@ export class IncidentService {
 					services: await this.affectedServices(incident),
 				},
 				subscribers,
-				await this.notificationSettings.resolve(),
-			);
+				channels: await this.notificationSettings.resolve(),
+				jobId: options.jobId,
+				delivery: options.delivery,
+			});
 		} catch (error) {
 			console.error(
 				`[notifications] failed to notify for ${incident.id}: ${error instanceof Error ? error.message : String(error)}`,

@@ -53,6 +53,10 @@ const nextConfig: NextConfig = {
 		"@airhornjs/aws",
 		"@airhornjs/twilio",
 		"qrbit",
+		"qified",
+		"@qified/redis",
+		"@qified/rabbitmq",
+		"@qified/nats",
 	],
 	// The standalone build must copy the qrbit addon. The loader picks the file by platform.
 	outputFileTracingIncludes: {

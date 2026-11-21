@@ -4,18 +4,13 @@ import { EVENT_STATUS_LABELS } from "../domain/status";
 import type {
 	Incident,
 	IncidentUpdate,
+	NotificationEvent,
 	Service,
 	Settings,
 	Subscriber,
 } from "../domain/types";
 
-export type NotificationEvent =
-	| "incident.created"
-	| "incident.updated"
-	| "incident.resolved"
-	| "maintenance.scheduled"
-	| "maintenance.updated"
-	| "maintenance.completed";
+export type { NotificationEvent };
 
 export interface IncidentNotification {
 	event: NotificationEvent;

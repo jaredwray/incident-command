@@ -220,6 +220,15 @@ importers:
       "@modelcontextprotocol/sdk":
         specifier: ^1.32.2
         version: 1.32.2(supports-color@10.2.2)(zod@4.6.7)
+      "@qified/nats":
+        specifier: 0.13.2
+        version: 0.13.2(qified@0.13.2)
+      "@qified/rabbitmq":
+        specifier: 0.13.2
+        version: 0.13.2(qified@0.13.2)
+      "@qified/redis":
+        specifier: 0.13.2
+        version: 0.13.2(qified@0.13.2)
       airhorn:
         specifier: ^7.2.2
         version: 7.2.2(@types/react@19.3.0)(supports-color@10.2.2)
@@ -235,6 +244,9 @@ importers:
       pg:
         specifier: ^8.23.1
         version: 8.23.1
+      qified:
+        specifier: 0.13.2
+        version: 0.13.2
       qrbit:
         specifier: ^3.1.4
         version: 3.1.4
@@ -1387,6 +1399,39 @@ packages:
         integrity: sha512-D4CQtk9IwjCLAvCf1xvHEod3960q8XMUzfmdRU9qjUNlHnesGuTOvJcOTaPm9koZ1caUKA2aTbszZiAkcmSgmg==,
       }
 
+  "@nats-io/jetstream@3.4.0":
+    resolution:
+      {
+        integrity: sha512-GzHQodNJ942+R5LRb8PuZ5ugVWVWMRiufxUYLLVWkXKfwDXYN+Owo0d7L/b9O7BPyrbYD7jQWAC6+ZVuXa9Gyw==,
+      }
+
+  "@nats-io/nats-core@3.4.0":
+    resolution:
+      {
+        integrity: sha512-QMDM86EUNm+wudlKC67HLar/KHHQUvJGLfb4jbahje3pUk3K9afeck9fwsxBZF0eUFox6T/TA6m/t+lQqf+QsQ==,
+      }
+
+  "@nats-io/nkeys@2.0.3":
+    resolution:
+      {
+        integrity: sha512-JVt56GuE6Z89KUkI4TXUbSI9fmIfAmk6PMPknijmuL72GcD+UgIomTcRWiNvvJKxA01sBbmIPStqJs5cMRBC3A==,
+      }
+    engines: { node: ">=18.0.0" }
+
+  "@nats-io/nuid@3.0.0":
+    resolution:
+      {
+        integrity: sha512-QbXZDrxmYlrn5AD06gYcUTmEHwxn96HBQMIk7XTjDlEcx6FPzVBBPjp4AMRh1lEv6B4iJ6Xb/Uz61JugPXFRQg==,
+      }
+    engines: { node: ">= 22.x" }
+
+  "@nats-io/transport-node@3.4.0":
+    resolution:
+      {
+        integrity: sha512-hH7u7ejIBTFEJIZ8rIcMrHJI6wl+HhpO5sVFs1+ppmXa8RuB2+Lh1+UwTzZ5xTNNm1TKcRkYy+2qCV56qp8RxA==,
+      }
+    engines: { node: ">= 18.0.0" }
+
   "@next/env@16.4.5":
     resolution:
       {
@@ -1492,6 +1537,84 @@ packages:
       {
         integrity: sha512-dCED+QRChTVatE9ibtoaxc+WkdzOSjYTKi/+uacHWIsfodVfpsueo3+DKpgU5Px8qXjgmXkSvhXvSCz3fnP9lw==,
       }
+
+  "@qified/nats@0.13.2":
+    resolution:
+      {
+        integrity: sha512-cNfMhlGAOwLbwZtK0HpAoTzpVmFUa9ySYl5n1NLT7gWuZXXpq2VKLydGK8a+faRMkuo2EsC6GUYVpZP85BPtWg==,
+      }
+    engines: { node: ">=22" }
+    peerDependencies:
+      qified: ^0.13.2
+
+  "@qified/rabbitmq@0.13.2":
+    resolution:
+      {
+        integrity: sha512-xzikjc0D/PmnA8yLTY2Q8HqEE8nOqUuvy43W5Rv/VzybN1QNQCHDYZ0fpMqz4SP8M7HD/nFOJ9jS8pfER1WXPA==,
+      }
+    engines: { node: ">=22" }
+    peerDependencies:
+      qified: ^0.13.2
+
+  "@qified/redis@0.13.2":
+    resolution:
+      {
+        integrity: sha512-vtiOCufy9eU4orIxzSa7UygOB3YPClH4FGjbiiPMrX9io6iGoZwpZkycLGSfe87ReylB36+lP1syK9Pmu2djXQ==,
+      }
+    engines: { node: ">=22" }
+    peerDependencies:
+      qified: ^0.13.2
+
+  "@redis/bloom@6.3.1":
+    resolution:
+      {
+        integrity: sha512-dpF9j2yJDoPzSCaZn0MSB3xzmnXQVJeTSAWJcQVcgbmluwhpFeemmII0cF1t+WYfoVS+shEFq79+MmUItgzJLg==,
+      }
+    engines: { node: ">= 20.0.0" }
+    peerDependencies:
+      "@redis/client": ^6.3.1
+
+  "@redis/client@6.3.1":
+    resolution:
+      {
+        integrity: sha512-masbfVKULdoAofwddepZxRhWa4w6zvBHn6TRn90TRPrRkVIlGCur3pFqwWaCbMxtYI9twepkz63e/T/tEH8GjA==,
+      }
+    engines: { node: ">= 20.0.0" }
+    peerDependencies:
+      "@node-rs/xxhash": ^1.1.0
+      "@opentelemetry/api": ">=1 <2"
+    peerDependenciesMeta:
+      "@node-rs/xxhash":
+        optional: true
+      "@opentelemetry/api":
+        optional: true
+
+  "@redis/json@6.3.1":
+    resolution:
+      {
+        integrity: sha512-fMz4kUwJzEftcU9EMaqsjZcUwzpTQLOYRqhQsAD6uKvZWeamblK13ZhgO5SzVSZVk31jmwLeTRpU5GAl5egfUw==,
+      }
+    engines: { node: ">= 20.0.0" }
+    peerDependencies:
+      "@redis/client": ^6.3.1
+
+  "@redis/search@6.3.1":
+    resolution:
+      {
+        integrity: sha512-T67pvPUpW82VrZLvihO8O2DFMC7eY2oMAzMzapCbiPZn7mdWqHMEIlohYim12gIawT5kn6qT/Cvmm4WulKB+kQ==,
+      }
+    engines: { node: ">= 20.0.0" }
+    peerDependencies:
+      "@redis/client": ^6.3.1
+
+  "@redis/time-series@6.3.1":
+    resolution:
+      {
+        integrity: sha512-MNDgrm+i63M/1a+XA+HcDsScwt4uBh/fGGJ84swTQZTFK5K5wMmxdlTRa4ZgmNJzjxMaszW/ipPScMUGV3aAMg==,
+      }
+    engines: { node: ">= 20.0.0" }
+    peerDependencies:
+      "@redis/client": ^6.3.1
 
   "@rolldown/binding-android-arm-eabi@1.2.15":
     resolution:
@@ -2203,6 +2326,13 @@ packages:
       {
         integrity: sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA==,
       }
+
+  amqplib@2.3.1:
+    resolution:
+      {
+        integrity: sha512-0njHPLSE/xJUBeLWGgzniMuzTeyUt3o7WmAJobBlbSnvOTe9l5PxrlA+5iZW8spKteijDnkIZI81zAFV2Wzulw==,
+      }
+    engines: { node: ">=18" }
 
   ansi-regex@5.0.1:
     resolution:
@@ -4878,6 +5008,13 @@ packages:
       }
     engines: { node: ">=20" }
 
+  qified@0.13.2:
+    resolution:
+      {
+        integrity: sha512-7q0wPhtbaOmKGg4sTgp5HYkHPnj9Ds/zEWO5JqsJNK7CfBIZrA7ltwVCwDaFEnSc9nwg5nOz3nsSdheRbwmytQ==,
+      }
+    engines: { node: ">=22" }
+
   qrbit@3.1.4:
     resolution:
       {
@@ -4938,6 +5075,13 @@ packages:
         integrity: sha512-6tDA8g98We0zd0GvVeMT9arEOnTw9qM03L9cJXaCjrip1OO764RDBLBfrB4cwzNGDj5OA5ioymC9GkizgWJDUg==,
       }
     engines: { node: ">=8" }
+
+  redis@6.3.1:
+    resolution:
+      {
+        integrity: sha512-mV96ZKxQ4CGn3SyEGaY0Lb9YA443mdVey3c+mdr0NAUaBxiOZGoYCWX8PoM55kictSOmxlJRtZJxIsmZm3jL+w==,
+      }
+    engines: { node: ">= 20.0.0" }
 
   rehype-highlight@7.0.2:
     resolution:
@@ -5426,6 +5570,12 @@ packages:
     resolution:
       {
         integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==,
+      }
+
+  tweetnacl@1.0.3:
+    resolution:
+      {
+        integrity: sha512-6rt+RN7aOi1nGMyC4Xa5DdYiukl2UWCbcJft7YhxReBGQD7OAM8Pbxw6YMo4r2diNEA8FEmu32YOn9rhaiE5yw==,
       }
 
   twilio@6.3.0:
@@ -6490,6 +6640,27 @@ snapshots:
     dependencies:
       sparse-bitfield: 3.0.3
 
+  "@nats-io/jetstream@3.4.0":
+    dependencies:
+      "@nats-io/nats-core": 3.4.0
+
+  "@nats-io/nats-core@3.4.0":
+    dependencies:
+      "@nats-io/nkeys": 2.0.3
+      "@nats-io/nuid": 3.0.0
+
+  "@nats-io/nkeys@2.0.3":
+    dependencies:
+      tweetnacl: 1.0.3
+
+  "@nats-io/nuid@3.0.0": {}
+
+  "@nats-io/transport-node@3.4.0":
+    dependencies:
+      "@nats-io/nats-core": 3.4.0
+      "@nats-io/nkeys": 2.0.3
+      "@nats-io/nuid": 3.0.0
+
   "@next/env@16.4.5": {}
 
   "@next/swc-darwin-arm64@16.4.5":
@@ -6529,6 +6700,46 @@ snapshots:
       supports-color: 10.2.2
 
   "@poppinss/exception@1.2.3": {}
+
+  "@qified/nats@0.13.2(qified@0.13.2)":
+    dependencies:
+      "@nats-io/jetstream": 3.4.0
+      "@nats-io/transport-node": 3.4.0
+      hookified: 3.1.0
+      qified: 0.13.2
+
+  "@qified/rabbitmq@0.13.2(qified@0.13.2)":
+    dependencies:
+      amqplib: 2.3.1
+      hookified: 3.1.0
+      qified: 0.13.2
+
+  "@qified/redis@0.13.2(qified@0.13.2)":
+    dependencies:
+      hookified: 3.1.0
+      qified: 0.13.2
+      redis: 6.3.1
+    transitivePeerDependencies:
+      - "@node-rs/xxhash"
+      - "@opentelemetry/api"
+
+  "@redis/bloom@6.3.1(@redis/client@6.3.1)":
+    dependencies:
+      "@redis/client": 6.3.1
+
+  "@redis/client@6.3.1": {}
+
+  "@redis/json@6.3.1(@redis/client@6.3.1)":
+    dependencies:
+      "@redis/client": 6.3.1
+
+  "@redis/search@6.3.1(@redis/client@6.3.1)":
+    dependencies:
+      "@redis/client": 6.3.1
+
+  "@redis/time-series@6.3.1(@redis/client@6.3.1)":
+    dependencies:
+      "@redis/client": 6.3.1
 
   "@rolldown/binding-android-arm-eabi@1.2.15":
     optional: true
@@ -6900,6 +7111,8 @@ snapshots:
       fast-uri: 3.1.9
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
+
+  amqplib@2.3.1: {}
 
   ansi-regex@5.0.1: {}
 
@@ -8760,6 +8973,10 @@ snapshots:
     dependencies:
       hookified: 2.2.0
 
+  qified@0.13.2:
+    dependencies:
+      hookified: 3.1.0
+
   qrbit@3.1.4:
     dependencies:
       cacheable: 2.5.0
@@ -8794,6 +9011,17 @@ snapshots:
     dependencies:
       indent-string: 4.0.0
       strip-indent: 3.0.0
+
+  redis@6.3.1:
+    dependencies:
+      "@redis/bloom": 6.3.1(@redis/client@6.3.1)
+      "@redis/client": 6.3.1
+      "@redis/json": 6.3.1(@redis/client@6.3.1)
+      "@redis/search": 6.3.1(@redis/client@6.3.1)
+      "@redis/time-series": 6.3.1(@redis/client@6.3.1)
+    transitivePeerDependencies:
+      - "@node-rs/xxhash"
+      - "@opentelemetry/api"
 
   rehype-highlight@7.0.2:
     dependencies:
@@ -9187,6 +9415,8 @@ snapshots:
   trough@2.2.0: {}
 
   tslib@2.8.1: {}
+
+  tweetnacl@1.0.3: {}
 
   twilio@6.3.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2):
     dependencies:

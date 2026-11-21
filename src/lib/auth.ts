@@ -134,6 +134,25 @@ export async function requireMemberForAction(
 	);
 }
 
+/**
+ * The signed-in member for a portal JSON route. Returns nothing when the
+ * visitor is signed out, or when the authenticator rule blocks the portal.
+ */
+export async function getMemberForApi(): Promise<MemberContext | undefined> {
+	const context = await getMemberContext({ consistent: true });
+	if (!context) {
+		return undefined;
+	}
+	if (context.member.twoFactorEnabled) {
+		return context;
+	}
+	const settings = await context.services.settings.get();
+	if (settings.requireTwoFactor) {
+		return undefined;
+	}
+	return context;
+}
+
 async function setSessionCookie(
 	app: App,
 	token: string,

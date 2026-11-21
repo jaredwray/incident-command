@@ -22,7 +22,11 @@ import {
 	requirePermission,
 	type ServiceContext,
 } from "./context";
-import { type IncidentService, newIncidentId } from "./incidents";
+import {
+	type IncidentService,
+	newIncidentId,
+	type PublishOptions,
+} from "./incidents";
 
 /** The portal path where a person reviews a notification draft. */
 export function draftPath(id: string): string {
@@ -204,6 +208,7 @@ export class DraftService {
 		actor: Actor,
 		id: string,
 		input: DraftContentInput,
+		options: PublishOptions = {},
 	): Promise<{ draft: NotificationDraft; incident: Incident }> {
 		requirePermission(actor, "drafts.review");
 		const current = await this.pending(id);
@@ -224,7 +229,7 @@ export class DraftService {
 				: newIncidentId(reviewed.kind);
 		let incident: Incident;
 		try {
-			incident = await this.publish(actor, reviewed, recordId);
+			incident = await this.publish(actor, reviewed, recordId, options);
 		} catch (error) {
 			// When the record was saved, a later step failed. The draft stays
 			// approved, so a second approval cannot publish it again. When
@@ -369,8 +374,10 @@ export class DraftService {
 		actor: Actor,
 		draft: NotificationDraft,
 		id: string,
+		options: PublishOptions,
 	): Promise<Incident> {
 		const { content } = draft;
+		const publishOptions: PublishOptions = { ...options, id };
 		const serviceRegions = regionsInDraft(content);
 		if (draft.action === "update") {
 			return this.incidents.postUpdate(
@@ -386,7 +393,7 @@ export class DraftService {
 					serviceIds: content.serviceIds,
 					serviceRegions,
 				},
-				{ id },
+				publishOptions,
 			);
 		}
 		const { regionId: _legacy, ...rest } = content as DraftContent & {
@@ -400,7 +407,7 @@ export class DraftService {
 				title: content.title as string,
 				serviceRegions,
 			},
-			{ id },
+			publishOptions,
 		);
 	}
 

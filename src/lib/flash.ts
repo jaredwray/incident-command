@@ -58,6 +58,9 @@ const MESSAGE_CODES: Record<string, FlashCode> = {
 		"encryption_key_missing",
 	"Somebody else changed these notification settings. Reload the page.":
 		"notification_settings_changed",
+	"Somebody else changed the queue settings. Reload the page.":
+		"notification_queue_changed",
+	"The connection URI is not correct for this provider.": "queue_uri_invalid",
 	"Somebody changed this agent. Examine the new values and save again.":
 		"agent_changed",
 	[BRAND_ASSET_MESSAGES.logo.type]: "logo_type",
