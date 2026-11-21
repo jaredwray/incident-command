@@ -821,6 +821,11 @@ describe("incident pages", () => {
 			),
 		).toBeInTheDocument();
 		expect(
+			within(banner).getByText(
+				/The status page, the history, the RSS feed, the API, and the agents hide it/,
+			),
+		).toBeInTheDocument();
+		expect(
 			within(banner).getByRole("button", { name: "Delete incident" }),
 		).toBeInTheDocument();
 		const postsHeading = screen.getByRole("heading", { name: "Posts" });

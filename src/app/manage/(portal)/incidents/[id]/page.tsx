@@ -183,16 +183,6 @@ function PostsCard({
 	);
 }
 
-const DELETE_EFFECTS = [
-	"The status page, the history, the RSS feed, the API, and the agents do not show the incident.",
-	"A link to the public page of the incident shows a not found page.",
-	"Subscribers get no message about the deletion. The product cannot undo a message that it sent before.",
-	"The affected services keep their current status. Change a wrong status on the Services page.",
-	"Nobody can add a post, change the incident, or approve a draft for it.",
-	"The Overview page does not count the incident.",
-	"You cannot restore the incident from the portal.",
-];
-
 function DeleteIncidentBanner({ incidentId }: { incidentId: string }) {
 	return (
 		<section
@@ -208,14 +198,12 @@ function DeleteIncidentBanner({ incidentId }: { incidentId: string }) {
 			<p className="mt-2 font-medium text-major">
 				Be very careful. Delete an incident only when customers must not see it.
 			</p>
-			<p className="mt-3 text-sm">A deletion has these effects:</p>
-			<ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
-				{DELETE_EFFECTS.map((effect) => (
-					<li key={effect}>{effect}</li>
-				))}
-			</ul>
 			<p className="mt-3 text-sm">
-				The portal keeps the incident. The record shows who deleted it and why.
+				The status page, the history, the RSS feed, the API, and the agents hide
+				it. A public link shows a not found page. Subscribers get no message,
+				and sent messages stay. Services keep their status. You cannot edit it
+				or restore it, and Overview does not count it. The portal records who
+				deleted it and why.
 			</p>
 			<div className="mt-4">
 				<DeleteIncidentDialog incidentId={incidentId} />
